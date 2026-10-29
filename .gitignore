@@ -1,0 +1,12 @@
+# Build output
+bin/
+obj/
+publish/
+*.user
+.vs/
+
+# Game files and anything derived from them (Konami copyright) - never commit
+research/reference/
+*.exe
+*.dat
+research/*.png

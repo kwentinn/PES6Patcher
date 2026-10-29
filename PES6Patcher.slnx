@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PES6Patcher.Core/PES6Patcher.Core.csproj" />
+    <Project Path="src/PES6Patcher/PES6Patcher.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PES6Patcher.Tests/PES6Patcher.Tests.csproj" />
+  </Folder>
+</Solution>
