@@ -1,17 +1,14 @@
-# PES6 — affichage 16:9 et directions libres
+# PES6 — notes de recherche
 
-Modifications de Pro Evolution Soccer 6 (PC) installé dans
-`C:\Program Files (x86)\KONAMI\Pro Evolution Soccer 6`.
+Comment les correctifs de PES6 Patcher ont été trouvés et ce qu'ils modifient. La « v6 » est la version de `PES6.exe` validée en jeu, en 16:9 et en 32:9, que l'application reproduit octet pour octet.
 
-Version installée : **v6** de `PES6.exe`, profil **32:9**. Les deux profils, 16:9 et 32:9, sont validés en jeu.
-
-- Menus, listes, HUD et curseur du joueur affichés sans étirement en 16:9.
+- Menus, listes, HUD et curseur du joueur affichés sans étirement.
 - Gameplay identique à l'original.
 - Course du joueur à l'angle précis du stick analogique, au lieu de 8 directions seulement.
 
 ---
 
-## 1. Réglages modifiés (hors exe)
+## 1. Réglages modifiés (hors exe), pendant la recherche en 16:9
 
 | Fichier | Réglage | Valeur |
 |---|---|---|
@@ -19,9 +16,6 @@ Version installée : **v6** de `PES6.exe`, profil **32:9**. Les deux profils, 16
 | `kitserver\speeder.cfg` | `count.factor` | 1.0 (vitesse d'origine) |
 | `kitserver\lodmixer.dat` | format d'image manuel (octets 41–44) | 1.77778 (16:9) |
 | `dgVoodoo.conf` | `ScalingMode` | `stretched_ar` (image centrée, bandes noires) |
-
-Une copie d'origine de chaque fichier existe à côté avec l'extension `.bak` :
-`kload.cfg.bak`, `speeder.cfg.bak`, `lodmixer.dat.bak` et `dgVoodoo.conf.bak`.
 
 ---
 
@@ -51,49 +45,26 @@ Points importants :
 
 ---
 
-## 3. Fichiers de travail (dossier de la session)
+## 3. Outils de recherche
 
-| Chemin | Contenu |
+Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'application n'en a pas besoin : le patch lui-même est dans `src/PES6Patcher.Core`.
+
+| Script | Rôle |
 |---|---|
-| `scripts\pes6patch.ps1` | construit un exe patché à partir de l'original, en vérifiant chaque octet avant de le modifier |
-| `scripts\pes6clipcode.ps1`, `pes6cursorcode.ps1`, `pes6dircode.ps1` | génèrent le code ajouté (découpage, curseur, directions) |
-| `scripts\pes6*.ps1` (autres) | outils de diagnostic en mémoire : lecture/écriture, points d'arrêt matériels, relevés guidés par bips |
-| `scripts\*.java` | scripts Ghidra (décompilation, références, désassemblage) |
-| `work\PES6.exe` | copie de l'exe d'origine analysée |
-| `work\PES6_ws.exe`, `PES6_ws_safe.exe`, `PES6_ws_v3.exe` … `PES6_ws_v6.exe` | versions successives (v5 = sans directions libres, v6 = installée) |
-| `work\proj\` | projet Ghidra de `PES6.exe` |
-| `tools\` | JDK 21 et 25, copie de Ghidra 12.2 |
+| `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | scripts Ghidra (mode headless) : décompiler une fonction, lister les références à une adresse, désassembler une plage, trouver les appels d'une méthode du périphérique Direct3D 8 |
+| `pes6code.ps1`, `pes6dump.ps1` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
+| `pes6watch.ps1` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
+| `pes6hits.ps1` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |
+| `pes6viewport.ps1` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |
+| `pes6stick.ps1` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
+| `pes6heading.ps1` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
+| `pes6window.ps1`, `capture-window.ps1` | géométrie et capture de la fenêtre du jeu ou de l'application |
 
-Ghidra 12.2 est installé hors de ce dossier, dans `C:\Users\kwent\ghidra12`. Ce chemin court est nécessaire, car son décompilateur ne se lance pas depuis un chemin de plus de 260 caractères.
-
----
-
-## 4. Reconstruire l'exe
-
-16:9 avec directions libres (= v6) :
-
-```powershell
-.\scripts\pes6patch.ps1 -In work\PES6.exe -Out work\PES6_ws.exe -Half 398 -WidthFn -FreeDir
-```
-
-Sans directions libres (= v5) : retirer `-FreeDir`.
-
-**32:9 (Odyssey G9 en plein écran)** : utiliser `-Half 796`, régler la résolution `5120 × 1440` dans `kload.cfg`, et passer le format de lodmixer à `3.55556`.
-
-Pour installer, fermer le jeu puis copier l'exe construit à la place de `PES6.exe`. Les droits administrateur sont nécessaires.
+Le décompilateur de Ghidra ne se lance pas depuis un chemin de plus de 260 caractères : installer Ghidra dans un dossier court.
 
 ---
 
-## 5. Basculer entre 16:9 et 32:9
-
-Deux profils complets sont prêts dans `work\profiles\`. Chacun contient `PES6.exe`, `kload.cfg`, `lodmixer.dat` et `settings.dat` :
-
-| Profil | Exe | Rendu (kload) | Fenêtre | Résolution du jeu (settings.dat) | Format 3D (lodmixer) |
-|---|---|---|---|---|---|
-| `16x9` | v6, `-Half 398` | 2560 × 1440 | normale | 1920 × 1080 | 1.77778 |
-| `32x9` (installé, validé sur le G9) | v6, `-Half 796` | 5120 × 1440 | sans bordure, 5120 × 1440 en (0, 0) | 5120 × 1440 | 3.55556 |
-
-Points propres au 32:9 :
+## 4. Points techniques de la configuration écran large
 
 - **Fenêtre sans bordure.** `kload.cfg` impose la fenêtre avec `dx.window.x/y/width/height` et `dx.window.style = 0x96000000`. Elle couvre exactement l'écran. Il faut rester en mode fenêtré dans le jeu.
 - **Résolution du jeu.** `settings.exe` ne propose pas plus de 1920 × 1080. Elle est donc écrite directement dans `Documents\KONAMI\Pro Evolution Soccer 6\settings.dat` :
@@ -101,31 +72,26 @@ Points propres au 32:9 :
   - hauteur aux octets 6-7 ;
   - aux octets 2-3, une somme de contrôle : la somme sur 16 bits des octets à partir du 4ᵉ.
 
-  L'original est sauvegardé dans `settings.dat.bak`. Ne pas rouvrir `settings.exe` en 32:9 : il remettrait 1920 × 1080.
-- **Mise à l'échelle Windows.** Windows est à 125 % sur le G9. Le jeu gère correctement cette mise à l'échelle, ce n'était pas la cause du décalage.
+  Ne pas rouvrir `settings.exe` après coup : il remettrait 1920 × 1080.
+- **Mise à l'échelle Windows.** Avec un affichage à 125 %, le jeu reçoit bien la résolution physique. Le décalage observé au début venait de la fenêtre de 1920 × 1080 et de la résolution du jeu, pas de la mise à l'échelle.
+- **Format 32:9.** Les menus n'occupent qu'environ un tiers de la largeur, au centre.
 
-Jeu fermé, lancer :
+Profils validés en jeu :
 
-```powershell
-.\scripts\pes6format.ps1 -Format 32x9
-```
-
-Pour revenir au 16:9, lancer la même commande avec `-Format 16x9`.
-
-Le script copie les quatre fichiers, puis vérifie leurs empreintes. Windows demande les droits administrateur pour `PES6.exe`. PES6 et `settings.exe` doivent être fermés.
-
-En 32:9, les menus n'occupent qu'environ un tiers de la largeur, au centre.
+| Profil | Demi-largeur 2D | Rendu (kload) | Fenêtre | Résolution du jeu | Format 3D (lodmixer) |
+|---|---|---|---|---|---|
+| 16:9 | 398 | 2560 × 1440 | normale | 1920 × 1080 | 1.77778 |
+| 32:9 | 796 | 5120 × 1440 | sans bordure, 5120 × 1440 en (0, 0) | 5120 × 1440 | 3.55556 |
 
 ---
 
-## 6. Revenir en arrière
+## 5. Installer et revenir en arrière
 
-- **Original** : remplacer `PES6.exe` par `PES6.exe.orig`, puis restaurer les fichiers `.bak` des réglages.
-- **v5** (affichage corrigé, sans directions libres) : copier `work\PES6_ws_v5.exe` à la place de `PES6.exe`.
+L'application PES6 Patcher installe ces réglages pour n'importe quelle résolution. Son bouton **Restaurer l'original** remet tous les fichiers tels qu'ils étaient avant sa première utilisation.
 
 ---
 
-## 7. Limites connues
+## 6. Limites connues
 
 - Les décors des menus ne font que 512 de large : bandes noires sur les côtés.
 - Dans le menu principal, une seconde copie de l'image du joueur apparaît dans la bande droite.
