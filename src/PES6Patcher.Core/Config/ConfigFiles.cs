@@ -64,7 +64,7 @@ public static class LodmixerData
 
     public static byte[] SetAspect(byte[] data, float aspect)
     {
-        if (data.Length < AspectOffset + 4) throw new InvalidDataException("lodmixer.dat inattendu.");
+        if (data.Length < AspectOffset + 4) throw new InvalidDataException(Loc.T("Error.BadLodmixer"));
         var copy = (byte[])data.Clone();
         BitConverter.GetBytes(aspect).CopyTo(copy, AspectOffset);
         return copy;
@@ -87,7 +87,7 @@ public static class GameSettingsData
 
     public static byte[] SetResolution(byte[] data, int width, int height)
     {
-        if (data.Length < 8) throw new InvalidDataException("settings.dat inattendu.");
+        if (data.Length < 8) throw new InvalidDataException(Loc.T("Error.BadSettings"));
         var copy = (byte[])data.Clone();
         BitConverter.GetBytes((ushort)width).CopyTo(copy, 4);
         BitConverter.GetBytes((ushort)height).CopyTo(copy, 6);

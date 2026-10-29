@@ -1,90 +1,97 @@
 # PES6 Patcher
 
-Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirement (16:9, 21:9, 32:9…) et déplacement plus libre au stick analogique.
+*English | [Français](README.fr.md)*
+
+Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretching (16:9, 21:9, 32:9…) and freer movement with the analog stick.
 
 ![PES6 Patcher](docs/app.png)
 
-## Ce que fait le patch
+## What it does
 
-**Affichage écran large**
-- Les menus, les listes, le HUD (score, chrono, radar, noms) et le curseur du joueur ne sont plus étirés. Ils gardent leurs proportions d'origine, au centre de l'écran.
-- L'image 3D est adaptée au format de l'écran avec LOD Mixer.
-- Au-delà de 1920 × 1080 (écrans 1440p, ultra-larges), le jeu s'ouvre dans une fenêtre sans bordure qui couvre tout l'écran.
+**Widescreen display**
+- Menus, lists, the HUD (score, clock, radar, names) and the player cursor are no longer stretched. They keep their original proportions, centred on the screen.
+- The 3D image is adapted to the screen's aspect ratio through LOD Mixer.
+- Above 1920 × 1080 (1440p and ultrawide screens), the game opens in a borderless window covering the whole screen.
 
 **Gameplay**
-- **Directions libres au stick analogique** : le joueur suit l'angle précis du stick, à ±22,5° autour des 8 directions d'origine, au lieu de ces seules 8 directions. La croix directionnelle, le clavier et l'IA ne changent pas.
-- **Vitesse du jeu** réglable (module Speeder de Kitserver).
+- **Free analog stick direction**: the player follows the stick's precise angle, within ±22.5° of the 8 original directions, instead of those 8 directions only. The D-pad, the keyboard and the AI are unchanged.
+- Adjustable **game speed** (Kitserver's Speeder module).
 
-Le reste du gameplay est inchangé.
+The rest of the gameplay is unchanged.
 
-## Prérequis
+## Requirements
 
-- **PES6 PC avec la version de `PES6.exe` supportée.** Les adresses du patch ont été trouvées dans une seule version de l'exe, identifiée par son empreinte SHA-256 :
+- **PES6 PC with the supported `PES6.exe` build.** The patch addresses were found in one exe build only, identified by its SHA-256:
   `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382`.
-  L'application refuse tout autre exe et ne modifie alors rien.
-- **[Kitserver 6](https://www.evoweb.uk/)**, avec les modules LOD Mixer et Speeder. Il sert à régler la résolution et le format 3D.
-- **Windows 10/11** et le **.NET 10 Desktop Runtime**.
+  The app refuses any other exe and then changes nothing.
+- **[Kitserver 6](https://www.evoweb.uk/)**, with the LOD Mixer and Speeder modules. It sets the resolution and the 3D aspect ratio.
+- **Windows 10/11** and the **[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)**.
 
-## Utilisation
+## Usage
 
-1. Fermer PES6 et `settings.exe`.
-2. Lancer `PES6Patcher.exe`. Il demande les droits administrateur, car le jeu est installé dans `Program Files`.
-3. Vérifier le dossier du jeu (détecté automatiquement) et la résolution (celle de l'écran par défaut).
-4. Choisir les options, puis cliquer sur **Appliquer**.
+1. Close PES6 and `settings.exe`.
+2. Run `PES6Patcher.exe`. It asks for administrator rights, because the game is installed in `Program Files`.
+3. Check the game folder (detected automatically) and the resolution (the screen's by default).
+4. Choose the options, then click **Apply**.
 
-**Restaurer l'original** remet tous les fichiers tels qu'ils étaient avant la première application.
+**Restore original** puts every file back as it was before the first apply.
 
-Remarques :
-- Après application, ne pas rouvrir `settings.exe` : il ne connaît pas les résolutions au-delà de 1920 × 1080 et remettrait l'ancienne valeur.
-- Rester en mode fenêtré dans le jeu. La fenêtre sans bordure couvre déjà tout l'écran.
+Notes:
+- After applying, do not reopen `settings.exe`: it does not know resolutions above 1920 × 1080 and would put the old value back.
+- Stay in windowed mode in the game. The borderless window already covers the whole screen.
 
-## Fichiers modifiés
+## Modified files
 
-| Fichier | Modification | Sauvegarde |
+| File | Change | Backup |
 |---|---|---|
-| `PES6.exe` | patch (voir ci-dessous) | `PES6.exe.orig` |
-| `kitserver\kload.cfg` | résolution de rendu, fenêtre sans bordure | `kload.cfg.orig` |
-| `kitserver\lodmixer.dat` | format d'image 3D | `lodmixer.dat.orig` |
-| `kitserver\speeder.cfg` | vitesse du jeu | `speeder.cfg.orig` |
-| `Documents\KONAMI\Pro Evolution Soccer 6\settings.dat` | résolution du jeu, somme de contrôle recalculée | `settings.dat.orig` |
+| `PES6.exe` | patch (see below) | `PES6.exe.orig` |
+| `kitserver\kload.cfg` | render resolution, borderless window | `kload.cfg.orig` |
+| `kitserver\lodmixer.dat` | 3D aspect ratio | `lodmixer.dat.orig` |
+| `kitserver\speeder.cfg` | game speed | `speeder.cfg.orig` |
+| `Documents\KONAMI\Pro Evolution Soccer 6\settings.dat` | game resolution, checksum recomputed | `settings.dat.orig` |
 
-## Fonctionnement
+## How it works
 
-Le jeu dessine ses menus dans un repère hérité de la PS2, de **512 × 448** unités, puis l'étire sur toute la largeur de l'écran. Le patch élargit ce repère à **448 × format** unités, par exemple 796 × 448 en 16:9. Le rendu 3D et le gameplay continuent d'utiliser les valeurs d'origine.
+The game draws its menus in a layer inherited from the PS2, **512 × 448** units wide, then stretches it across the whole screen. The patch widens that layer to **448 × aspect ratio** units, for example 796 × 448 in 16:9. 3D rendering and gameplay keep using the original values.
 
-| Élément | Modification |
+| Part | Change |
 |---|---|
-| Conversion repère 2D → pixels | 13 instructions graphiques lisent de nouvelles constantes (demi-largeur, 1/largeur) au lieu de 256 et 1/512. Les instructions de gameplay qui lisent ces mêmes constantes ne sont pas touchées. |
-| Largeur du repère 2D | La fonction qui renvoie 512 renvoie la nouvelle largeur. Les deux appels qui alimentent la projection 3D gardent 512, sinon les joueurs « glissent ». |
-| Découpage des listes | Code ajouté avant la conversion du rectangle de découpage en pixels. |
-| Curseur du joueur | Code ajouté qui ajuste l'échelle de la projection 3D → repère 2D. |
-| Directions libres | Code ajouté autour de la conversion bits de direction → cap : ajoute l'écart entre l'angle précis du stick et le centre de son secteur de 45°. Le seuil de virage de la course passe de 45° à environ 17°. |
+| 2D layer → pixels conversion | 13 graphics instructions read new constants (half-width, 1/width) instead of 256 and 1/512. The gameplay instructions reading the same constants are left alone. |
+| 2D layer width | The function returning 512 returns the new width. The two calls feeding the 3D projection keep 512, otherwise players "slide". |
+| List clipping | Code added before the clip rectangle is converted to pixels. |
+| Player cursor | Code added that adjusts the scale of the 3D → 2D layer projection. |
+| Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. |
 
-Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe. Avant toute écriture, chaque emplacement est vérifié par rapport aux octets d'origine.
+The added code lives in unused padding areas of the exe. Before anything is written, every location is checked against the original bytes.
 
-Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt matériels et des relevés mémoire, est dans [`research/NOTES.md`](research/NOTES.md). Les scripts utilisés pendant la recherche sont dans [`research/scripts`](research/scripts).
+Addresses and method details (Ghidra, hardware breakpoints, memory captures) are in [`research/NOTES.md`](research/NOTES.md), in French. The scripts used during the research are in [`research/scripts`](research/scripts).
 
-## Limites
+## Limitations
 
-- Une seule version de `PES6.exe` est supportée.
-- Les décors des menus font 512 unités de large : il reste des bandes noires sur les côtés.
-- Les directions libres corrigent ±22,5° autour des 8 directions. Un vrai 360° demanderait de refondre le système de course du jeu.
+- Only one `PES6.exe` build is supported.
+- Menu backgrounds are 512 units wide: black bars remain on the sides.
+- Free directions correct ±22.5° around the 8 directions. True 360° movement would require reworking the game's running system.
 
-## Compiler
+## Translations
+
+The app is available in English and French. It follows the Windows language, and the language can be changed in the window.
+
+To add a language: copy `src/PES6Patcher.Core/Resources/Strings.resx` to `Strings.<code>.resx` (for example `Strings.es.resx`), translate the values while keeping the `{0}`, `{1}`… placeholders, and open a pull request. The new language shows up in the app automatically, and the tests check that it has the same keys and placeholders as English.
+
+## Building
 
 ```powershell
 dotnet build
 dotnet test
-dotnet publish src/PES6Patcher -c Release -o publish
+dotnet publish src/PES6Patcher -c Release -o publish -p:PublishSingleFile=true --self-contained false
 ```
 
-Les tests comparent l'exe produit avec des exe validés en jeu. Ces fichiers viennent du jeu et ne sont donc pas dans le dépôt : sans eux, ces tests passent sans rien vérifier.
+Some tests compare the produced exe with exes validated in game. Those files come from the game, so they are not in the repository: without them, these tests pass without checking anything.
 
-## Avertissement
+## Disclaimer
 
-Projet non officiel, sans lien avec Konami. Aucun fichier du jeu n'est inclus : l'application modifie uniquement l'installation présente sur la machine, après en avoir fait une sauvegarde. Utilisation à vos risques.
+Unofficial project, not affiliated with Konami. No game file is included: the app only modifies the installation present on the machine, after backing it up. Use at your own risk.
 
-## Licence
+## License
 
 [MIT](LICENSE)
-

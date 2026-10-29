@@ -1,7 +1,7 @@
 namespace PES6Patcher.Core.Patching;
 
-/// <summary>A hook: original bytes at <see cref="Entry"/> replaced by a jump to code placed in a cave.</summary>
-internal sealed record Hook(string Name, int Entry, byte[] Original, byte[] EntryBytes, int Cave, byte[] CaveBytes);
+/// <summary>A hook (<see cref="NameKey"/> = resource key of its name): original bytes at <see cref="Entry"/> replaced by a jump to code placed in a cave.</summary>
+internal sealed record Hook(string NameKey, int Entry, byte[] Original, byte[] EntryBytes, int Cave, byte[] CaveBytes);
 
 /// <summary>
 /// Code added to PES6.exe. Caves live in runs of 0xCC padding inside .text.
@@ -34,7 +34,7 @@ internal static class CodeCaves
             .CallTo(getScreenWidth)                             // original: call 0x405960
             .Build();
         code = [.. code, .. CodeBuilder.JumpPatch(cave + code.Length, resume, 5)];
-        return new Hook("découpage des listes", entry,
+        return new Hook("Hook.Clip", entry,
             [0x51, 0x53, 0x55, 0x56, 0x57, 0xE8, 0x16, 0x82, 0xFF, 0xFF],
             CodeBuilder.JumpPatch(entry, cave, 10), cave, code);
     }
@@ -55,7 +55,7 @@ internal static class CodeCaves
             .Bytes([0xD8, 0x0D], CursorScaleAddress)            // fmul dword [CursorScaleAddress]
             .Build();
         code = [.. code, .. CodeBuilder.JumpPatch(cave + code.Length, resume, 5)];
-        return new Hook("curseur du joueur", entry, original, CodeBuilder.JumpPatch(entry, cave, 8), cave, code);
+        return new Hook("Hook.Cursor", entry, original, CodeBuilder.JumpPatch(entry, cave, 8), cave, code);
     }
 
     /// <summary>
@@ -113,7 +113,7 @@ internal static class CodeCaves
             .Bytes(0x83, 0xEC, 0x10, 0x8B, 0x4C, 0x24, 0x14,    //   xor eax,eax ; mov [esp],ax ; jmp [0x44658C8]
                    0x33, 0xC0, 0x66, 0x89, 0x04, 0x24, 0xFF, 0x25, 0xC8, 0x58, 0x46, 0x04)
             .Build();
-        return new Hook("directions libres", entry,
+        return new Hook("Hook.FreeDirection", entry,
             [0x83, 0xEC, 0x10, 0x8B, 0x4C, 0x24, 0x14],
             CodeBuilder.JumpPatch(entry, cave, 7), cave, code);
     }

@@ -8,7 +8,7 @@ namespace PES6Patcher.Core.Patching;
 public sealed record PatchOptions(int Half, bool FreeDirection);
 
 public sealed class PatchException(IReadOnlyList<string> problems)
-    : Exception("PES6.exe ne correspond pas à la version supportée : " + string.Join(" ; ", problems))
+    : Exception(Loc.T("Error.UnsupportedExe", string.Join(" ; ", problems)))
 {
     public IReadOnlyList<string> Problems { get; } = problems;
 }
@@ -45,48 +45,52 @@ public static class ExePatcher
     /// <summary>Returns a patched copy of <paramref name="original"/>.</summary>
     public static byte[] Build(byte[] original, PatchOptions options)
     {
-        if (options.Half is < 256 or > 2048) throw new ArgumentOutOfRangeException(nameof(options), "Demi-largeur hors limites.");
+        if (options.Half is < 256 or > 2048) throw new ArgumentOutOfRangeException(nameof(options), Loc.T("Error.HalfOutOfRange"));
 
         var image = new PeImage((byte[])original.Clone());
         var plan = new List<(int Va, byte[] Bytes)>();
         var problems = new List<string>();
         int half = options.Half;
 
-        void Require(int va, byte[] expected, string what)
+        void Require(int va, byte[] expected, string whatKey)
         {
-            if (!image.Matches(va, expected)) problems.Add($"{what} (0x{va:X})");
+            if (!image.Matches(va, expected)) problems.Add(Loc.T("Check.Location", Loc.T(whatKey), va));
+        }
+        void RequireHook(int va, byte[] expected, string formatKey, string nameKey)
+        {
+            if (!image.Matches(va, expected)) problems.Add(Loc.T("Check.Location", Loc.T(formatKey, Loc.T(nameKey)), va));
         }
         void Hook(Hook h)
         {
-            Require(h.Cave, Enumerable.Repeat((byte)0xCC, h.CaveBytes.Length).ToArray(), $"zone libre : {h.Name}");
-            Require(h.Entry, h.Original, $"point d'entrée : {h.Name}");
+            RequireHook(h.Cave, Enumerable.Repeat((byte)0xCC, h.CaveBytes.Length).ToArray(), "Check.HookCave", h.NameKey);
+            RequireHook(h.Entry, h.Original, "Check.HookEntry", h.NameKey);
             plan.Add((h.Cave, h.CaveBytes));
             plan.Add((h.Entry, h.EntryBytes));
         }
         void Retarget(int instruction, int from, int to)
         {
             int at = image.FindOperand(instruction, from);
-            if (at < 0) problems.Add($"opérande introuvable (0x{instruction:X})");
+            if (at < 0) problems.Add(Loc.T("Check.Location", Loc.T("Check.Operand"), instruction));
             else plan.Add((at, BitConverter.GetBytes(to)));
         }
 
         // 1. private constants
-        Require(NewHalf, new byte[8], "emplacement libre des constantes");
+        Require(NewHalf, new byte[8], "Check.Constants");
         plan.Add((NewHalf, BitConverter.GetBytes((float)half)));
         plan.Add((NewInverse, BitConverter.GetBytes(1f / (2 * half))));
 
         // 2. 2D layer width: getter returns 2 * half (layout and clipping) ...
-        Require(0x8744F0, [0xB8, 0x00, 0x02, 0x00, 0x00, 0xC3], "largeur 2D");
+        Require(0x8744F0, [0xB8, 0x00, 0x02, 0x00, 0x00, 0xC3], "Check.Width2D");
         plan.Add((0x8744F1, BitConverter.GetBytes(2 * half)));
         // ... but the two calls feeding it to the 3D projection (0xF84064) keep 512
-        Require(0x661123, [0xE8, 0xC8, 0x33, 0x21, 0x00], "largeur 3D (0x6610B0)");
+        Require(0x661123, [0xE8, 0xC8, 0x33, 0x21, 0x00], "Check.Width3D");
         plan.Add((0x661123, [0xB8, 0x00, 0x02, 0x00, 0x00]));
-        Require(0xB3F939, [0xE8, 0xB2, 0x4B, 0xD3, 0xFF], "largeur 3D (0xB3F910)");
+        Require(0xB3F939, [0xE8, 0xB2, 0x4B, 0xD3, 0xFF], "Check.Width3D");
         plan.Add((0xB3F939, [0xB8, 0x00, 0x02, 0x00, 0x00]));
 
         // clipping of scrolling lists, player cursor
         Hook(CodeCaves.Clip(half));
-        Require(CodeCaves.CursorScaleAddress, new byte[4], "emplacement libre du curseur");
+        Require(CodeCaves.CursorScaleAddress, new byte[4], "Check.CursorConstant");
         plan.Add((CodeCaves.CursorScaleAddress, BitConverter.GetBytes((2 * half) / 512f)));
         Hook(CodeCaves.Cursor());
 
@@ -98,7 +102,7 @@ public static class ExePatcher
         if (options.FreeDirection)
         {
             Hook(CodeCaves.FreeDirection());
-            Require(0x5AF3CC, [0x66, 0x83, 0xFE, 0x20], "seuil de virage");
+            Require(0x5AF3CC, [0x66, 0x83, 0xFE, 0x20], "Check.TurnThreshold");
             plan.Add((0x5AF3CF, [0x0C]));
         }
 
@@ -106,7 +110,7 @@ public static class ExePatcher
         byte[] rect = [.. BitConverter.GetBytes(-256f), .. BitConverter.GetBytes(-224f), .. BitConverter.GetBytes(512f), .. BitConverter.GetBytes(448f)];
         foreach (int r in new[] { 0xBEE2D4, 0xBEE2E4 })
         {
-            Require(r, rect, "rectangle de vue 2D");
+            Require(r, rect, "Check.ViewRect");
             plan.Add((r, BitConverter.GetBytes((float)-half)));
             plan.Add((r + 8, BitConverter.GetBytes((float)(2 * half))));
         }

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Folder.Title" xml:space="preserve">
+    <value>Dossier du jeu</value>
+  </data>
+  <data name="Folder.Browse" xml:space="preserve">
+    <value>Parcourir…</value>
+  </data>
+  <data name="Folder.BrowseDescription" xml:space="preserve">
+    <value>Dossier contenant PES6.exe</value>
+  </data>
+  <data name="Language.Label" xml:space="preserve">
+    <value>Langue :</value>
+  </data>
+  <data name="Language.System" xml:space="preserve">
+    <value>Système ({0})</value>
+  </data>
+  <data name="Display.Group" xml:space="preserve">
+    <value>Affichage</value>
+  </data>
+  <data name="Display.Resolution" xml:space="preserve">
+    <value>Résolution :</value>
+  </data>
+  <data name="Display.ScreenResolution" xml:space="preserve">
+    <value>Résolution de l'écran</value>
+  </data>
+  <data name="Display.FormatInfo" xml:space="preserve">
+    <value>Format {0:0.###}:1  —  repère des menus {1} × 448 (d'origine 512 × 448)</value>
+  </data>
+  <data name="Display.Borderless" xml:space="preserve">
+    <value>Fenêtre sans bordure couvrant l'écran (nécessaire au-delà de 1920 × 1080)</value>
+  </data>
+  <data name="Gameplay.Group" xml:space="preserve">
+    <value>Gameplay</value>
+  </data>
+  <data name="Gameplay.FreeDirection" xml:space="preserve">
+    <value>Directions libres au stick analogique</value>
+  </data>
+  <data name="Gameplay.Speed" xml:space="preserve">
+    <value>Vitesse du jeu :</value>
+  </data>
+  <data name="Gameplay.SpeedHint" xml:space="preserve">
+    <value>(1,00 = vitesse d'origine)</value>
+  </data>
+  <data name="Action.Apply" xml:space="preserve">
+    <value>Appliquer</value>
+  </data>
+  <data name="Action.Restore" xml:space="preserve">
+    <value>Restaurer l'original</value>
+  </data>
+  <data name="State.NotFound" xml:space="preserve">
+    <value>PES6.exe introuvable dans ce dossier.</value>
+  </data>
+  <data name="State.Original" xml:space="preserve">
+    <value>PES6.exe : version d'origine, prise en charge.</value>
+  </data>
+  <data name="State.Patched" xml:space="preserve">
+    <value>PES6.exe : déjà patché (l'original est sauvegardé dans PES6.exe.orig).</value>
+  </data>
+  <data name="State.Unsupported" xml:space="preserve">
+    <value>PES6.exe : version non prise en charge. Ce patch ne fonctionne qu'avec une version précise de l'exe.</value>
+  </data>
+  <data name="Log.Game" xml:space="preserve">
+    <value>Jeu : {0}</value>
+  </data>
+  <data name="Log.NoKitserver" xml:space="preserve">
+    <value>Attention : Kitserver est introuvable (kitserver\kload.cfg). Il est nécessaire.</value>
+  </data>
+  <data name="Log.Error" xml:space="preserve">
+    <value>Erreur : {0}</value>
+  </data>
+  <data name="Log.ExeBuilt" xml:space="preserve">
+    <value>Exe patché construit (demi-largeur 2D {0}, directions libres : {1}).</value>
+  </data>
+  <data name="Log.ExeInstalled" xml:space="preserve">
+    <value>PES6.exe installé.</value>
+  </data>
+  <data name="Log.Kload" xml:space="preserve">
+    <value>kload.cfg : rendu {0} × {1}.</value>
+  </data>
+  <data name="Log.KloadBorderless" xml:space="preserve">
+    <value>kload.cfg : rendu {0} × {1}, fenêtre sans bordure.</value>
+  </data>
+  <data name="Log.Lodmixer" xml:space="preserve">
+    <value>lodmixer.dat : format 3D {0:0.#####}.</value>
+  </data>
+  <data name="Log.LodmixerMissing" xml:space="preserve">
+    <value>lodmixer.dat absent : lancer lodcfg.exe de Kitserver une fois, puis réappliquer.</value>
+  </data>
+  <data name="Log.Speeder" xml:space="preserve">
+    <value>speeder.cfg : vitesse {0:0.0#}.</value>
+  </data>
+  <data name="Log.Settings" xml:space="preserve">
+    <value>settings.dat : résolution du jeu {0} × {1}.</value>
+  </data>
+  <data name="Log.SettingsMissing" xml:space="preserve">
+    <value>settings.dat absent : lancer settings.exe une fois, puis réappliquer.</value>
+  </data>
+  <data name="Log.Done" xml:space="preserve">
+    <value>Terminé.</value>
+  </data>
+  <data name="Log.Backup" xml:space="preserve">
+    <value>Sauvegarde : {0}.</value>
+  </data>
+  <data name="Log.Restored" xml:space="preserve">
+    <value>{0} restauré.</value>
+  </data>
+  <data name="Log.NothingToRestore" xml:space="preserve">
+    <value>Rien à restaurer.</value>
+  </data>
+  <data name="Log.RestoreDone" xml:space="preserve">
+    <value>Restauration terminée.</value>
+  </data>
+  <data name="Common.Yes" xml:space="preserve">
+    <value>oui</value>
+  </data>
+  <data name="Common.No" xml:space="preserve">
+    <value>non</value>
+  </data>
+  <data name="Error.GameRunning" xml:space="preserve">
+    <value>Fermer PES6 et settings.exe d'abord.</value>
+  </data>
+  <data name="Error.NoKitserver" xml:space="preserve">
+    <value>Kitserver est introuvable : il est nécessaire pour la résolution et le format 3D.</value>
+  </data>
+  <data name="Error.NoOriginalExe" xml:space="preserve">
+    <value>Aucune copie de PES6.exe dans la version supportée n'a été trouvée.</value>
+  </data>
+  <data name="Error.UnsupportedExe" xml:space="preserve">
+    <value>PES6.exe ne correspond pas à la version supportée : {0}</value>
+  </data>
+  <data name="Error.HalfOutOfRange" xml:space="preserve">
+    <value>Demi-largeur 2D hors limites.</value>
+  </data>
+  <data name="Error.BadLodmixer" xml:space="preserve">
+    <value>lodmixer.dat inattendu.</value>
+  </data>
+  <data name="Error.BadSettings" xml:space="preserve">
+    <value>settings.dat inattendu.</value>
+  </data>
+  <data name="Check.Location" xml:space="preserve">
+    <value>{0} (0x{1:X})</value>
+  </data>
+  <data name="Check.Constants" xml:space="preserve">
+    <value>emplacement libre des constantes</value>
+  </data>
+  <data name="Check.Width2D" xml:space="preserve">
+    <value>largeur 2D</value>
+  </data>
+  <data name="Check.Width3D" xml:space="preserve">
+    <value>largeur 3D</value>
+  </data>
+  <data name="Check.CursorConstant" xml:space="preserve">
+    <value>emplacement libre du curseur</value>
+  </data>
+  <data name="Check.ViewRect" xml:space="preserve">
+    <value>rectangle de vue 2D</value>
+  </data>
+  <data name="Check.TurnThreshold" xml:space="preserve">
+    <value>seuil de virage</value>
+  </data>
+  <data name="Check.Operand" xml:space="preserve">
+    <value>opérande introuvable</value>
+  </data>
+  <data name="Check.HookCave" xml:space="preserve">
+    <value>zone libre : {0}</value>
+  </data>
+  <data name="Check.HookEntry" xml:space="preserve">
+    <value>point d'entrée : {0}</value>
+  </data>
+  <data name="Hook.Clip" xml:space="preserve">
+    <value>découpage des listes</value>
+  </data>
+  <data name="Hook.Cursor" xml:space="preserve">
+    <value>curseur du joueur</value>
+  </data>
+  <data name="Hook.FreeDirection" xml:space="preserve">
+    <value>directions libres</value>
+  </data>
+</root>

@@ -69,7 +69,7 @@ public class PatcherTests(ITestOutputHelper output)
         var altered = (byte[])original.Clone();
         altered[PeImage.Offset(0x8744F0)] ^= 0xFF;
         var ex = Assert.Throws<PatchException>(() => ExePatcher.Build(altered, new PatchOptions(398, true)));
-        Assert.Contains(ex.Problems, p => p.Contains("largeur 2D"));
+        Assert.Contains(ex.Problems, p => p.Contains("0x8744F0"));
     }
 
     [Theory]

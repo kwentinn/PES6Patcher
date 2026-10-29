@@ -1,35 +1,43 @@
+using System.Globalization;
 using PES6Patcher.Core;
 using PES6Patcher.Core.Config;
 
 namespace PES6Patcher;
 
-/// <summary>Single window: game folder, display, gameplay options, apply / restore, log.</summary>
+/// <summary>Single window: language, game folder, display, gameplay options, apply / restore, log.</summary>
 internal sealed class MainForm : Form
 {
+    /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
+    internal sealed record State(string Folder, decimal Width, decimal Height, bool Borderless, bool FreeDirection, decimal Speed, string Log);
+
+    /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
+    public State? RebuildWith { get; private set; }
+
+    private readonly ComboBox _language = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 170 };
     private readonly TextBox _folder = new() { Dock = DockStyle.Fill };
     private readonly Label _exeState = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly NumericUpDown _width = new() { Minimum = 640, Maximum = 10240, Increment = 10, Width = 80 };
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Increment = 10, Width = 80 };
     private readonly Label _formatInfo = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
-    private readonly CheckBox _borderless = new() { Text = "Fenêtre sans bordure couvrant l'écran (nécessaire au-delà de 1920 × 1080)", AutoSize = true, Checked = true };
-    private readonly CheckBox _freeDirection = new() { Text = "Directions libres au stick analogique", AutoSize = true, Checked = true };
+    private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
+    private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
     private readonly NumericUpDown _speed = new() { Minimum = 0.5m, Maximum = 1.5m, Increment = 0.05m, DecimalPlaces = 2, Value = 1.0m, Width = 70 };
-    private readonly Button _apply = new() { Text = "Appliquer", AutoSize = true };
-    private readonly Button _restore = new() { Text = "Restaurer l'original", AutoSize = true };
+    private readonly Button _apply = new() { Text = Loc.T("Action.Apply"), AutoSize = true };
+    private readonly Button _restore = new() { Text = Loc.T("Action.Restore"), AutoSize = true };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill };
 
-    public MainForm()
+    public MainForm(State? previous = null)
     {
         Text = "PES6 Patcher";
         Font = new Font("Segoe UI", 9.5f);
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(760, 560);
-        MinimumSize = new Size(640, 480);
+        ClientSize = new Size(760, 590);
+        MinimumSize = new Size(640, 500);
 
-        var browse = new Button { Text = "Parcourir…", AutoSize = true };
+        var browse = new Button { Text = Loc.T("Folder.Browse"), AutoSize = true };
         browse.Click += (_, _) => BrowseFolder();
-        var screen = new Button { Text = "Résolution de l'écran", AutoSize = true };
+        var screen = new Button { Text = Loc.T("Display.ScreenResolution"), AutoSize = true };
         screen.Click += (_, _) => UseScreenResolution();
         _width.ValueChanged += (_, _) => UpdateFormatInfo();
         _height.ValueChanged += (_, _) => UpdateFormatInfo();
@@ -37,21 +45,27 @@ internal sealed class MainForm : Form
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
 
+        var header = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, Margin = new Padding(0) };
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        header.Controls.Add(new Label { Text = Loc.T("Folder.Title"), AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 6, 3, 3) });
+        header.Controls.Add(LabelText(Loc.T("Language.Label")));
+        header.Controls.Add(_language);
+
         var folderRow = Row(_folder, browse);
         folderRow.ColumnStyles[0] = new ColumnStyle(SizeType.Percent, 100);
 
-        var display = Group("Affichage",
-            Flow(new Label { Text = "Résolution :", AutoSize = true, Margin = new Padding(3, 6, 3, 3) },
-                 _width, new Label { Text = "×", AutoSize = true, Margin = new Padding(3, 6, 3, 3) }, _height, screen),
+        var display = Group(Loc.T("Display.Group"),
+            Flow(LabelText(Loc.T("Display.Resolution")), _width, LabelText("×"), _height, screen),
             _formatInfo,
             _borderless);
-        var gameplay = Group("Gameplay",
+        var gameplay = Group(Loc.T("Gameplay.Group"),
             _freeDirection,
-            Flow(new Label { Text = "Vitesse du jeu :", AutoSize = true, Margin = new Padding(3, 6, 3, 3) }, _speed,
-                 new Label { Text = "(1,00 = vitesse d'origine)", AutoSize = true, Margin = new Padding(3, 6, 3, 3) }));
+            Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(10) };
-        layout.Controls.Add(new Label { Text = "Dossier du jeu", AutoSize = true, Font = new Font(Font, FontStyle.Bold) });
+        layout.Controls.Add(header);
         layout.Controls.Add(folderRow);
         layout.Controls.Add(_exeState);
         layout.Controls.Add(display);
@@ -62,9 +76,48 @@ internal sealed class MainForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
         Controls.Add(layout);
 
-        _folder.Text = GameInstall.FindFolder() ?? "";
-        UseScreenResolution();
-        RefreshState(log: true);
+        FillLanguages();
+        ActiveControl = _folder;
+
+        if (previous == null)
+        {
+            _folder.Text = GameInstall.FindFolder() ?? "";
+            UseScreenResolution();
+            RefreshState(log: true);
+        }
+        else
+        {
+            _folder.Text = previous.Folder;
+            _width.Value = previous.Width;
+            _height.Value = previous.Height;
+            _borderless.Checked = previous.Borderless;
+            _freeDirection.Checked = previous.FreeDirection;
+            _log.Text = previous.Log;
+            RefreshState(log: false);
+            _speed.Value = previous.Speed;   // keep the user's value over the one read from speeder.cfg
+            UpdateFormatInfo();
+        }
+    }
+
+    private void FillLanguages()
+    {
+        string saved = LanguagePreference.Load();
+        _language.Items.Add(new LanguageItem("", Loc.T("Language.System", Capitalize(LanguagePreference.SystemCulture.NativeName))));
+        foreach (var culture in Loc.Languages)
+            _language.Items.Add(new LanguageItem(culture.Name, Capitalize(culture.NativeName)));
+        _language.SelectedItem = _language.Items.Cast<LanguageItem>().FirstOrDefault(i => i.Name == saved) ?? _language.Items[0];
+        // Only a choice made by the user: WinForms also changes the selection by itself (e.g. on activation).
+        _language.SelectionChangeCommitted += (_, _) => ChangeLanguage();
+    }
+
+    private void ChangeLanguage()
+    {
+        var item = (LanguageItem)_language.SelectedItem!;
+        if (item.Name == LanguagePreference.Load()) return;
+        LanguagePreference.Save(item.Name);
+        LanguagePreference.Apply(item.Name);
+        RebuildWith = new State(_folder.Text, _width.Value, _height.Value, _borderless.Checked, _freeDirection.Checked, _speed.Value, _log.Text);
+        Close();
     }
 
     private InstallSettings CurrentSettings() =>
@@ -81,12 +134,12 @@ internal sealed class MainForm : Form
     private void UpdateFormatInfo()
     {
         var s = CurrentSettings();
-        _formatInfo.Text = $"Format {s.Aspect:0.###}:1  —  repère des menus {2 * s.Half} × 448 (d'origine 512 × 448)";
+        _formatInfo.Text = Loc.T("Display.FormatInfo", s.Aspect, 2 * s.Half);
     }
 
     private void BrowseFolder()
     {
-        using var dialog = new FolderBrowserDialog { Description = "Dossier contenant PES6.exe", SelectedPath = _folder.Text };
+        using var dialog = new FolderBrowserDialog { Description = Loc.T("Folder.BrowseDescription"), SelectedPath = _folder.Text };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         _folder.Text = dialog.SelectedPath;
         RefreshState(log: true);
@@ -98,18 +151,18 @@ internal sealed class MainForm : Form
         var game = SelectedGame();
         if (game == null)
         {
-            _exeState.Text = "PES6.exe introuvable dans ce dossier.";
+            _exeState.Text = Loc.T("State.NotFound");
             _apply.Enabled = _restore.Enabled = false;
             return;
         }
 
         var state = game.GetExeState();
-        _exeState.Text = state switch
+        _exeState.Text = Loc.T(state switch
         {
-            ExeState.Original => "PES6.exe : version d'origine, prise en charge.",
-            ExeState.Patched => "PES6.exe : déjà patché (l'original est sauvegardé dans PES6.exe.orig).",
-            _ => "PES6.exe : version non prise en charge. Ce patch ne fonctionne qu'avec une version précise de l'exe.",
-        };
+            ExeState.Original => "State.Original",
+            ExeState.Patched => "State.Patched",
+            _ => "State.Unsupported",
+        });
         _apply.Enabled = state is ExeState.Original or ExeState.Patched;
         _restore.Enabled = File.Exists(game.ExeBackup) || game.ConfigFiles.Any(f => File.Exists(f + ".orig"));
 
@@ -117,8 +170,8 @@ internal sealed class MainForm : Form
             _speed.Value = Math.Clamp((decimal)speed, _speed.Minimum, _speed.Maximum);
         if (log)
         {
-            Log($"Jeu : {game.Folder}");
-            if (!game.HasKitserver) Log("Attention : Kitserver est introuvable (kitserver\\kload.cfg). Il est nécessaire.");
+            Log(Loc.T("Log.Game", game.Folder));
+            if (!game.HasKitserver) Log(Loc.T("Log.NoKitserver"));
         }
     }
 
@@ -140,7 +193,7 @@ internal sealed class MainForm : Form
         }
         catch (Exception ex)
         {
-            Log("Erreur : " + ex.Message);
+            Log(Loc.T("Log.Error", ex.Message));
             MessageBox.Show(this, ex.Message, "PES6 Patcher", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         finally
@@ -151,6 +204,10 @@ internal sealed class MainForm : Form
     }
 
     private void Log(string message) => _log.AppendText(message + Environment.NewLine);
+
+    private static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpper(s[0], CultureInfo.CurrentCulture) + s[1..];
+
+    private static Label LabelText(string text) => new() { Text = text, AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
 
     private static GroupBox Group(string title, params Control[] rows)
     {
@@ -174,5 +231,10 @@ internal sealed class MainForm : Form
         foreach (var c in controls) row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         row.Controls.AddRange(controls);
         return row;
+    }
+
+    private sealed record LanguageItem(string Name, string Display)
+    {
+        public override string ToString() => Display;
     }
 }

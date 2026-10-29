@@ -54,7 +54,7 @@ public sealed class GameInstall(string folder)
             var bytes = File.ReadAllBytes(file);
             if (ExePatcher.IsSupported(bytes)) return bytes;
         }
-        throw new InvalidOperationException("Aucune copie de PES6.exe dans la version supportée n'a été trouvée.");
+        throw new InvalidOperationException(Loc.T("Error.NoOriginalExe"));
     }
 
     public static bool IsGameRunning() => Process.GetProcessesByName("PES6").Length > 0 || Process.GetProcessesByName("settings").Length > 0;

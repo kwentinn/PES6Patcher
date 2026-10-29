@@ -20,46 +20,46 @@ public static class Installer
 {
     public static void Apply(GameInstall game, InstallSettings settings, Action<string> log)
     {
-        if (GameInstall.IsGameRunning()) throw new InvalidOperationException("Fermer PES6 et settings.exe avant d'appliquer.");
-        if (!game.HasKitserver) throw new InvalidOperationException("Kitserver est introuvable : il est nécessaire pour la résolution et le format 3D.");
+        if (GameInstall.IsGameRunning()) throw new InvalidOperationException(Loc.T("Error.GameRunning"));
+        if (!game.HasKitserver) throw new InvalidOperationException(Loc.T("Error.NoKitserver"));
 
         // Build first: nothing is touched if the exe does not match.
         byte[] original = game.ReadOriginalExe();
         byte[] patched = ExePatcher.Build(original, new PatchOptions(settings.Half, settings.FreeDirection));
-        log($"Exe patché construit (demi-largeur 2D {settings.Half}, directions libres : {(settings.FreeDirection ? "oui" : "non")}).");
+        log(Loc.T("Log.ExeBuilt", settings.Half, Loc.T(settings.FreeDirection ? "Common.Yes" : "Common.No")));
 
         BackUp(game, original, log);
 
         File.WriteAllBytes(game.Exe, patched);
-        log("PES6.exe installé.");
+        log(Loc.T("Log.ExeInstalled"));
 
         string kload = File.ReadAllText(game.Kload, TextFiles.Ascii);
         File.WriteAllText(game.Kload, KloadConfig.Apply(kload, settings.Width, settings.Height, settings.BorderlessWindow), TextFiles.Ascii);
-        log($"kload.cfg : rendu {settings.Width} × {settings.Height}{(settings.BorderlessWindow ? ", fenêtre sans bordure" : "")}.");
+        log(Loc.T(settings.BorderlessWindow ? "Log.KloadBorderless" : "Log.Kload", settings.Width, settings.Height));
 
         if (File.Exists(game.Lodmixer))
         {
             File.WriteAllBytes(game.Lodmixer, LodmixerData.SetAspect(File.ReadAllBytes(game.Lodmixer), settings.Aspect));
-            log($"lodmixer.dat : format 3D {settings.Aspect:0.#####}.");
+            log(Loc.T("Log.Lodmixer", settings.Aspect));
         }
-        else log("lodmixer.dat absent : lancer lodcfg.exe de Kitserver une fois, puis réappliquer.");
+        else log(Loc.T("Log.LodmixerMissing"));
 
         File.WriteAllText(game.Speeder, SpeederConfig.Create(settings.Speed), TextFiles.Ascii);
-        log($"speeder.cfg : vitesse {settings.Speed:0.0#}.");
+        log(Loc.T("Log.Speeder", settings.Speed));
 
         if (File.Exists(GameInstall.GameSettings))
         {
             File.WriteAllBytes(GameInstall.GameSettings, GameSettingsData.SetResolution(File.ReadAllBytes(GameInstall.GameSettings), settings.Width, settings.Height));
-            log($"settings.dat : résolution du jeu {settings.Width} × {settings.Height}.");
+            log(Loc.T("Log.Settings", settings.Width, settings.Height));
         }
-        else log("settings.dat absent : lancer settings.exe une fois, puis réappliquer.");
+        else log(Loc.T("Log.SettingsMissing"));
 
-        log("Terminé.");
+        log(Loc.T("Log.Done"));
     }
 
     public static void Restore(GameInstall game, Action<string> log)
     {
-        if (GameInstall.IsGameRunning()) throw new InvalidOperationException("Fermer PES6 et settings.exe avant de restaurer.");
+        if (GameInstall.IsGameRunning()) throw new InvalidOperationException(Loc.T("Error.GameRunning"));
         int restored = 0;
         foreach (var file in game.ConfigFiles.Prepend(game.Exe))
         {
@@ -67,10 +67,10 @@ public static class Installer
             if (!File.Exists(backup)) continue;
             File.Copy(backup, file, overwrite: true);
             File.Delete(backup);
-            log($"{Path.GetFileName(file)} restauré.");
+            log(Loc.T("Log.Restored", Path.GetFileName(file)));
             restored++;
         }
-        log(restored == 0 ? "Rien à restaurer." : "Restauration terminée.");
+        log(Loc.T(restored == 0 ? "Log.NothingToRestore" : "Log.RestoreDone"));
     }
 
     /// <summary>Saves the files as they were before the first apply; later applies keep that first copy.</summary>
@@ -79,7 +79,7 @@ public static class Installer
         if (!File.Exists(game.ExeBackup))
         {
             File.WriteAllBytes(game.ExeBackup, originalExe);
-            log("Sauvegarde : PES6.exe.orig.");
+            log(Loc.T("Log.Backup", Path.GetFileName(game.ExeBackup)));
         }
         foreach (var file in game.ConfigFiles)
         {
@@ -87,7 +87,7 @@ public static class Installer
             if (File.Exists(file) && !File.Exists(backup))
             {
                 File.Copy(file, backup);
-                log($"Sauvegarde : {Path.GetFileName(backup)}.");
+                log(Loc.T("Log.Backup", Path.GetFileName(backup)));
             }
         }
     }

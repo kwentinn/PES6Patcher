@@ -6,6 +6,15 @@ static class Program
     static void Main()
     {
         ApplicationConfiguration.Initialize();
-        Application.Run(new MainForm());
+        LanguagePreference.Apply(LanguagePreference.Load());
+
+        // Changing the language rebuilds the window (no restart: that would ask for administrator rights again).
+        MainForm.State? state = null;
+        do
+        {
+            var form = new MainForm(state);
+            Application.Run(form);
+            state = form.RebuildWith;
+        } while (state != null);
     }
 }
