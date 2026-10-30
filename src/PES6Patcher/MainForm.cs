@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Globalization;
 using PES6Patcher.Core;
 using PES6Patcher.Core.Config;
@@ -26,6 +27,9 @@ internal sealed class MainForm : Form
     private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
     private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
     private readonly CheckBox _closeDribble = new() { Text = Loc.T("Gameplay.CloseDribble"), AutoSize = true };
+    private readonly CheckBox _physicsMod = new() { Text = Loc.T("Gameplay.PhysicsMod"), AutoSize = true };
+    // shown visibly, as the physics mod's licence asks
+    private readonly LinkLabel _physicsCredit = new() { Text = PhysicsMod.Credit, AutoSize = true, Margin = new Padding(22, 0, 3, 3) };
     private readonly CheckBox _skipIntro = new() { Text = Loc.T("Startup.SkipIntro"), AutoSize = true, Checked = true, Margin = new Padding(12, 3, 3, 3) };
     private readonly NumericUpDown _speed = new() { Minimum = 0.5m, Maximum = 1.5m, Increment = 0.05m, DecimalPlaces = 2, Value = 1.0m, Width = 70 };
     private readonly Button _apply = new() { Text = Loc.T("Action.Apply"), AutoSize = true };
@@ -39,8 +43,8 @@ internal sealed class MainForm : Form
         Font = new Font("Segoe UI", 9.5f);
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(760, 590);
-        MinimumSize = new Size(640, 500);
+        ClientSize = new Size(760, 660);
+        MinimumSize = new Size(640, 560);
 
         var browse = new Button { Text = Loc.T("Folder.Browse"), AutoSize = true };
         browse.Click += (_, _) => BrowseFolder();
@@ -52,6 +56,7 @@ internal sealed class MainForm : Form
         _exe.SelectionChangeCommitted += (_, _) => RefreshState(log: true);
         _report.Click += (_, _) => CopyReport();
         _skipIntro.CheckedChanged += (_, _) => UpdateApply();
+        _physicsCredit.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(PhysicsMod.Url) { UseShellExecute = true });
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
 
@@ -74,6 +79,8 @@ internal sealed class MainForm : Form
         var gameplay = Group(_gameplay,
             _freeDirection,
             _closeDribble,
+            _physicsMod,
+            _physicsCredit,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(10) };
@@ -143,7 +150,7 @@ internal sealed class MainForm : Form
     private InstallSettings CurrentSettings() =>
         new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value,
             Display: _display.Enabled && _display.Checked, Gameplay: _gameplay.Checked, CloseDribble: _closeDribble.Enabled && _closeDribble.Checked,
-            SkipIntro: _skipIntro.Enabled && _skipIntro.Checked);
+            SkipIntro: _skipIntro.Enabled && _skipIntro.Checked, PhysicsMod: _physicsMod.Enabled ? _physicsMod.Checked : null);
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()
@@ -222,6 +229,9 @@ internal sealed class MainForm : Form
         bool skipIntro = report is { SkipIntro: true };
         _skipIntro.Enabled = skipIntro;
         _skipIntro.Text = Loc.T("Startup.SkipIntro") + (skipIntro || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        _physicsMod.Enabled = game.HasPhysicsMod;
+        _physicsMod.Checked = game.PhysicsModLoaded;
+        _physicsMod.Text = Loc.T("Gameplay.PhysicsMod") + (game.HasPhysicsMod ? "" : " " + Loc.T("Gameplay.PhysicsModMissing"));
 
         if (File.Exists(game.Speeder) && SpeederConfig.Read(File.ReadAllText(game.Speeder)) is double speed)
             _speed.Value = Math.Clamp((decimal)speed, _speed.Minimum, _speed.Maximum);

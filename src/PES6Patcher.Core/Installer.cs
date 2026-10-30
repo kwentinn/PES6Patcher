@@ -13,7 +13,8 @@ namespace PES6Patcher.Core;
 /// <param name="Gameplay">Free direction, close dribbling and game speed (speeder.cfg); off = none is changed.</param>
 /// <param name="CloseDribble">Shorter dribble touches.</param>
 /// <param name="SkipIntro">Skip the opening movie and the logos.</param>
-public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false)
+/// <param name="PhysicsMod">Load PityCharly's physics mod DLL (kload.cfg); null = leave as it is.</param>
+public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -44,12 +45,11 @@ public static class Installer
         if (closeDribble) log(Loc.T("Log.CloseDribble"));
         if (settings.SkipIntro) log(Loc.T("Log.SkipIntro"));
 
-        string? kload = null, kloadBefore = null;
+        string kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii), kload = kloadBefore;
         byte[]? lodmixer = null, gameSettings = null;
         bool lodmixerKnown = false;
         if (settings.Display)
         {
-            kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii);
             kload = KloadConfig.Apply(kloadBefore, settings.Width, settings.Height, settings.BorderlessWindow);
 
             lodmixer = File.Exists(game.Lodmixer) ? File.ReadAllBytes(game.Lodmixer) : null;
@@ -66,11 +66,26 @@ public static class Installer
         File.WriteAllBytes(game.Exe, patched);
         log(Loc.T("Log.ExeInstalled"));
 
+        // physics mod: only its line in the DLL list, never the rest of kload.cfg
+        bool? physicsMod = settings.Gameplay ? settings.PhysicsMod : null;
+        if (physicsMod == true && !game.HasPhysicsMod)
+        {
+            log(Loc.T("Log.PhysicsModMissing", PhysicsMod.FileName));
+            physicsMod = null;
+        }
+        if (physicsMod is bool loaded) kload = KloadConfig.SetDll(kload, PhysicsMod.KloadPath, loaded);
+        if (kload != kloadBefore) File.WriteAllText(game.Kload, kload, TextFiles.Ascii);
+        if (physicsMod == true)
+        {
+            log(Loc.T("Log.PhysicsModOn", PhysicsMod.Credit));
+            if (!report.Validated) log(Loc.T("Log.PhysicsModUntested"));
+        }
+        else if (physicsMod == false) log(Loc.T("Log.PhysicsModOff"));
+
         if (settings.Display)
         {
-            File.WriteAllText(game.Kload, kload!, TextFiles.Ascii);
             log(Loc.T(settings.BorderlessWindow ? "Log.KloadBorderless" : "Log.Kload", settings.Width, settings.Height));
-            if (KloadConfig.KeptInternalResolution(kloadBefore!, settings.Width, settings.Height) is var (w, h))
+            if (KloadConfig.KeptInternalResolution(kloadBefore, settings.Width, settings.Height) is var (w, h))
                 log(Loc.T("Log.KloadInternalKept", w, h));
 
             if (lodmixer == null) log(Loc.T("Log.LodmixerMissing"));

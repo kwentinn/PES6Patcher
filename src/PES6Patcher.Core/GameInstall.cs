@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Win32;
+using PES6Patcher.Core.Config;
 using PES6Patcher.Core.Patching;
 
 namespace PES6Patcher.Core;
@@ -21,6 +22,14 @@ public sealed class GameInstall(string folder, string exeName = GameInstall.Defa
     public string Kload => Path.Combine(Folder, "kitserver", "kload.cfg");
     public string Lodmixer => Path.Combine(Folder, "kitserver", "lodmixer.dat");
     public string Speeder => Path.Combine(Folder, "kitserver", "speeder.cfg");
+
+    /// <summary>PityCharly's physics mod (github.com/angelballay/pes6_game_physics_mod), copied by the user.</summary>
+    public string PhysicsModDll => Path.Combine(Folder, "kitserver", PhysicsMod.FileName);
+    public bool HasPhysicsMod => File.Exists(PhysicsModDll);
+
+    /// <summary>The physics mod is in Kitserver's DLL list.</summary>
+    public bool PhysicsModLoaded => HasKitserver && KloadConfig.Dlls(File.ReadAllText(Kload, TextFiles.Ascii))
+        .Any(d => string.Equals(Path.GetFileName(d), PhysicsMod.FileName, StringComparison.OrdinalIgnoreCase));
     public static string GameSettings => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "KONAMI", "Pro Evolution Soccer 6", "settings.dat");
 

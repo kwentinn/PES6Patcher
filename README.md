@@ -17,6 +17,7 @@ Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretchi
 - **Free analog stick direction**: the player follows the stick's precise angle instead of the 8 original directions only, when running and when dribbling (the ball is pushed at the stick's angle instead of the nearest multiple of 22.5°). The D-pad, the keyboard and the AI are unchanged.
 - **Close dribbling** (optional): while dribbling, the player can only change direction at his next touch of the ball. This option makes the dribble touches shorter (× 0.875 when running, × 0.81 when sprinting), so the ball stays closer and the player follows the stick sooner. Passes and shots are unchanged.
 - Adjustable **game speed** (Kitserver's Speeder module).
+- **PityCharly's physics mod** (optional, separate download): stronger first-time and short passes, ball weight adjusted while dribbling. See [Physics mod](#physics-mod).
 
 The rest of the gameplay is unchanged.
 
@@ -49,7 +50,7 @@ Notes:
 | File | Change | Backup |
 |---|---|---|
 | `PES6.exe` (or the selected executable) | patch (see below) | `PES6.exe.orig` |
-| `kitserver\kload.cfg` | render resolution (a larger internal resolution with the same aspect ratio is kept), borderless window | `kload.cfg.orig` |
+| `kitserver\kload.cfg` | render resolution (a larger internal resolution with the same aspect ratio is kept), borderless window, physics mod line in the DLL list | `kload.cfg.orig` |
 | `kitserver\lodmixer.dat` | 3D aspect ratio (left unchanged if its format is not recognised) | `lodmixer.dat.orig` |
 | `kitserver\speeder.cfg` | game speed | `speeder.cfg.orig` |
 | `Documents\KONAMI\Pro Evolution Soccer 6\settings.dat` | game resolution, checksum recomputed | `settings.dat.orig` |
@@ -114,6 +115,21 @@ dotnet publish src/PES6Patcher -c Release -o publish -p:PublishSingleFile=true -
 ```
 
 Some tests compare the produced exe with exes validated in game. Those files come from the game, so they are not in the repository: without them, these tests pass without checking anything.
+
+## Physics mod
+
+[pes6_game_physics_mod](https://github.com/angelballay/pes6_game_physics_mod) by PityCharly is a Kitserver DLL that adjusts the power of passes (especially first-time passes) and the weight of the ball while the game runs. The patcher does not include it: it only switches it on or off in `kload.cfg`.
+
+1. Download `pes6_game_physics_mod.zip` from [the mod's releases](https://github.com/angelballay/pes6_game_physics_mod/releases).
+2. Copy **only** `pes6_game_physics_mod.dll` into the game's `kitserver` folder. Do not copy the `kload.cfg` from the archive: it would replace yours (DLL list, resolution).
+3. In the patcher, check **PityCharly's physics mod**, then click **Apply**. Only its line is added to the DLL list (and removed when unchecked); the rest of `kload.cfg` is left as it is.
+
+The mod uses the addresses of the tested `PES6.exe` build (see [Supported executables](#supported-executables)). It does not touch the code changed by this patcher. In game, Ctrl+Shift+P switches it on and off.
+
+## Credits
+
+- **Mod de Física Original creado por PityCharly.** ([pes6_game_physics_mod](https://github.com/angelballay/pes6_game_physics_mod), MIT licence with an attribution condition.)
+- [Kitserver](https://www.evoweb.uk/) by juce and the Kitserver team.
 
 ## Disclaimer
 

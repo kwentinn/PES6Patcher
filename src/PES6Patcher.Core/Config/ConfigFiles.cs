@@ -50,6 +50,40 @@ public static partial class KloadConfig
         return m.Success && int.TryParse(m.Groups[1].Value, out var v) ? v : null;
     }
 
+    /// <summary>The DLL paths loaded by Kitserver (DLL.0 ... DLL.n-1), in order.</summary>
+    public static List<string> Dlls(string text) =>
+        [.. DllLine().Matches(text).Select(m => (Index: int.Parse(m.Groups[1].Value, CultureInfo.InvariantCulture), Path: m.Groups[2].Value))
+            .OrderBy(d => d.Index).Select(d => d.Path)];
+
+    /// <summary>Adds or removes <paramref name="path"/> in the DLL list, renumbering the entries and DLL.num.</summary>
+    public static string SetDll(string text, string path, bool loaded)
+    {
+        var dlls = Dlls(text);
+        bool present = dlls.Any(d => SameFile(d, path));
+        if (present == loaded) return text;
+        if (loaded) dlls.Add(path);
+        else dlls.RemoveAll(d => SameFile(d, path));
+
+        // the new list replaces the old lines where DLL.num was
+        string nl = text.Contains("\r\n") ? "\r\n" : "\n";
+        var block = new StringBuilder($"DLL.num = {dlls.Count}");
+        for (int i = 0; i < dlls.Count; i++) block.Append(nl).Append($"DLL.{i} = \"{dlls[i]}\"");
+        var num = DllNumLine().Match(text);
+        if (!num.Success) return text.TrimEnd() + nl + nl + block + nl;
+        // the removed DLL lines take their line breaks with them
+        text = DllLine().Replace(text, "");
+        return DllNumLine().Replace(text, block.ToString().Replace("$", "$$"), 1);
+    }
+
+    private static bool SameFile(string a, string b) =>
+        string.Equals(Path.GetFileName(a), Path.GetFileName(b), StringComparison.OrdinalIgnoreCase);
+
+    [GeneratedRegex(@"(?m)^DLL\.(\d+)\s*=\s*""([^""]*)""[ \t]*(\r?\n)?")]
+    private static partial Regex DllLine();
+
+    [GeneratedRegex(@"(?m)^DLL\.num\s*=\s*\d+[ \t]*")]
+    private static partial Regex DllNumLine();
+
     /// <summary>Replaces "key = ..." (commented or not); appends it if missing.</summary>
     private static string Set(string text, string key, string value)
     {

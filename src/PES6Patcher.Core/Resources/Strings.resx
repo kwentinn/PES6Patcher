@@ -93,6 +93,24 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat: 3D aspect ratio {0:0.#####}.</value>
   </data>
+  <data name="Gameplay.PhysicsMod" xml:space="preserve">
+    <value>PityCharly's physics mod (pass power, ball weight)</value>
+  </data>
+  <data name="Gameplay.PhysicsModMissing" xml:space="preserve">
+    <value>(not installed, see the README)</value>
+  </data>
+  <data name="Log.PhysicsModOn" xml:space="preserve">
+    <value>kload.cfg: physics mod loaded. {0}</value>
+  </data>
+  <data name="Log.PhysicsModOff" xml:space="preserve">
+    <value>kload.cfg: physics mod not loaded.</value>
+  </data>
+  <data name="Log.PhysicsModMissing" xml:space="preserve">
+    <value>Physics mod not loaded: {0} is not in the kitserver folder.</value>
+  </data>
+  <data name="Log.PhysicsModUntested" xml:space="preserve">
+    <value>Warning: the physics mod uses the addresses of the tested PES6.exe build; with this one it may not activate.</value>
+  </data>
   <data name="Startup.SkipIntro" xml:space="preserve">
     <value>Skip the intro (opening movie and logos)</value>
   </data>

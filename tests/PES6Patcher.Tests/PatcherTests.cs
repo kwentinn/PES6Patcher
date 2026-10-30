@@ -327,6 +327,30 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Contains($"internal.resolution.width = {w}\r\ninternal.resolution.height = {h}", text);
     }
 
+    private const string KloadWithDlls =
+        "debug = 1\r\n\r\nDLL.num = 3\r\nDLL.0 = \"kitserver\\zlib1.dll\"\r\nDLL.1 = \"kitserver\\lodmixer.dll\"\r\nDLL.2 = \"kitserver\\speeder.dll\"\r\n\r\ndx.fullscreen.width = 1920\r\n";
+
+    [Fact]
+    public void Physics_mod_is_added_at_the_end_of_the_dll_list_and_removed_cleanly()
+    {
+        var added = KloadConfig.SetDll(KloadWithDlls, PhysicsMod.KloadPath, loaded: true);
+        Assert.Contains("DLL.num = 4\r\n", added);
+        Assert.Contains("DLL.2 = \"kitserver\\speeder.dll\"\r\nDLL.3 = \"kitserver\\pes6_game_physics_mod.dll\"\r\n\r\ndx.fullscreen.width = 1920", added);
+        Assert.Equal(added, KloadConfig.SetDll(added, PhysicsMod.KloadPath, loaded: true));   // already there
+
+        Assert.Equal(KloadWithDlls, KloadConfig.SetDll(added, PhysicsMod.KloadPath, loaded: false));
+        Assert.Equal(KloadWithDlls, KloadConfig.SetDll(KloadWithDlls, PhysicsMod.KloadPath, loaded: false));
+    }
+
+    [Fact]
+    public void Removing_a_dll_in_the_middle_renumbers_the_list()
+    {
+        var text = KloadWithDlls.Replace("DLL.num = 3", "DLL.num = 4").Replace("DLL.2 = ", "DLL.3 = ")
+            .Replace("DLL.1 = \"kitserver\\lodmixer.dll\"\r\n", "DLL.1 = \"kitserver\\lodmixer.dll\"\r\nDLL.2 = \"kitserver\\PES6_GAME_PHYSICS_MOD.DLL\"\r\n");
+        Assert.Equal(KloadWithDlls, KloadConfig.SetDll(text, PhysicsMod.KloadPath, loaded: false));
+        Assert.Equal(["kitserver\\zlib1.dll", "kitserver\\lodmixer.dll", "kitserver\\speeder.dll"], KloadConfig.Dlls(KloadWithDlls));
+    }
+
     [Fact]
     public void Lodmixer_of_another_format_is_not_recognised()
     {
