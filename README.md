@@ -20,6 +20,9 @@ Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretchi
 
 The rest of the gameplay is unchanged.
 
+**Startup**
+- **Skip the intro** (checked by default): no opening movie and no logos at startup. The language choice and the loading of the options file are kept.
+
 ## Requirements
 
 - **PES6 PC with an unprotected executable** (no-DVD `PES6.exe` 1.00 / 1.10, or the exe of a community patch). See [Supported executables](#supported-executables).
@@ -61,6 +64,7 @@ The game draws its menus in a layer inherited from the PS2, **512 × 448** units
 | Player cursor | Code added that adjusts the scale of the 3D → 2D layer projection. |
 | Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. For the most frequent dribble touch, whose direction the game rounds to 22.5°, code added at the entry of the ball kick function adds back what the rounding removed (for the pad whose stick gives that direction). |
 | Close dribbling | Code added at the entry of the ball kick function: when the call comes from one of the 7 dribble touches (5 running, 2 sprinting), the kick speed is scaled down. |
+| Intro | The game already skips the opening movie when asked to, and a skippable logo when a button is pressed: those two paths are always taken (3 conditional jumps made inactive). Loading during the logos still happens. |
 
 The added code lives in unused padding areas of the exe.
 

@@ -12,7 +12,8 @@ namespace PES6Patcher.Core;
 /// <param name="Display">Widescreen fix and display files (kload.cfg, lodmixer.dat, settings.dat); off = left untouched.</param>
 /// <param name="Gameplay">Free direction, close dribbling and game speed (speeder.cfg); off = none is changed.</param>
 /// <param name="CloseDribble">Shorter dribble touches.</param>
-public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false)
+/// <param name="SkipIntro">Skip the opening movie and the logos.</param>
+public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -26,7 +27,7 @@ public static class Installer
         if (GameInstall.IsGameRunning()) throw new InvalidOperationException(Loc.T("Error.GameRunning"));
         if (!game.HasKitserver) throw new InvalidOperationException(Loc.T("Error.NoKitserver"));
 
-        if (!settings.Display && !settings.Gameplay) throw new InvalidOperationException(Loc.T("Error.NothingSelected"));
+        if (!settings.Display && !settings.Gameplay && !settings.SkipIntro) throw new InvalidOperationException(Loc.T("Error.NothingSelected"));
 
         // Prepare every file first: nothing is touched if one of them cannot be handled.
         byte[] original = game.ReadOriginalExe();
@@ -35,12 +36,13 @@ public static class Installer
         bool freeDirection = settings.Gameplay && settings.FreeDirection;
         bool closeDribble = settings.Gameplay && settings.CloseDribble;
         // without any exe fix, the exe goes back to the original
-        byte[] patched = settings.Display || freeDirection || closeDribble
-            ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble))
+        byte[] patched = settings.Display || freeDirection || closeDribble || settings.SkipIntro
+            ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro))
             : original;
         string yesNo = Loc.T(freeDirection ? "Common.Yes" : "Common.No");
         log(settings.Display ? Loc.T("Log.ExeBuilt", settings.Half, yesNo) : Loc.T("Log.ExeBuiltNoDisplay", yesNo));
         if (closeDribble) log(Loc.T("Log.CloseDribble"));
+        if (settings.SkipIntro) log(Loc.T("Log.SkipIntro"));
 
         string? kload = null, kloadBefore = null;
         byte[]? lodmixer = null, gameSettings = null;

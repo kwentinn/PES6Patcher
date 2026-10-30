@@ -18,6 +18,9 @@ internal sealed record DirectionSites(int Entry, byte[] OriginalBody, int Rotate
 /// </summary>
 internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTouches, int SnappedTouch);
 
+/// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
+internal sealed record IntroSites(int[] Jumps);
+
 /// <summary>
 /// Finds the patch locations by signature, so that builds with the same code at other addresses
 /// (1.00 / 1.10, no-DVD, repacks) can be patched. Every derived address is cross-checked.
@@ -83,20 +86,46 @@ internal sealed class ExeLocator
         ("33 C9 66 8B 4F 30 83 C4 0C 50 51 57 E8 ?? ?? ?? ?? 8A 17 57 88 15", 12),
     ];
 
-    public static (DisplaySites? Display, DirectionSites? Direction, DribbleSites? Dribble, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
+    /// <summary>
+    /// Opening movie: "push edi ; xor edi,edi ; call skipRequested ; test ax,ax ; je play" - the movie
+    /// function already returns early when skipping is requested (je at +11).
+    /// </summary>
+    private const string MovieSkip = "57 33 FF E8 ?? ?? ?? ?? 66 85 C0 74 18 6A 01 E8 ?? ?? ?? ?? 57 E8 ?? ?? ?? ?? 83 C4 08 5F 81 C4";
+    private const string PatchedMovieSkip = "57 33 FF E8 ?? ?? ?? ?? 66 85 C0 90 90 6A 01 E8 ?? ?? ?? ?? 57 E8 ?? ?? ?? ?? 83 C4 08 5F 81 C4";
+    private const int MovieSkipJump = 11;
+
+    /// <summary>
+    /// Logos: a logo flagged as skippable ends at once, with a fast fade, when a button is pressed
+    /// (je at +21: flag ; je at +36: button). Both inactive = the game's own skip path for every logo.
+    /// </summary>
+    private const string LogoSkip = "8B 46 08 8D 7E 08 C1 E0 04 F6 80 ?? ?? ?? ?? 01 BB 04 00 00 00 74 1E 6A 00 E8 ?? ?? ?? ?? 83 C4 04 F6 C4 40 74 0F 8B 07";
+    private static readonly int[] LogoSkipJumps = [21, 36];
+
+    public static (DisplaySites? Display, DirectionSites? Direction, DribbleSites? Dribble, IntroSites? Intro, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
     {
         var locator = new ExeLocator(new PeImage(exe));
         var (display, patched) = locator.FindDisplay();
-        // a gameplay-only patch leaves the 2D width alone but lowers the turn threshold (0x20 -> 0x0C)
-        // or hooks the kick relay
-        patched |= locator.Hits(PatchedTurnThreshold).Count == 1 || locator.Hits(PatchedKickRelay).Count == 1;
+        // a patch without the display fix leaves the 2D width alone but lowers the turn threshold
+        // (0x20 -> 0x0C), hooks the kick relay or skips the opening movie
+        patched |= locator.Hits(PatchedTurnThreshold).Count == 1 || locator.Hits(PatchedKickRelay).Count == 1
+            || locator.Hits(PatchedMovieSkip).Count == 1;
         int displayProblems = locator._problems.Count;
         var direction = locator.FindDirection();
         if (locator._problems.Count > displayProblems) direction = null;
         int otherProblems = locator._problems.Count;
         var dribble = locator.FindDribble();
         if (locator._problems.Count > otherProblems) dribble = null;
-        return (displayProblems == 0 ? display : null, direction, dribble, patched, locator._problems);
+        otherProblems = locator._problems.Count;
+        var intro = locator.FindIntro();
+        if (locator._problems.Count > otherProblems) intro = null;
+        return (displayProblems == 0 ? display : null, direction, dribble, intro, patched, locator._problems);
+    }
+
+    private IntroSites? FindIntro()
+    {
+        int movie = Unique(MovieSkip, "Hook.Intro");
+        int logos = Unique(LogoSkip, "Hook.Intro");
+        return movie == 0 || logos == 0 ? null : new IntroSites([movie + MovieSkipJump, .. LogoSkipJumps.Select(j => logos + j)]);
     }
 
     private (DisplaySites?, bool) FindDisplay()

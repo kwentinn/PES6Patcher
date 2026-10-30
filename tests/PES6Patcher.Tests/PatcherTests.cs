@@ -155,6 +155,38 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Skip_intro_only_turns_the_three_skip_jumps_into_nops()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).SkipIntro);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { SkipIntro = true });
+
+        // movie: je at 0x88E361 ; logos: je at 0x9AFAD5 and 0x9AFAE4 (measured in game)
+        var image = new PeImage(original);
+        int[] jumps = [0x88E361, 0x9AFAD5, 0x9AFAE4];
+        var expected = jumps.SelectMany(j => new[] { image.Offset(j), image.Offset(j) + 1 }).Order().ToList();
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.Equal(expected, changed);
+        Assert.All(changed, i => Assert.Equal(0x90, with[i]));
+        Assert.All(jumps, j => Assert.Equal(0x74, original[image.Offset(j)]));
+    }
+
+    [Fact]
+    public void Skip_intro_alone_is_detected_as_patched()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: false, Display: false, SkipIntro: true));
+        Assert.True(ExePatcher.Analyze(built).AlreadyPatched);
+        Assert.False(ExePatcher.IsSupported(built));
+    }
+
+    [Fact]
     public void Build_refuses_an_exe_where_a_location_is_missing()
     {
         var original = Load("PES6.orig.exe");

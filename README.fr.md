@@ -20,6 +20,9 @@ Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirem
 
 Le reste du gameplay est inchangé.
 
+**Démarrage**
+- **Passer l'intro** (cochée par défaut) : plus de vidéo d'ouverture ni de logos au démarrage. Le choix de la langue et le chargement du fichier d'options sont conservés.
+
 ## Prérequis
 
 - **PES6 PC avec un exécutable non protégé** : `PES6.exe` « No-DVD » 1.00 ou 1.10, ou l'exe d'un patch communautaire. Voir [Exécutables pris en charge](#exécutables-pris-en-charge).
@@ -61,6 +64,7 @@ Le jeu dessine ses menus dans un repère hérité de la PS2, de **512 × 448** u
 | Curseur du joueur | Code ajouté qui ajuste l'échelle de la projection 3D → repère 2D. |
 | Directions libres | Code ajouté autour de la conversion bits de direction → cap : ajoute l'écart entre l'angle précis du stick et le centre de son secteur de 45°. Le seuil de virage de la course passe de 45° à environ 17°. Pour la touche de dribble la plus fréquente, dont le jeu arrondit la direction à 22,5°, du code ajouté à l'entrée de la fonction qui frappe le ballon rajoute ce que l'arrondi a retiré (pour la manette dont le stick donne cette direction). |
 | Dribble resserré | Code ajouté à l'entrée de la fonction qui frappe le ballon : quand l'appel vient d'une des 7 touches de dribble (5 en course, 2 en sprint), la vitesse de frappe est réduite. |
+| Intro | Le jeu sait déjà sauter la vidéo d'ouverture quand on le lui demande, et passer un logo quand on appuie sur une touche : ces deux chemins sont toujours pris (3 sauts conditionnels neutralisés). Le chargement fait pendant les logos a toujours lieu. |
 
 Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe.
 

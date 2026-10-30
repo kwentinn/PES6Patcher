@@ -93,6 +93,15 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat: 3D aspect ratio {0:0.#####}.</value>
   </data>
+  <data name="Startup.SkipIntro" xml:space="preserve">
+    <value>Skip the intro (opening movie and logos)</value>
+  </data>
+  <data name="Hook.Intro" xml:space="preserve">
+    <value>intro skip</value>
+  </data>
+  <data name="Log.SkipIntro" xml:space="preserve">
+    <value>Intro: opening movie and logos skipped.</value>
+  </data>
   <data name="Gameplay.CloseDribble" xml:space="preserve">
     <value>Close dribbling (shorter touches, the player follows the stick sooner)</value>
   </data>
@@ -241,7 +250,7 @@
     <value>(not available for this executable)</value>
   </data>
   <data name="Report.Result" xml:space="preserve">
-    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Close dribbling: {3} | Tested in game: {4}</value>
+    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Close dribbling: {3} | Skip intro: {4} | Tested in game: {5}</value>
   </data>
   <data name="Error.AlreadyPatched" xml:space="preserve">
     <value>This executable is already patched.</value>

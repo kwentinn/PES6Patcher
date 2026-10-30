@@ -8,7 +8,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -26,6 +26,7 @@ internal sealed class MainForm : Form
     private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
     private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
     private readonly CheckBox _closeDribble = new() { Text = Loc.T("Gameplay.CloseDribble"), AutoSize = true };
+    private readonly CheckBox _skipIntro = new() { Text = Loc.T("Startup.SkipIntro"), AutoSize = true, Checked = true, Margin = new Padding(12, 3, 3, 3) };
     private readonly NumericUpDown _speed = new() { Minimum = 0.5m, Maximum = 1.5m, Increment = 0.05m, DecimalPlaces = 2, Value = 1.0m, Width = 70 };
     private readonly Button _apply = new() { Text = Loc.T("Action.Apply"), AutoSize = true };
     private readonly Button _restore = new() { Text = Loc.T("Action.Restore"), AutoSize = true };
@@ -50,6 +51,7 @@ internal sealed class MainForm : Form
         _folder.Leave += (_, _) => { FillExecutables(null); RefreshState(log: true); };
         _exe.SelectionChangeCommitted += (_, _) => RefreshState(log: true);
         _report.Click += (_, _) => CopyReport();
+        _skipIntro.CheckedChanged += (_, _) => UpdateApply();
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
 
@@ -81,6 +83,7 @@ internal sealed class MainForm : Form
         layout.Controls.Add(_exeState);
         layout.Controls.Add(display);
         layout.Controls.Add(gameplay);
+        layout.Controls.Add(_skipIntro);
         layout.Controls.Add(Flow(_apply, _restore));
         layout.Controls.Add(_log);
         for (int i = 0; i < layout.Controls.Count - 1; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
@@ -108,6 +111,7 @@ internal sealed class MainForm : Form
             _borderless.Checked = previous.Borderless;
             _freeDirection.Checked = previous.FreeDirection;
             _closeDribble.Checked = previous.CloseDribble;
+            _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
             _speed.Value = previous.Speed;   // keep the user's value over the one read from speeder.cfg
@@ -132,19 +136,20 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
     private InstallSettings CurrentSettings() =>
         new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value,
-            Display: _display.Enabled && _display.Checked, Gameplay: _gameplay.Checked, CloseDribble: _closeDribble.Enabled && _closeDribble.Checked);
+            Display: _display.Enabled && _display.Checked, Gameplay: _gameplay.Checked, CloseDribble: _closeDribble.Enabled && _closeDribble.Checked,
+            SkipIntro: _skipIntro.Enabled && _skipIntro.Checked);
 
-    /// <summary>Apply needs a patchable exe and at least one group selected.</summary>
+    /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()
     {
         var s = CurrentSettings();
-        _apply.Enabled = _exeReady && (s.Display || s.Gameplay);
+        _apply.Enabled = _exeReady && (s.Display || s.Gameplay || s.SkipIntro);
     }
 
     private void UseScreenResolution()
@@ -214,6 +219,9 @@ internal sealed class MainForm : Form
         bool closeDribble = report is { CloseDribble: true };
         _closeDribble.Enabled = closeDribble;
         _closeDribble.Text = Loc.T("Gameplay.CloseDribble") + (closeDribble || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        bool skipIntro = report is { SkipIntro: true };
+        _skipIntro.Enabled = skipIntro;
+        _skipIntro.Text = Loc.T("Startup.SkipIntro") + (skipIntro || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
 
         if (File.Exists(game.Speeder) && SpeederConfig.Read(File.ReadAllText(game.Speeder)) is double speed)
             _speed.Value = Math.Clamp((decimal)speed, _speed.Minimum, _speed.Maximum);
