@@ -2,7 +2,7 @@
 
 *[English](README.md) | Français*
 
-Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirement (16:9, 21:9, 32:9…) et déplacement plus libre au stick analogique.
+Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirement (16:9, 21:9, 32:9…), déplacement libre au stick analogique (dribble compris), dribble resserré en option, et plus d'intro au démarrage.
 
 ![PES6 Patcher](docs/app.fr.png)
 
@@ -34,7 +34,9 @@ Le reste du gameplay est inchangé.
 1. Fermer PES6 et `settings.exe`.
 2. Lancer `PES6Patcher.exe`. Il demande les droits administrateur, car le jeu est installé dans `Program Files`.
 3. Vérifier le dossier du jeu (détecté automatiquement), l'exécutable et la résolution (celle de l'écran par défaut).
-4. Choisir les options, puis cliquer sur **Appliquer**. Chaque groupe (**Affichage**, **Gameplay**) peut être décoché : pour ne modifier que le gameplay, décocher **Affichage**, et `kload.cfg`, `lodmixer.dat` et `settings.dat` restent tels quels.
+4. Choisir les options, puis cliquer sur **Appliquer**. Chaque groupe (**Affichage**, **Gameplay**) et **Passer l'intro** peuvent être décochés : par exemple, pour ne modifier que le gameplay, décocher **Affichage**, et `kload.cfg`, `lodmixer.dat` et `settings.dat` restent tels quels.
+
+L'exe est toujours reconstruit à partir de la sauvegarde d'origine : on peut changer les options et réappliquer à tout moment.
 
 **Restaurer l'original** remet tous les fichiers tels qu'ils étaient avant la première application.
 
@@ -85,7 +87,7 @@ Versions testées en jeu :
 
 | SHA-256 | Remarques |
 |---|---|
-| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | `PES6.exe` « No-DVD », écran large et directions libres testés |
+| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | `PES6.exe` « No-DVD » : écran large (16:9, 32:9), directions libres (course et dribble), dribble resserré et saut de l'intro testés |
 
 Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt matériels et des relevés mémoire, est dans [`research/NOTES.md`](research/NOTES.md). Les scripts utilisés pendant la recherche sont dans [`research/scripts`](research/scripts).
 
@@ -94,6 +96,8 @@ Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt mat�
 - Une seule version a été testée en jeu pour l'instant. Les autres sont patchées si leur code correspond (voir plus haut).
 - Les décors des menus font 512 unités de large : il reste des bandes noires sur les côtés.
 - Les directions libres ne concernent que le stick analogique. Quelques touches de dribble moins fréquentes et les gestes spéciaux gardent les directions du jeu.
+- Dribble resserré : avec des joueurs peu adroits en dribble (touches plus irrégulières), le ballon peut parfois se retrouver sous leurs pieds.
+- À deux joueurs sur le même PC, les directions libres choisissent la manette dont le stick correspond à la touche de dribble ; ce cas n'a pas été testé.
 
 ## Traductions
 

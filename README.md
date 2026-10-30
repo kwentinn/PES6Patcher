@@ -2,7 +2,7 @@
 
 *English | [Français](README.fr.md)*
 
-Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretching (16:9, 21:9, 32:9…) and freer movement with the analog stick.
+Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretching (16:9, 21:9, 32:9…), free analog stick movement (including dribbling), optional close dribbling, and no intro at startup.
 
 ![PES6 Patcher](docs/app.png)
 
@@ -34,7 +34,9 @@ The rest of the gameplay is unchanged.
 1. Close PES6 and `settings.exe`.
 2. Run `PES6Patcher.exe`. It asks for administrator rights, because the game is installed in `Program Files`.
 3. Check the game folder (detected automatically), the executable and the resolution (the screen's by default).
-4. Choose the options, then click **Apply**. Each group (**Display**, **Gameplay**) can be unchecked: to change only the gameplay, uncheck **Display** and `kload.cfg`, `lodmixer.dat` and `settings.dat` are left as they are.
+4. Choose the options, then click **Apply**. Each group (**Display**, **Gameplay**) and **Skip the intro** can be unchecked: for example, to change only the gameplay, uncheck **Display** and `kload.cfg`, `lodmixer.dat` and `settings.dat` are left as they are.
+
+The exe is always rebuilt from the original backup, so the options can be changed and applied again at any time.
 
 **Restore original** puts every file back as it was before the first apply.
 
@@ -85,7 +87,7 @@ Builds tested in game:
 
 | SHA-256 | Notes |
 |---|---|
-| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | no-DVD `PES6.exe`, widescreen and free direction tested |
+| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | no-DVD `PES6.exe`: widescreen (16:9, 32:9), free direction (running and dribbling), close dribbling and intro skip tested |
 
 Addresses and method details (Ghidra, hardware breakpoints, memory captures) are in [`research/NOTES.md`](research/NOTES.md), in French. The scripts used during the research are in [`research/scripts`](research/scripts).
 
@@ -94,6 +96,8 @@ Addresses and method details (Ghidra, hardware breakpoints, memory captures) are
 - Only one build has been tested in game so far; others are patched if their code matches (see above).
 - Menu backgrounds are 512 units wide: black bars remain on the sides.
 - Free directions apply to an analog stick only. Some less frequent dribble touches and special moves keep the game's own directions.
+- Close dribbling: with players whose dribbling is weak (more irregular touches), the ball can occasionally end up under their feet.
+- With two players on the same PC, the free direction picks the pad whose stick matches the dribble touch; this case has not been tested.
 
 ## Translations
 
