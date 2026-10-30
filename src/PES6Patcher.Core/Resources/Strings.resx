@@ -93,6 +93,12 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat: 3D aspect ratio {0:0.#####}.</value>
   </data>
+  <data name="Log.LodmixerUnknown" xml:space="preserve">
+    <value>lodmixer.dat left unchanged (format not recognised): set the aspect ratio to {0:0.#####} in Kitserver's lodcfg.exe.</value>
+  </data>
+  <data name="Log.KloadInternalKept" xml:space="preserve">
+    <value>kload.cfg: internal resolution {0} × {1} kept (same aspect ratio, at least the display resolution).</value>
+  </data>
   <data name="Log.LodmixerMissing" xml:space="preserve">
     <value>lodmixer.dat missing: run Kitserver's lodcfg.exe once, then apply again.</value>
   </data>

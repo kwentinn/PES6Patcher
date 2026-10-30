@@ -8,15 +8,19 @@ namespace PES6Patcher.Core.Config;
 public static partial class KloadConfig
 {
     /// <summary>
-    /// Sets the render resolution (fullscreen + internal). With <paramref name="borderlessWindow"/>,
+    /// Sets the render resolution (fullscreen + internal). An internal resolution with the same aspect
+    /// ratio and at least as large (supersampling) is kept. With <paramref name="borderlessWindow"/>,
     /// also forces a borderless window covering the screen at (0, 0); otherwise comments those lines out.
     /// </summary>
     public static string Apply(string text, int width, int height, bool borderlessWindow)
     {
         text = Set(text, "dx.fullscreen.width", width.ToString(CultureInfo.InvariantCulture));
         text = Set(text, "dx.fullscreen.height", height.ToString(CultureInfo.InvariantCulture));
-        text = Set(text, "internal.resolution.width", width.ToString(CultureInfo.InvariantCulture));
-        text = Set(text, "internal.resolution.height", height.ToString(CultureInfo.InvariantCulture));
+        if (KeptInternalResolution(text, width, height) == null)
+        {
+            text = Set(text, "internal.resolution.width", width.ToString(CultureInfo.InvariantCulture));
+            text = Set(text, "internal.resolution.height", height.ToString(CultureInfo.InvariantCulture));
+        }
 
         (string Key, string Value)[] window =
         [
@@ -29,6 +33,21 @@ public static partial class KloadConfig
         foreach (var (key, value) in window)
             text = borderlessWindow ? Set(text, key, value) : CommentOut(text, key);
         return text;
+    }
+
+    /// <summary>The internal resolution <see cref="Apply"/> keeps for this display resolution, if any.</summary>
+    public static (int Width, int Height)? KeptInternalResolution(string text, int width, int height)
+    {
+        if (Get(text, "internal.resolution.width") is not int w || Get(text, "internal.resolution.height") is not int h)
+            return null;
+        bool sameAspect = (long)w * height == (long)h * width;
+        return sameAspect && w >= width && h >= height ? (w, h) : null;
+    }
+
+    private static int? Get(string text, string key)
+    {
+        var m = new Regex($@"(?m)^{Regex.Escape(key)}\s*=\s*(\d+)").Match(text);
+        return m.Success && int.TryParse(m.Groups[1].Value, out var v) ? v : null;
     }
 
     /// <summary>Replaces "key = ..." (commented or not); appends it if missing.</summary>
@@ -62,9 +81,12 @@ public static class LodmixerData
 {
     private const int AspectOffset = 41;
 
+    /// <summary>False for the lodmixer.dat of other LOD Mixer versions, which are left unchanged.</summary>
+    public static bool IsRecognized(byte[] data) => data.Length >= AspectOffset + 4;
+
     public static byte[] SetAspect(byte[] data, float aspect)
     {
-        if (data.Length < AspectOffset + 4) throw new InvalidDataException(Loc.T("Error.BadLodmixer"));
+        if (!IsRecognized(data)) throw new InvalidDataException(Loc.T("Error.BadLodmixer"));
         var copy = (byte[])data.Clone();
         BitConverter.GetBytes(aspect).CopyTo(copy, AspectOffset);
         return copy;

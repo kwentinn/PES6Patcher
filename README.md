@@ -43,8 +43,8 @@ Notes:
 | File | Change | Backup |
 |---|---|---|
 | `PES6.exe` (or the selected executable) | patch (see below) | `PES6.exe.orig` |
-| `kitserver\kload.cfg` | render resolution, borderless window | `kload.cfg.orig` |
-| `kitserver\lodmixer.dat` | 3D aspect ratio | `lodmixer.dat.orig` |
+| `kitserver\kload.cfg` | render resolution (a larger internal resolution with the same aspect ratio is kept), borderless window | `kload.cfg.orig` |
+| `kitserver\lodmixer.dat` | 3D aspect ratio (left unchanged if its format is not recognised) | `lodmixer.dat.orig` |
 | `kitserver\speeder.cfg` | game speed | `speeder.cfg.orig` |
 | `Documents\KONAMI\Pro Evolution Soccer 6\settings.dat` | game resolution, checksum recomputed | `settings.dat.orig` |
 

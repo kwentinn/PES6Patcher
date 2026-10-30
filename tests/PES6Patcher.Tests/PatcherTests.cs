@@ -162,6 +162,26 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Contains("internal.resolution.width = 2560", text);
     }
 
+    [Theory]
+    [InlineData(5760, 3240, 1920, 1080, true)]    // supersampling, same aspect ratio
+    [InlineData(1920, 1080, 1920, 1080, true)]
+    [InlineData(1920, 1080, 2560, 1440, false)]   // smaller than the display
+    [InlineData(2560, 1440, 5120, 1440, false)]   // other aspect ratio
+    [InlineData(0, 0, 1920, 1080, false)]
+    public void Kload_keeps_a_supersampled_internal_resolution(int iw, int ih, int width, int height, bool kept)
+    {
+        var text = KloadConfig.Apply($"internal.resolution.width = {iw}\r\ninternal.resolution.height = {ih}\r\n", width, height, borderlessWindow: false);
+        var (w, h) = kept ? (iw, ih) : (width, height);
+        Assert.Contains($"internal.resolution.width = {w}\r\ninternal.resolution.height = {h}", text);
+    }
+
+    [Fact]
+    public void Lodmixer_of_another_format_is_not_recognised()
+    {
+        Assert.False(LodmixerData.IsRecognized(new byte[41]));
+        Assert.True(LodmixerData.IsRecognized(new byte[45]));
+    }
+
     [Fact]
     public void Lodmixer_and_settings_for_32x9_match_the_validated_profile()
     {

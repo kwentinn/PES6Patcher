@@ -43,8 +43,8 @@ Remarques :
 | Fichier | Modification | Sauvegarde |
 |---|---|---|
 | `PES6.exe` (ou l'exécutable choisi) | patch (voir ci-dessous) | `PES6.exe.orig` |
-| `kitserver\kload.cfg` | résolution de rendu, fenêtre sans bordure | `kload.cfg.orig` |
-| `kitserver\lodmixer.dat` | format d'image 3D | `lodmixer.dat.orig` |
+| `kitserver\kload.cfg` | résolution de rendu (une résolution interne plus grande de même format est conservée), fenêtre sans bordure | `kload.cfg.orig` |
+| `kitserver\lodmixer.dat` | format d'image 3D (laissé tel quel si son format n'est pas reconnu) | `lodmixer.dat.orig` |
 | `kitserver\speeder.cfg` | vitesse du jeu | `speeder.cfg.orig` |
 | `Documents\KONAMI\Pro Evolution Soccer 6\settings.dat` | résolution du jeu, somme de contrôle recalculée | `settings.dat.orig` |
 

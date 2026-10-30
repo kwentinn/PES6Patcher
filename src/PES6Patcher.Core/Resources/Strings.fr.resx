@@ -93,6 +93,12 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat : format 3D {0:0.#####}.</value>
   </data>
+  <data name="Log.LodmixerUnknown" xml:space="preserve">
+    <value>lodmixer.dat laissé tel quel (format non reconnu) : régler le format sur {0:0.#####} dans lodcfg.exe de Kitserver.</value>
+  </data>
+  <data name="Log.KloadInternalKept" xml:space="preserve">
+    <value>kload.cfg : résolution interne {0} × {1} conservée (même format, au moins la résolution d'affichage).</value>
+  </data>
   <data name="Log.LodmixerMissing" xml:space="preserve">
     <value>lodmixer.dat absent : lancer lodcfg.exe de Kitserver une fois, puis réappliquer.</value>
   </data>

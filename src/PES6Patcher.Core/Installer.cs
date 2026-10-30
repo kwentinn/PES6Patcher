@@ -23,35 +23,48 @@ public static class Installer
         if (GameInstall.IsGameRunning()) throw new InvalidOperationException(Loc.T("Error.GameRunning"));
         if (!game.HasKitserver) throw new InvalidOperationException(Loc.T("Error.NoKitserver"));
 
-        // Build first: nothing is touched if the exe does not match.
+        // Prepare every file first: nothing is touched if one of them cannot be handled.
         byte[] original = game.ReadOriginalExe();
         var report = ExePatcher.Analyze(original);
         if (!report.Validated) log(Loc.T("Log.Untested", report.Sha256));
         byte[] patched = ExePatcher.Build(original, new PatchOptions(settings.Half, settings.FreeDirection));
         log(Loc.T("Log.ExeBuilt", settings.Half, Loc.T(settings.FreeDirection ? "Common.Yes" : "Common.No")));
 
+        string kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii);
+        string kload = KloadConfig.Apply(kloadBefore, settings.Width, settings.Height, settings.BorderlessWindow);
+        var keptInternal = KloadConfig.KeptInternalResolution(kloadBefore, settings.Width, settings.Height);
+
+        byte[]? lodmixer = File.Exists(game.Lodmixer) ? File.ReadAllBytes(game.Lodmixer) : null;
+        bool lodmixerKnown = lodmixer != null && LodmixerData.IsRecognized(lodmixer);
+        if (lodmixerKnown) lodmixer = LodmixerData.SetAspect(lodmixer!, settings.Aspect);
+
+        byte[]? gameSettings = File.Exists(GameInstall.GameSettings)
+            ? GameSettingsData.SetResolution(File.ReadAllBytes(GameInstall.GameSettings), settings.Width, settings.Height)
+            : null;
+
         BackUp(game, original, log);
 
         File.WriteAllBytes(game.Exe, patched);
         log(Loc.T("Log.ExeInstalled"));
 
-        string kload = File.ReadAllText(game.Kload, TextFiles.Ascii);
-        File.WriteAllText(game.Kload, KloadConfig.Apply(kload, settings.Width, settings.Height, settings.BorderlessWindow), TextFiles.Ascii);
+        File.WriteAllText(game.Kload, kload, TextFiles.Ascii);
         log(Loc.T(settings.BorderlessWindow ? "Log.KloadBorderless" : "Log.Kload", settings.Width, settings.Height));
+        if (keptInternal is var (w, h)) log(Loc.T("Log.KloadInternalKept", w, h));
 
-        if (File.Exists(game.Lodmixer))
+        if (lodmixer == null) log(Loc.T("Log.LodmixerMissing"));
+        else if (!lodmixerKnown) log(Loc.T("Log.LodmixerUnknown", settings.Aspect));
+        else
         {
-            File.WriteAllBytes(game.Lodmixer, LodmixerData.SetAspect(File.ReadAllBytes(game.Lodmixer), settings.Aspect));
+            File.WriteAllBytes(game.Lodmixer, lodmixer);
             log(Loc.T("Log.Lodmixer", settings.Aspect));
         }
-        else log(Loc.T("Log.LodmixerMissing"));
 
         File.WriteAllText(game.Speeder, SpeederConfig.Create(settings.Speed), TextFiles.Ascii);
         log(Loc.T("Log.Speeder", settings.Speed));
 
-        if (File.Exists(GameInstall.GameSettings))
+        if (gameSettings != null)
         {
-            File.WriteAllBytes(GameInstall.GameSettings, GameSettingsData.SetResolution(File.ReadAllBytes(GameInstall.GameSettings), settings.Width, settings.Height));
+            File.WriteAllBytes(GameInstall.GameSettings, gameSettings);
             log(Loc.T("Log.Settings", settings.Width, settings.Height));
         }
         else log(Loc.T("Log.SettingsMissing"));
