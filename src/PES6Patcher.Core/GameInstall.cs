@@ -59,10 +59,10 @@ public sealed class GameInstall(string folder, string exeName = GameInstall.Defa
     {
         if (!File.Exists(Exe)) return (ExeState.Missing, null);
         var current = ExePatcher.Analyze(File.ReadAllBytes(Exe));
-        if (!current.AlreadyPatched) return (current.Display || current.FreeDirection ? ExeState.Original : ExeState.Unsupported, current);
+        if (!current.AlreadyPatched) return (current.AnyFix ? ExeState.Original : ExeState.Unsupported, current);
 
         var backup = File.Exists(ExeBackup) ? ExePatcher.Analyze(File.ReadAllBytes(ExeBackup)) : null;
-        return backup is { AlreadyPatched: false } && (backup.Display || backup.FreeDirection) ? (ExeState.Patched, backup) : (ExeState.PatchedWithoutBackup, current);
+        return backup is { AlreadyPatched: false, AnyFix: true } ? (ExeState.Patched, backup) : (ExeState.PatchedWithoutBackup, current);
     }
 
     /// <summary>The unpatched exe: the backup when the installed one is patched, else the installed one.</summary>

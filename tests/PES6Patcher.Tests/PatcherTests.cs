@@ -97,6 +97,49 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Close_dribble_hooks_only_the_kick_relay_and_adds_its_cave()
+    {
+        var original = Load("PES6.orig.exe");
+        var v6 = Load("PES6_v6_16x9.exe");
+        if (original == null || v6 == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).CloseDribble);
+        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true, CloseDribble: true));
+
+        // relay entry: jmp cave ; nop
+        var image = new PeImage(built);
+        int relay = image.Offset(0x4781F0);
+        Assert.Equal(0xE9, built[relay]);
+        Assert.Equal(0x90, built[relay + 5]);
+        int cave = 0x4781F0 + 5 + BitConverter.ToInt32(built, relay + 1);
+
+        // everything else is the v6 build; the cave compares the return address with the 7 dribble touches
+        var changed = Enumerable.Range(0, built.Length).Where(i => built[i] != v6[i]).ToList();
+        int caveOffset = image.Offset(cave);
+        Assert.All(changed, i => Assert.True(i >= relay && i < relay + 6 || i >= caveOffset && i < caveOffset + CodeCaves.DribbleSize, $"0x{i:X}"));
+        int[] touches = [0x5AF6D3, 0x5AF0CF, 0x5ADEC6, 0x5B0D65, 0x5B07A5, 0x5AFB40, 0x5AFE6D];
+        for (int k = 0; k < touches.Length; k++)
+        {
+            Assert.Equal(0x3D, built[caveOffset + 3 + 7 * k]);
+            Assert.Equal(touches[k], BitConverter.ToInt32(built, caveOffset + 4 + 7 * k));
+        }
+
+        var report = ExePatcher.Analyze(built);
+        Assert.True(report.AlreadyPatched);
+    }
+
+    [Fact]
+    public void Close_dribble_alone_is_detected_as_patched()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: false, Display: false, CloseDribble: true));
+        Assert.True(ExePatcher.Analyze(built).AlreadyPatched);
+        Assert.False(ExePatcher.IsSupported(built));
+    }
+
+    [Fact]
     public void Build_refuses_an_exe_where_a_location_is_missing()
     {
         var original = Load("PES6.orig.exe");

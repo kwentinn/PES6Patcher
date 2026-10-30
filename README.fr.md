@@ -15,6 +15,7 @@ Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirem
 
 **Gameplay**
 - **Directions libres au stick analogique** : le joueur suit l'angle précis du stick, à ±22,5° autour des 8 directions d'origine, au lieu de ces seules 8 directions. La croix directionnelle, le clavier et l'IA ne changent pas.
+- **Dribble resserré** (option) : en dribble, le joueur ne peut changer de direction qu'à sa touche de balle suivante. Cette option raccourcit les touches (× 0,875 en course, × 0,81 en sprint) : le ballon reste plus près et le joueur suit le stick plus tôt. Les passes et les tirs ne changent pas.
 - **Vitesse du jeu** réglable (module Speeder de Kitserver).
 
 Le reste du gameplay est inchangé.
@@ -59,6 +60,7 @@ Le jeu dessine ses menus dans un repère hérité de la PS2, de **512 × 448** u
 | Découpage des listes | Code ajouté avant la conversion du rectangle de découpage en pixels. |
 | Curseur du joueur | Code ajouté qui ajuste l'échelle de la projection 3D → repère 2D. |
 | Directions libres | Code ajouté autour de la conversion bits de direction → cap : ajoute l'écart entre l'angle précis du stick et le centre de son secteur de 45°. Le seuil de virage de la course passe de 45° à environ 17°. |
+| Dribble resserré | Code ajouté à l'entrée de la fonction qui frappe le ballon : quand l'appel vient d'une des 7 touches de dribble (5 en course, 2 en sprint), la vitesse de frappe est réduite. |
 
 Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe.
 

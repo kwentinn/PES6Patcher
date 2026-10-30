@@ -9,7 +9,10 @@ internal sealed record Hook(string NameKey, int Entry, byte[] EntryBytes, int Ca
 /// </summary>
 internal static class CodeCaves
 {
-    public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156;
+    public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156, DribbleSize = 95;
+
+    /// <summary>Close dribbling: touch speed x 14/16 while running, x 13/16 while sprinting (tuned in game).</summary>
+    public const byte RunTouchSixteenths = 14, SprintTouchSixteenths = 13;
 
     /// <summary>
     /// clip(x0, y0, x1, y1) converts the 2D clip rectangle to pixels with x * screenWidth / 512.
@@ -108,5 +111,41 @@ internal static class CodeCaves
             .Bytes(sites.OriginalBody)                          // original body, ends with jmp [virtualised body]
             .Build();
         return new Hook("Hook.FreeDirection", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 7), cave, code);
+    }
+
+    /// <summary>
+    /// relay(player, direction, speed, height) kicks the ball. While dribbling, the player runs after the
+    /// ball and can only change direction at the next touch, so shorter touches make him follow the stick
+    /// sooner. When the call comes from a dribble touch, the cave scales the speed argument, then replays
+    /// the 6 replaced bytes (mov ecx,[esp+0xC] ; mov eax,ecx). Passes and shots are left alone.
+    /// </summary>
+    public static Hook Dribble(int cave, DribbleSites sites)
+    {
+        var code = new CodeBuilder(cave).Bytes(0x8B, 0x04, 0x24);   // mov eax,[esp]        ; return address
+        foreach (int touch in sites.RunTouches)
+            code.Bytes([0x3D], touch).Jump(0x74, "run");            // cmp eax,touch ; je run
+        foreach (int touch in sites.SprintTouches)
+            code.Bytes([0x3D], touch).Jump(0x74, "sprint");         // cmp eax,touch ; je sprint
+        var bytes = code
+            .Jump(0xEB, "original")                                 // jmp original
+            .Mark("run")
+            .Bytes(Scale(RunTouchSixteenths))
+            .Jump(0xEB, "original")
+            .Mark("sprint")
+            .Bytes(Scale(SprintTouchSixteenths))
+            .Mark("original")
+            .Bytes(0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0xC1)              // original: mov ecx,[esp+0xC] ; mov eax,ecx
+            .Build();
+        bytes = [.. bytes, .. CodeBuilder.JumpPatch(cave + bytes.Length, sites.Relay + 6, 5)];
+        return new Hook("Hook.Dribble", sites.Relay, CodeBuilder.JumpPatch(sites.Relay, cave, 6), cave, bytes);
+
+        // speed argument = speed * sixteenths / 16
+        static byte[] Scale(byte sixteenths) =>
+        [
+            0x8B, 0x44, 0x24, 0x0C,                                 // mov eax,[esp+0xC]
+            0x6B, 0xC0, sixteenths,                                 // imul eax,eax,sixteenths
+            0xC1, 0xF8, 0x04,                                       // sar eax,4
+            0x89, 0x44, 0x24, 0x0C,                                 // mov [esp+0xC],eax
+        ];
     }
 }

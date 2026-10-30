@@ -12,6 +12,12 @@ internal sealed record DisplaySites(
 internal sealed record DirectionSites(int Entry, byte[] OriginalBody, int RotateBits, int DirectionBits, int StickTable, int TurnThreshold);
 
 /// <summary>
+/// Where the close-dribbling fix applies: the ball kick relay and the return addresses of its calls
+/// that make the dribble touches (running and sprinting states).
+/// </summary>
+internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTouches);
+
+/// <summary>
 /// Finds the patch locations by signature, so that builds with the same code at other addresses
 /// (1.00 / 1.10, no-DVD, repacks) can be patched. Every derived address is cross-checked.
 /// </summary>
@@ -45,16 +51,48 @@ internal sealed class ExeLocator
 
     private const string PatchedTurnThreshold = "66 83 FE 0C 72 ?? 8B 57 04 66 83 7A 30 3E";
 
-    public static (DisplaySites? Display, DirectionSites? Direction, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
+    /// <summary>
+    /// Ball kick relay (player, direction, speed, height): mov ecx,[esp+0xC] ; mov eax,ecx ; cdq ; ...
+    /// Patched, its first 6 bytes become "jmp cave ; nop".
+    /// </summary>
+    private const string KickRelay = "8B 4C 24 0C 8B C1 99 83 E2 03 03 C2 8B 15 ?? ?? ?? ?? C1 F8 02 85 C9 89 42 74";
+    private const string PatchedKickRelay = "E9 ?? ?? ?? ?? 90 99 83 E2 03 03 C2 8B 15 ?? ?? ?? ?? C1 F8 02 85 C9 89 42 74";
+
+    /// <summary>
+    /// Dribble touches while running: "call relay" (E8 at the given index) in the running states measured
+    /// in game. The same code exists in other states (e.g. 0x5B11DE, 0x5B53EB, 0x5B5885 in the reference
+    /// build); the signatures are long enough to keep only the measured ones.
+    /// </summary>
+    private static readonly (string Pattern, int Call)[] RunTouchSignatures =
+    [
+        ("8B 0D ?? ?? ?? ?? 83 C4 0C 50 51 55 57 E8 ?? ?? ?? ?? 83 C4 0C 50 55 57 E8 ?? ?? ?? ?? 8A 17 57 88 15", 24),
+        ("00 50 51 33 C9 66 8B 4F 2C 51 57 E8 ?? ?? ?? ?? 33 D2 66 8B 57 2C 83 C4 0C 50 52 57 E8 ?? ?? ?? ?? 8A 07 57 A2", 28),
+        ("8B 4C 24 28 41 51 57 50 56 E8 ?? ?? ?? ?? 8A 16 56 88 15", 9),
+        ("03 EE BE 10 00 00 00 56 55 53 57 E8 ?? ?? ?? ?? 8A 17 57 88 15", 11),
+        ("57 89 48 14 E8 ?? ?? ?? ?? 50 8B C5 E8 ?? ?? ?? ?? 8B 15 ?? ?? ?? ?? 50 52 56 57 E8 ?? ?? ?? ?? 8A 07 57 A2", 27),
+    ];
+
+    /// <summary>Dribble touches while sprinting (the direction comes from [edi+0x30]).</summary>
+    private static readonly (string Pattern, int Call)[] SprintTouchSignatures =
+    [
+        ("83 C4 0C 50 33 C0 66 8B 47 30 50 57 E8 ?? ?? ?? ?? 8A 0F 57 88 0D", 12),
+        ("33 C9 66 8B 4F 30 83 C4 0C 50 51 57 E8 ?? ?? ?? ?? 8A 17 57 88 15", 12),
+    ];
+
+    public static (DisplaySites? Display, DirectionSites? Direction, DribbleSites? Dribble, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
     {
         var locator = new ExeLocator(new PeImage(exe));
         var (display, patched) = locator.FindDisplay();
         // a gameplay-only patch leaves the 2D width alone but lowers the turn threshold (0x20 -> 0x0C)
-        patched |= locator.Hits(PatchedTurnThreshold).Count == 1;
+        // or hooks the kick relay
+        patched |= locator.Hits(PatchedTurnThreshold).Count == 1 || locator.Hits(PatchedKickRelay).Count == 1;
         int displayProblems = locator._problems.Count;
         var direction = locator.FindDirection();
         if (locator._problems.Count > displayProblems) direction = null;
-        return (displayProblems == 0 ? display : null, direction, patched, locator._problems);
+        int otherProblems = locator._problems.Count;
+        var dribble = locator.FindDribble();
+        if (locator._problems.Count > otherProblems) dribble = null;
+        return (displayProblems == 0 ? display : null, direction, dribble, patched, locator._problems);
     }
 
     private (DisplaySites?, bool) FindDisplay()
@@ -150,6 +188,31 @@ internal sealed class ExeLocator
 
         if (entry == 0 || rotate == 0 || bits == 0 || table == 0 || threshold == 0) return null;
         return new DirectionSites(entry, _image.Read(entry, 19), rotate, bits, table, threshold);
+    }
+
+    private DribbleSites? FindDribble()
+    {
+        int relay = Unique(KickRelay, "Hook.Dribble");
+        if (relay == 0) return null;
+
+        // return address of the single "call relay" each signature describes
+        int[] Touches((string Pattern, int Call)[] signatures)
+        {
+            var found = new List<int>();
+            foreach (var (pattern, call) in signatures)
+            {
+                var calls = Hits(pattern).Select(m => m + call).Where(c => _image.Rel32Target(c) == relay).ToList();
+                if (calls.Count == 1) found.Add(calls[0] + 5);
+                else Problem("Hook.Dribble", calls.Count > 0 ? calls[0] : 0);
+            }
+            return [.. found];
+        }
+
+        var run = Touches(RunTouchSignatures);
+        var sprint = Touches(SprintTouchSignatures);
+        return run.Length == RunTouchSignatures.Length && sprint.Length == SprintTouchSignatures.Length
+            ? new DribbleSites(relay, run, sprint)
+            : null;
     }
 
     private static byte[] Rect() =>

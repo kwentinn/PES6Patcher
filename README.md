@@ -15,6 +15,7 @@ Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretchi
 
 **Gameplay**
 - **Free analog stick direction**: the player follows the stick's precise angle, within ±22.5° of the 8 original directions, instead of those 8 directions only. The D-pad, the keyboard and the AI are unchanged.
+- **Close dribbling** (optional): while dribbling, the player can only change direction at his next touch of the ball. This option makes the dribble touches shorter (× 0.875 when running, × 0.81 when sprinting), so the ball stays closer and the player follows the stick sooner. Passes and shots are unchanged.
 - Adjustable **game speed** (Kitserver's Speeder module).
 
 The rest of the gameplay is unchanged.
@@ -59,6 +60,7 @@ The game draws its menus in a layer inherited from the PS2, **512 × 448** units
 | List clipping | Code added before the clip rectangle is converted to pixels. |
 | Player cursor | Code added that adjusts the scale of the 3D → 2D layer projection. |
 | Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. |
+| Close dribbling | Code added at the entry of the ball kick function: when the call comes from one of the 7 dribble touches (5 running, 2 sprinting), the kick speed is scaled down. |
 
 The added code lives in unused padding areas of the exe.
 

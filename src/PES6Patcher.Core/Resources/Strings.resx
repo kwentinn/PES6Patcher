@@ -93,6 +93,15 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat: 3D aspect ratio {0:0.#####}.</value>
   </data>
+  <data name="Gameplay.CloseDribble" xml:space="preserve">
+    <value>Close dribbling (shorter touches, the player follows the stick sooner)</value>
+  </data>
+  <data name="Hook.Dribble" xml:space="preserve">
+    <value>dribble touches</value>
+  </data>
+  <data name="Log.CloseDribble" xml:space="preserve">
+    <value>Close dribbling: dribble touches x 0.875 when running, x 0.81 when sprinting.</value>
+  </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe built without the display fix (free directions: {0}).</value>
   </data>
@@ -232,7 +241,7 @@
     <value>(not available for this executable)</value>
   </data>
   <data name="Report.Result" xml:space="preserve">
-    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Tested in game: {3}</value>
+    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Close dribbling: {3} | Tested in game: {4}</value>
   </data>
   <data name="Error.AlreadyPatched" xml:space="preserve">
     <value>This executable is already patched.</value>

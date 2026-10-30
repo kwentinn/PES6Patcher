@@ -93,6 +93,15 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat : format 3D {0:0.#####}.</value>
   </data>
+  <data name="Gameplay.CloseDribble" xml:space="preserve">
+    <value>Dribble resserré (touches plus courtes, le joueur suit le stick plus tôt)</value>
+  </data>
+  <data name="Hook.Dribble" xml:space="preserve">
+    <value>touches de dribble</value>
+  </data>
+  <data name="Log.CloseDribble" xml:space="preserve">
+    <value>Dribble resserré : touches x 0,875 en course, x 0,81 en sprint.</value>
+  </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe construit sans le correctif d'affichage (directions libres : {0}).</value>
   </data>
@@ -232,7 +241,7 @@
     <value>(indisponible pour cet exécutable)</value>
   </data>
   <data name="Report.Result" xml:space="preserve">
-    <value>Déjà patché : {0} | Correctif écran large : {1} | Directions libres : {2} | Testé en jeu : {3}</value>
+    <value>Déjà patché : {0} | Correctif écran large : {1} | Directions libres : {2} | Dribble resserré : {3} | Testé en jeu : {4}</value>
   </data>
   <data name="Error.AlreadyPatched" xml:space="preserve">
     <value>Cet exécutable est déjà patché.</value>

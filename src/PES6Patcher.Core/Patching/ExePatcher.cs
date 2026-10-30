@@ -6,16 +6,23 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="Half">Virtual half-width of the 2D layer: 224 * aspect (398 for 16:9, 796 for 32:9). 256 = original.</param>
 /// <param name="FreeDirection">Run along the analog stick's precise angle instead of 8 directions.</param>
 /// <param name="Display">Widescreen 2D layer (menus, HUD, list clipping, player cursor).</param>
-public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true);
+/// <param name="CloseDribble">Shorter dribble touches: the player can change direction sooner.</param>
+public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false);
 
 /// <summary>What the patcher can do with a given PES6.exe.</summary>
 /// <param name="Sha256">Hash of the file.</param>
 /// <param name="Validated">This exact build was tested in game.</param>
-/// <param name="AlreadyPatched">The file is already patched (2D layer not 512 units wide, or lowered turn threshold).</param>
+/// <param name="AlreadyPatched">The file is already patched (2D layer not 512 units wide, lowered turn threshold or hooked kick relay).</param>
 /// <param name="Display">The widescreen fix can be applied.</param>
 /// <param name="FreeDirection">The free stick direction fix can be applied.</param>
 /// <param name="Problems">Locations that could not be found.</param>
-public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatched, bool Display, bool FreeDirection, IReadOnlyList<string> Problems);
+public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatched, bool Display, bool FreeDirection, IReadOnlyList<string> Problems)
+{
+    /// <summary>The close-dribbling fix can be applied.</summary>
+    public bool CloseDribble { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble;
+}
 
 public sealed class PatchException(IReadOnlyList<string> problems)
     : Exception(Loc.T("Error.UnsupportedExe", string.Join(" ; ", problems)))
@@ -42,8 +49,8 @@ public static class ExePatcher
         string hash = Sha256(exe);
         try
         {
-            var (display, direction, patched, problems) = ExeLocator.Locate(exe);
-            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems);
+            var (display, direction, dribble, patched, problems) = ExeLocator.Locate(exe);
+            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems) { CloseDribble = dribble != null };
         }
         catch (InvalidDataException ex)
         {
@@ -51,8 +58,8 @@ public static class ExePatcher
         }
     }
 
-    /// <summary>An unpatched exe where at least one fix (display or free direction) can be applied.</summary>
-    public static bool IsSupported(byte[] exe) => Analyze(exe) is { AlreadyPatched: false } r && (r.Display || r.FreeDirection);
+    /// <summary>An unpatched exe where at least one fix (display, free direction, close dribbling) can be applied.</summary>
+    public static bool IsSupported(byte[] exe) => Analyze(exe) is { AlreadyPatched: false } r && r.AnyFix;
 
     /// <summary>Returns a patched copy of <paramref name="original"/>.</summary>
     public static byte[] Build(byte[] original, PatchOptions options)
@@ -60,10 +67,11 @@ public static class ExePatcher
         if (options.Half is < 256 or > 2048) throw new ArgumentOutOfRangeException(nameof(options), Loc.T("Error.HalfOutOfRange"));
 
         var image = new PeImage((byte[])original.Clone());
-        var (display, direction, patched, problems) = ExeLocator.Locate(original);
+        var (display, direction, dribble, patched, problems) = ExeLocator.Locate(original);
         if (patched) throw new InvalidOperationException(Loc.T("Error.AlreadyPatched"));
         if (options.Display && display == null) throw new PatchException(problems);
         if (options.FreeDirection && direction == null) throw new PatchException(problems);
+        if (options.CloseDribble && dribble == null) throw new PatchException(problems);
 
         var plan = new List<(int Va, byte[] Bytes)>();
         var caves = new CaveAllocator(image);
@@ -79,6 +87,15 @@ public static class ExePatcher
             plan.Add((hook.Cave, hook.CaveBytes));
             plan.Add((hook.Entry, hook.EntryBytes));
             plan.Add((direction!.TurnThreshold + 3, [0x0C]));
+        }
+
+        // close dribbling: shorter dribble touches (allocated last, so the other caves stay where they were)
+        if (options.CloseDribble)
+        {
+            var hook = CodeCaves.Dribble(Cave(CodeCaves.DribbleSize), dribble!);
+            if (hook.CaveBytes.Length != CodeCaves.DribbleSize) throw new InvalidOperationException("Added code size does not match its reserved space.");
+            plan.Add((hook.Cave, hook.CaveBytes));
+            plan.Add((hook.Entry, hook.EntryBytes));
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);
