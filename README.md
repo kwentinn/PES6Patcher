@@ -14,7 +14,7 @@ Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretchi
 - Above 1920 × 1080 (1440p and ultrawide screens), the game opens in a borderless window covering the whole screen.
 
 **Gameplay**
-- **Free analog stick direction**: the player follows the stick's precise angle, within ±22.5° of the 8 original directions, instead of those 8 directions only. The D-pad, the keyboard and the AI are unchanged.
+- **Free analog stick direction**: the player follows the stick's precise angle instead of the 8 original directions only, when running and when dribbling (the ball is pushed at the stick's angle instead of the nearest multiple of 22.5°). The D-pad, the keyboard and the AI are unchanged.
 - **Close dribbling** (optional): while dribbling, the player can only change direction at his next touch of the ball. This option makes the dribble touches shorter (× 0.875 when running, × 0.81 when sprinting), so the ball stays closer and the player follows the stick sooner. Passes and shots are unchanged.
 - Adjustable **game speed** (Kitserver's Speeder module).
 
@@ -59,7 +59,7 @@ The game draws its menus in a layer inherited from the PS2, **512 × 448** units
 | 2D layer width | The function returning 512 returns the new width. The two calls feeding the 3D projection keep 512, otherwise players "slide". |
 | List clipping | Code added before the clip rectangle is converted to pixels. |
 | Player cursor | Code added that adjusts the scale of the 3D → 2D layer projection. |
-| Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. |
+| Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. For the most frequent dribble touch, whose direction the game rounds to 22.5°, code added at the entry of the ball kick function adds back what the rounding removed (for the pad whose stick gives that direction). |
 | Close dribbling | Code added at the entry of the ball kick function: when the call comes from one of the 7 dribble touches (5 running, 2 sprinting), the kick speed is scaled down. |
 
 The added code lives in unused padding areas of the exe.
@@ -89,7 +89,7 @@ Addresses and method details (Ghidra, hardware breakpoints, memory captures) are
 
 - Only one build has been tested in game so far; others are patched if their code matches (see above).
 - Menu backgrounds are 512 units wide: black bars remain on the sides.
-- Free directions correct ±22.5° around the 8 directions. True 360° movement would require reworking the game's running system.
+- Free directions apply to an analog stick only. Some less frequent dribble touches and special moves keep the game's own directions.
 
 ## Translations
 

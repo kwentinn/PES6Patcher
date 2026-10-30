@@ -12,10 +12,11 @@ internal sealed record DisplaySites(
 internal sealed record DirectionSites(int Entry, byte[] OriginalBody, int RotateBits, int DirectionBits, int StickTable, int TurnThreshold);
 
 /// <summary>
-/// Where the close-dribbling fix applies: the ball kick relay and the return addresses of its calls
-/// that make the dribble touches (running and sprinting states).
+/// Where the dribble fixes apply: the ball kick relay and the return addresses of its calls that make
+/// the dribble touches (running and sprinting states). <see cref="SnappedTouch"/>, the most frequent
+/// one, gets its direction rounded to 22.5 degrees.
 /// </summary>
-internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTouches);
+internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTouches, int SnappedTouch);
 
 /// <summary>
 /// Finds the patch locations by signature, so that builds with the same code at other addresses
@@ -67,10 +68,13 @@ internal sealed class ExeLocator
     [
         ("8B 0D ?? ?? ?? ?? 83 C4 0C 50 51 55 57 E8 ?? ?? ?? ?? 83 C4 0C 50 55 57 E8 ?? ?? ?? ?? 8A 17 57 88 15", 24),
         ("00 50 51 33 C9 66 8B 4F 2C 51 57 E8 ?? ?? ?? ?? 33 D2 66 8B 57 2C 83 C4 0C 50 52 57 E8 ?? ?? ?? ?? 8A 07 57 A2", 28),
-        ("8B 4C 24 28 41 51 57 50 56 E8 ?? ?? ?? ?? 8A 16 56 88 15", 9),
+        ("8B 4C 24 28 41 51 57 50 56 E8 ?? ?? ?? ?? 8A 16 56 88 15", 9),     // SnappedTouchIndex
         ("03 EE BE 10 00 00 00 56 55 53 57 E8 ?? ?? ?? ?? 8A 17 57 88 15", 11),
         ("57 89 48 14 E8 ?? ?? ?? ?? 50 8B C5 E8 ?? ?? ?? ?? 8B 15 ?? ?? ?? ?? 50 52 56 57 E8 ?? ?? ?? ?? 8A 07 57 A2", 27),
     ];
+
+    /// <summary>The run touch whose direction is the stick angle rounded to 22.5 degrees.</summary>
+    private const int SnappedTouchIndex = 2;
 
     /// <summary>Dribble touches while sprinting (the direction comes from [edi+0x30]).</summary>
     private static readonly (string Pattern, int Call)[] SprintTouchSignatures =
@@ -211,7 +215,7 @@ internal sealed class ExeLocator
         var run = Touches(RunTouchSignatures);
         var sprint = Touches(SprintTouchSignatures);
         return run.Length == RunTouchSignatures.Length && sprint.Length == SprintTouchSignatures.Length
-            ? new DribbleSites(relay, run, sprint)
+            ? new DribbleSites(relay, run, sprint, run[SnappedTouchIndex])
             : null;
     }
 

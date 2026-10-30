@@ -44,9 +44,31 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.True(ExePatcher.IsSupported(original));
         var built = ExePatcher.Build(original, new PatchOptions(half, FreeDirection: true));
 
-        var diff = Enumerable.Range(0, built.Length).Where(i => built[i] != expected[i]).Take(10).ToList();
-        Assert.True(diff.Count == 0, "Octets différents aux offsets : " + string.Join(", ", diff.Select(i => $"0x{i:X}")));
+        // since 1.5, the free direction also hooks the kick relay (dribble touches): the rest is v6
+        AssertSameExceptKickRelay(expected, built, CodeCaves.KickRelaySize(direction: true, closeDribble: false));
     }
+
+    /// <summary>
+    /// <paramref name="built"/> equals <paramref name="expected"/> except the kick relay entry (jmp cave ; nop)
+    /// and its cave of <paramref name="caveSize"/> bytes. Returns the cave's file offset.
+    /// </summary>
+    private static int AssertSameExceptKickRelay(byte[] expected, byte[] built, int caveSize)
+    {
+        var image = new PeImage(built);
+        int relay = image.Offset(KickRelay);
+        Assert.Equal(0xE9, built[relay]);
+        Assert.Equal(0x90, built[relay + 5]);
+        int cave = image.Offset(KickRelay + 5 + BitConverter.ToInt32(built, relay + 1));
+        var diff = Enumerable.Range(0, built.Length)
+            .Where(i => built[i] != expected[i] && !(i >= relay && i < relay + 6) && !(i >= cave && i < cave + caveSize))
+            .Take(10).ToList();
+        Assert.True(diff.Count == 0, "Octets différents aux offsets : " + string.Join(", ", diff.Select(i => $"0x{i:X}")));
+        return cave;
+    }
+
+    private const int KickRelay = 0x4781F0;
+    private static readonly int[] RunTouches = [0x5AF6D3, 0x5AF0CF, 0x5ADEC6, 0x5B0D65, 0x5B07A5];
+    private static readonly int[] SprintTouches = [0x5AFB40, 0x5AFE6D];
 
     [Fact]
     public void Build_without_free_direction_leaves_the_direction_code_untouched()
@@ -106,22 +128,15 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.True(ExePatcher.Analyze(original).CloseDribble);
         var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true, CloseDribble: true));
 
-        // relay entry: jmp cave ; nop
-        var image = new PeImage(built);
-        int relay = image.Offset(0x4781F0);
-        Assert.Equal(0xE9, built[relay]);
-        Assert.Equal(0x90, built[relay + 5]);
-        int cave = 0x4781F0 + 5 + BitConverter.ToInt32(built, relay + 1);
-
-        // everything else is the v6 build; the cave compares the return address with the 7 dribble touches
-        var changed = Enumerable.Range(0, built.Length).Where(i => built[i] != v6[i]).ToList();
-        int caveOffset = image.Offset(cave);
-        Assert.All(changed, i => Assert.True(i >= relay && i < relay + 6 || i >= caveOffset && i < caveOffset + CodeCaves.DribbleSize, $"0x{i:X}"));
-        int[] touches = [0x5AF6D3, 0x5AF0CF, 0x5ADEC6, 0x5B0D65, 0x5B07A5, 0x5AFB40, 0x5AFE6D];
+        // everything else is the v6 build; after the direction part, the cave compares the return
+        // address with the 7 dribble touches
+        int cave = AssertSameExceptKickRelay(v6, built, CodeCaves.KickRelaySize(direction: true, closeDribble: true));
+        int[] touches = [.. RunTouches, .. SprintTouches];
         for (int k = 0; k < touches.Length; k++)
         {
-            Assert.Equal(0x3D, built[caveOffset + 3 + 7 * k]);
-            Assert.Equal(touches[k], BitConverter.ToInt32(built, caveOffset + 4 + 7 * k));
+            int at = cave + CodeCaves.RelayDirectionSize + 3 + 7 * k;
+            Assert.Equal(0x3D, built[at]);
+            Assert.Equal(touches[k], BitConverter.ToInt32(built, at + 1));
         }
 
         var report = ExePatcher.Analyze(built);
@@ -207,9 +222,36 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.False(report.Validated);
         Assert.True(report.Display && report.FreeDirection);
 
-        var built = ExePatcher.Build(other, new PatchOptions(398, FreeDirection: true));
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true);
+        var built = ExePatcher.Build(other, options);
+        var reference = ExePatcher.Build(original, options);
+        reference[timestamp] ^= 0x5A;
+        Assert.Equal(reference, built);
         expected[timestamp] ^= 0x5A;
-        Assert.Equal(expected, built);
+        AssertSameExceptKickRelay(expected, built, CodeCaves.KickRelaySize(direction: true, closeDribble: true));
+    }
+
+    [Fact]
+    public void Free_direction_rounds_the_snapped_dribble_touch_back_to_the_stick_angle()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        // only the free direction: the cave starts with the snapped touch test, then the pad loop
+        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true, Display: false));
+        var image = new PeImage(built);
+        int relay = image.Offset(KickRelay);
+        int cave = image.Offset(KickRelay + 5 + BitConverter.ToInt32(built, relay + 1));
+        Assert.Equal(0x3D, built[cave + 3]);
+        Assert.Equal(0x5ADEC6, BitConverter.ToInt32(built, cave + 4));
+        Assert.Equal(0x1016682, BitConverter.ToInt32(built, cave + 18));   // pad 0 stick magnitude
+        Assert.Equal(0x1016680, BitConverter.ToInt32(built, cave + 29));   // pad 0 stick angle
+
+        // close dribbling alone is unchanged since 1.4: no direction part
+        var close = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: false, Display: false, CloseDribble: true));
+        var closeImage = new PeImage(close);
+        int closeCave = closeImage.Offset(KickRelay + 5 + BitConverter.ToInt32(close, closeImage.Offset(KickRelay) + 1));
+        Assert.Equal(0x5AF6D3, BitConverter.ToInt32(close, closeCave + 4));
     }
 
     [Theory]

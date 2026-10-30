@@ -9,7 +9,13 @@ internal sealed record Hook(string NameKey, int Entry, byte[] EntryBytes, int Ca
 /// </summary>
 internal static class CodeCaves
 {
-    public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156, DribbleSize = 95;
+    public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156;
+
+    /// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
+    public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 84, RelayTailSize = 11;
+
+    public static int KickRelaySize(bool direction, bool closeDribble) =>
+        (direction ? RelayDirectionSize : 0) + (closeDribble ? RelayCloseDribbleSize : 0) + RelayTailSize;
 
     /// <summary>Close dribbling: touch speed x 14/16 while running, x 13/16 while sprinting (tuned in game).</summary>
     public const byte RunTouchSixteenths = 14, SprintTouchSixteenths = 13;
@@ -115,24 +121,64 @@ internal static class CodeCaves
 
     /// <summary>
     /// relay(player, direction, speed, height) kicks the ball. While dribbling, the player runs after the
-    /// ball and can only change direction at the next touch, so shorter touches make him follow the stick
-    /// sooner. When the call comes from a dribble touch, the cave scales the speed argument, then replays
-    /// the 6 replaced bytes (mov ecx,[esp+0xC] ; mov eax,ecx). Passes and shots are left alone.
+    /// ball and can only change direction at the next touch. The cave, depending on the options:
+    /// <list type="bullet">
+    /// <item>direction (with the free direction): the most frequent dribble touch takes the stick angle
+    /// rounded to 22.5 degrees (by virtualised code). For the pad whose rounded angle is that direction
+    /// (or its opposite: attacking side), the cave adds back what the rounding removed. The AI's touches
+    /// match no pad, so they are left alone.</item>
+    /// <item>close dribbling: for the dribble touches, scales the speed argument down (shorter touches).</item>
+    /// </list>
+    /// Then it replays the 6 replaced bytes (mov ecx,[esp+0xC] ; mov eax,ecx). Passes and shots are left alone.
     /// </summary>
-    public static Hook Dribble(int cave, DribbleSites sites)
+    public static Hook KickRelay(int cave, DribbleSites sites, DirectionSites? direction, bool closeDribble)
     {
-        var code = new CodeBuilder(cave).Bytes(0x8B, 0x04, 0x24);   // mov eax,[esp]        ; return address
-        foreach (int touch in sites.RunTouches)
-            code.Bytes([0x3D], touch).Jump(0x74, "run");            // cmp eax,touch ; je run
-        foreach (int touch in sites.SprintTouches)
-            code.Bytes([0x3D], touch).Jump(0x74, "sprint");         // cmp eax,touch ; je sprint
+        var code = new CodeBuilder(cave);
+        if (direction != null)
+        {
+            int table = direction.StickTable;
+            code.Bytes(0x8B, 0x04, 0x24)                            // mov eax,[esp]        ; return address
+                .Bytes([0x3D], sites.SnappedTouch)                  // cmp eax,snapped touch
+                .Jump(0x75, "directionDone")                        // jne directionDone
+                .Bytes(0x51, 0x52, 0x56)                            // push ecx/edx/esi
+                .Bytes(0x33, 0xF6)                                  // xor esi,esi          ; pad index
+                .Mark("pad")
+                .Bytes([.. new byte[] { 0x80, 0x3C, 0xB5 }, .. BitConverter.GetBytes(table + 2), 0x00])   // cmp byte [esi*4+magnitude],0
+                .Jump(0x74, "nextPad")                              // je nextPad
+                .Bytes([0x0F, 0xB7, 0x0C, 0xB5], table)             // movzx ecx,word [esi*4+angle]
+                .Bytes(0x8B, 0xD1)                                  // mov edx,ecx
+                .Bytes([0x81, 0xC2], 0x800)                         // add edx,0x800
+                .Bytes([0x81, 0xE2], 0xF000)                        // and edx,0xF000       ; rounded to 22.5 deg
+                .Bytes(0x8B, 0x44, 0x24, 0x14)                      // mov eax,[esp+0x14]   ; direction argument
+                .Bytes(0x2B, 0xC2)                                  // sub eax,edx
+                .Bytes(0x66, 0xA9, 0xFF, 0x7F)                      // test ax,0x7FFF       ; same or opposite?
+                .Jump(0x75, "nextPad")                              // jne nextPad
+                .Bytes(0x2B, 0xCA)                                  // sub ecx,edx          ; removed by the rounding
+                .Bytes(0x0F, 0xBF, 0xC9)                            // movsx ecx,cx
+                .Bytes(0x01, 0x4C, 0x24, 0x14)                      // add [esp+0x14],ecx
+                .Jump(0xEB, "restore")                              // jmp restore
+                .Mark("nextPad")
+                .Bytes(0x46, 0x83, 0xFE, 0x08)                      // inc esi ; cmp esi,8
+                .Jump(0x7C, "pad")                                  // jl pad
+                .Mark("restore")
+                .Bytes(0x5E, 0x5A, 0x59)                            // pop esi/edx/ecx
+                .Mark("directionDone");
+        }
+        if (closeDribble)
+        {
+            code.Bytes(0x8B, 0x04, 0x24);                           // mov eax,[esp]        ; return address
+            foreach (int touch in sites.RunTouches)
+                code.Bytes([0x3D], touch).Jump(0x74, "run");        // cmp eax,touch ; je run
+            foreach (int touch in sites.SprintTouches)
+                code.Bytes([0x3D], touch).Jump(0x74, "sprint");     // cmp eax,touch ; je sprint
+            code.Jump(0xEB, "original")                             // jmp original
+                .Mark("run")
+                .Bytes(Scale(RunTouchSixteenths))
+                .Jump(0xEB, "original")
+                .Mark("sprint")
+                .Bytes(Scale(SprintTouchSixteenths));
+        }
         var bytes = code
-            .Jump(0xEB, "original")                                 // jmp original
-            .Mark("run")
-            .Bytes(Scale(RunTouchSixteenths))
-            .Jump(0xEB, "original")
-            .Mark("sprint")
-            .Bytes(Scale(SprintTouchSixteenths))
             .Mark("original")
             .Bytes(0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0xC1)              // original: mov ecx,[esp+0xC] ; mov eax,ecx
             .Build();

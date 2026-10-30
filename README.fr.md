@@ -14,7 +14,7 @@ Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirem
 - Au-delà de 1920 × 1080 (écrans 1440p, ultra-larges), le jeu s'ouvre dans une fenêtre sans bordure qui couvre tout l'écran.
 
 **Gameplay**
-- **Directions libres au stick analogique** : le joueur suit l'angle précis du stick, à ±22,5° autour des 8 directions d'origine, au lieu de ces seules 8 directions. La croix directionnelle, le clavier et l'IA ne changent pas.
+- **Directions libres au stick analogique** : le joueur suit l'angle précis du stick au lieu des seules 8 directions d'origine, en course comme en dribble (le ballon part dans l'angle du stick au lieu du multiple de 22,5° le plus proche). La croix directionnelle, le clavier et l'IA ne changent pas.
 - **Dribble resserré** (option) : en dribble, le joueur ne peut changer de direction qu'à sa touche de balle suivante. Cette option raccourcit les touches (× 0,875 en course, × 0,81 en sprint) : le ballon reste plus près et le joueur suit le stick plus tôt. Les passes et les tirs ne changent pas.
 - **Vitesse du jeu** réglable (module Speeder de Kitserver).
 
@@ -59,7 +59,7 @@ Le jeu dessine ses menus dans un repère hérité de la PS2, de **512 × 448** u
 | Largeur du repère 2D | La fonction qui renvoie 512 renvoie la nouvelle largeur. Les deux appels qui alimentent la projection 3D gardent 512, sinon les joueurs « glissent ». |
 | Découpage des listes | Code ajouté avant la conversion du rectangle de découpage en pixels. |
 | Curseur du joueur | Code ajouté qui ajuste l'échelle de la projection 3D → repère 2D. |
-| Directions libres | Code ajouté autour de la conversion bits de direction → cap : ajoute l'écart entre l'angle précis du stick et le centre de son secteur de 45°. Le seuil de virage de la course passe de 45° à environ 17°. |
+| Directions libres | Code ajouté autour de la conversion bits de direction → cap : ajoute l'écart entre l'angle précis du stick et le centre de son secteur de 45°. Le seuil de virage de la course passe de 45° à environ 17°. Pour la touche de dribble la plus fréquente, dont le jeu arrondit la direction à 22,5°, du code ajouté à l'entrée de la fonction qui frappe le ballon rajoute ce que l'arrondi a retiré (pour la manette dont le stick donne cette direction). |
 | Dribble resserré | Code ajouté à l'entrée de la fonction qui frappe le ballon : quand l'appel vient d'une des 7 touches de dribble (5 en course, 2 en sprint), la vitesse de frappe est réduite. |
 
 Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe.
@@ -89,7 +89,7 @@ Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt mat�
 
 - Une seule version a été testée en jeu pour l'instant. Les autres sont patchées si leur code correspond (voir plus haut).
 - Les décors des menus font 512 unités de large : il reste des bandes noires sur les côtés.
-- Les directions libres corrigent ±22,5° autour des 8 directions. Un vrai 360° demanderait de refondre le système de course du jeu.
+- Les directions libres ne concernent que le stick analogique. Quelques touches de dribble moins fréquentes et les gestes spéciaux gardent les directions du jeu.
 
 ## Traductions
 

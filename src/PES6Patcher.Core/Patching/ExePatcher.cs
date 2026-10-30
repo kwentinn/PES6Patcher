@@ -89,11 +89,14 @@ public static class ExePatcher
             plan.Add((direction!.TurnThreshold + 3, [0x0C]));
         }
 
-        // close dribbling: shorter dribble touches (allocated last, so the other caves stay where they were)
-        if (options.CloseDribble)
+        // ball kick relay (allocated last, so the other caves stay where they were): the free direction
+        // also covers the dribble touch rounded to 22.5 degrees; close dribbling shortens the touches
+        bool dribbleDirection = options.FreeDirection && dribble != null;
+        if (dribbleDirection || options.CloseDribble)
         {
-            var hook = CodeCaves.Dribble(Cave(CodeCaves.DribbleSize), dribble!);
-            if (hook.CaveBytes.Length != CodeCaves.DribbleSize) throw new InvalidOperationException("Added code size does not match its reserved space.");
+            int size = CodeCaves.KickRelaySize(dribbleDirection, options.CloseDribble);
+            var hook = CodeCaves.KickRelay(Cave(size), dribble!, dribbleDirection ? direction : null, options.CloseDribble);
+            if (hook.CaveBytes.Length != size) throw new InvalidOperationException("Added code size does not match its reserved space.");
             plan.Add((hook.Cave, hook.CaveBytes));
             plan.Add((hook.Entry, hook.EntryBytes));
         }
