@@ -8,13 +8,15 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, decimal Width, decimal Height, bool Borderless, bool FreeDirection, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, decimal Width, decimal Height, bool Borderless, bool FreeDirection, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
 
     private readonly ComboBox _language = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 170 };
     private readonly TextBox _folder = new() { Dock = DockStyle.Fill };
+    private readonly ComboBox _exe = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
+    private readonly Button _report = new() { Text = Loc.T("Action.CopyReport"), AutoSize = true };
     private readonly Label _exeState = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly NumericUpDown _width = new() { Minimum = 640, Maximum = 10240, Increment = 10, Width = 80 };
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Increment = 10, Width = 80 };
@@ -41,7 +43,9 @@ internal sealed class MainForm : Form
         screen.Click += (_, _) => UseScreenResolution();
         _width.ValueChanged += (_, _) => UpdateFormatInfo();
         _height.ValueChanged += (_, _) => UpdateFormatInfo();
-        _folder.Leave += (_, _) => RefreshState(log: true);
+        _folder.Leave += (_, _) => { FillExecutables(null); RefreshState(log: true); };
+        _exe.SelectionChangeCommitted += (_, _) => RefreshState(log: true);
+        _report.Click += (_, _) => CopyReport();
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
 
@@ -55,6 +59,7 @@ internal sealed class MainForm : Form
 
         var folderRow = Row(_folder, browse);
         folderRow.ColumnStyles[0] = new ColumnStyle(SizeType.Percent, 100);
+        var exeRow = Flow(LabelText(Loc.T("Folder.Exe")), _exe, _report);
 
         var display = Group(Loc.T("Display.Group"),
             Flow(LabelText(Loc.T("Display.Resolution")), _width, LabelText("×"), _height, screen),
@@ -67,6 +72,7 @@ internal sealed class MainForm : Form
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(10) };
         layout.Controls.Add(header);
         layout.Controls.Add(folderRow);
+        layout.Controls.Add(exeRow);
         layout.Controls.Add(_exeState);
         layout.Controls.Add(display);
         layout.Controls.Add(gameplay);
@@ -82,12 +88,14 @@ internal sealed class MainForm : Form
         if (previous == null)
         {
             _folder.Text = GameInstall.FindFolder() ?? "";
+            FillExecutables(null);
             UseScreenResolution();
             RefreshState(log: true);
         }
         else
         {
             _folder.Text = previous.Folder;
+            FillExecutables(previous.Exe);
             _width.Value = previous.Width;
             _height.Value = previous.Height;
             _borderless.Checked = previous.Borderless;
@@ -116,12 +124,12 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _width.Value, _height.Value, _borderless.Checked, _freeDirection.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _width.Value, _height.Value, _borderless.Checked, _freeDirection.Checked, _speed.Value, _log.Text);
         Close();
     }
 
     private InstallSettings CurrentSettings() =>
-        new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Checked, (double)_speed.Value);
+        new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value);
 
     private void UseScreenResolution()
     {
@@ -142,13 +150,24 @@ internal sealed class MainForm : Form
         using var dialog = new FolderBrowserDialog { Description = Loc.T("Folder.BrowseDescription"), SelectedPath = _folder.Text };
         if (dialog.ShowDialog(this) != DialogResult.OK) return;
         _folder.Text = dialog.SelectedPath;
+        FillExecutables(null);
         RefreshState(log: true);
     }
 
-    /// <summary>Shows the state of the selected installation and pre-fills the gameplay options.</summary>
+    /// <summary>Lists the game executables of the folder, keeping <paramref name="preferred"/> selected when present.</summary>
+    private void FillExecutables(string? preferred)
+    {
+        _exe.Items.Clear();
+        foreach (var name in GameInstall.FindExecutables(_folder.Text.Trim())) _exe.Items.Add(name);
+        if (_exe.Items.Count == 0) return;
+        _exe.SelectedItem = _exe.Items.Cast<string>().FirstOrDefault(n => n == preferred) ?? _exe.Items[0];
+    }
+
+    /// <summary>Shows the state of the selected executable and pre-fills the gameplay options.</summary>
     private void RefreshState(bool log)
     {
         var game = SelectedGame();
+        _report.Enabled = game != null && File.Exists(game.Exe);
         if (game == null)
         {
             _exeState.Text = Loc.T("State.NotFound");
@@ -156,15 +175,23 @@ internal sealed class MainForm : Form
             return;
         }
 
-        var state = game.GetExeState();
-        _exeState.Text = Loc.T(state switch
+        var (state, report) = game.Inspect();
+        string exe = Path.GetFileName(game.Exe), backup = Path.GetFileName(game.ExeBackup);
+        _exeState.Text = state switch
         {
-            ExeState.Original => "State.Original",
-            ExeState.Patched => "State.Patched",
-            _ => "State.Unsupported",
-        });
+            ExeState.Original when report!.Validated => Loc.T("State.Validated", exe),
+            ExeState.Original => Loc.T("State.Compatible", exe),
+            ExeState.Patched => Loc.T("State.Patched", exe, backup),
+            ExeState.PatchedWithoutBackup => Loc.T("State.PatchedWithoutBackup", exe, backup),
+            ExeState.Missing => Loc.T("State.NotFound"),
+            _ => Loc.T("State.Unsupported", exe),
+        };
         _apply.Enabled = state is ExeState.Original or ExeState.Patched;
         _restore.Enabled = File.Exists(game.ExeBackup) || game.ConfigFiles.Any(f => File.Exists(f + ".orig"));
+
+        bool freeDirection = report is { FreeDirection: true };
+        _freeDirection.Enabled = freeDirection;
+        _freeDirection.Text = Loc.T("Gameplay.FreeDirection") + (freeDirection || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
 
         if (File.Exists(game.Speeder) && SpeederConfig.Read(File.ReadAllText(game.Speeder)) is double speed)
             _speed.Value = Math.Clamp((decimal)speed, _speed.Minimum, _speed.Maximum);
@@ -178,7 +205,19 @@ internal sealed class MainForm : Form
     private GameInstall? SelectedGame()
     {
         var folder = _folder.Text.Trim();
-        return folder.Length > 0 && File.Exists(Path.Combine(folder, "PES6.exe")) ? new GameInstall(folder) : null;
+        return folder.Length > 0 && _exe.SelectedItem is string exe && File.Exists(Path.Combine(folder, exe)) ? new GameInstall(folder, exe) : null;
+    }
+
+    /// <summary>Puts a report on the selected executable (and its backup) in the clipboard, for support.</summary>
+    private void CopyReport()
+    {
+        var game = SelectedGame();
+        if (game == null) return;
+        var text = Diagnostics.Report(game.Exe);
+        if (File.Exists(game.ExeBackup)) text += Environment.NewLine + Environment.NewLine + Diagnostics.Report(game.ExeBackup);
+        Clipboard.SetText(text);
+        Log(text);
+        Log(Loc.T("Log.ReportCopied"));
     }
 
     private void Run(Action<GameInstall> action)

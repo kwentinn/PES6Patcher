@@ -21,9 +21,7 @@ The rest of the gameplay is unchanged.
 
 ## Requirements
 
-- **PES6 PC with the supported `PES6.exe` build.** The patch addresses were found in one exe build only, identified by its SHA-256:
-  `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382`.
-  The app refuses any other exe and then changes nothing.
+- **PES6 PC with an unprotected executable** (no-DVD `PES6.exe` 1.00 / 1.10, or the exe of a community patch). See [Supported executables](#supported-executables).
 - **[Kitserver 6](https://www.evoweb.uk/)**, with the LOD Mixer and Speeder modules. It sets the resolution and the 3D aspect ratio.
 - **Windows 10/11** and the **[.NET 10 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/10.0)**.
 
@@ -31,7 +29,7 @@ The rest of the gameplay is unchanged.
 
 1. Close PES6 and `settings.exe`.
 2. Run `PES6Patcher.exe`. It asks for administrator rights, because the game is installed in `Program Files`.
-3. Check the game folder (detected automatically) and the resolution (the screen's by default).
+3. Check the game folder (detected automatically), the executable and the resolution (the screen's by default).
 4. Choose the options, then click **Apply**.
 
 **Restore original** puts every file back as it was before the first apply.
@@ -44,7 +42,7 @@ Notes:
 
 | File | Change | Backup |
 |---|---|---|
-| `PES6.exe` | patch (see below) | `PES6.exe.orig` |
+| `PES6.exe` (or the selected executable) | patch (see below) | `PES6.exe.orig` |
 | `kitserver\kload.cfg` | render resolution, borderless window | `kload.cfg.orig` |
 | `kitserver\lodmixer.dat` | 3D aspect ratio | `lodmixer.dat.orig` |
 | `kitserver\speeder.cfg` | game speed | `speeder.cfg.orig` |
@@ -62,13 +60,32 @@ The game draws its menus in a layer inherited from the PS2, **512 × 448** units
 | Player cursor | Code added that adjusts the scale of the 3D → 2D layer projection. |
 | Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. |
 
-The added code lives in unused padding areas of the exe. Before anything is written, every location is checked against the original bytes.
+The added code lives in unused padding areas of the exe.
+
+## Supported executables
+
+PES6 exists in several builds: 1.00 and 1.10, original or no-DVD, plus the executables shipped by community patches (`online_pes6.exe`, `offline_pes6.exe`…). The patch does not rely on fixed addresses: it **finds every location by signature**, that is the surrounding code with addresses left as wildcards, then derives the addresses it needs and cross-checks them (the constants must be 256.0 and 1/512, the calls must reach the expected functions…). Any build with the same game code is patched the same way, wherever that code lives.
+
+The app shows, for the selected executable:
+- **build tested in game**: the patch is known to work with it;
+- **not tested in game yet**: every location was found, so it should work. Please report how it goes;
+- **not supported**: some locations were not found. Nothing is changed.
+
+Original executables with a DVD check may keep parts of their code encrypted by the copy protection; in that case the app reports them as not supported, and a no-DVD executable is needed.
+
+**Copy report** puts a short report in the clipboard (file name, SHA-256, what can be applied, missing locations). Please share it, for example in the forum thread, so more builds can be confirmed.
+
+Builds tested in game:
+
+| SHA-256 | Notes |
+|---|---|
+| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | no-DVD `PES6.exe`, widescreen and free direction tested |
 
 Addresses and method details (Ghidra, hardware breakpoints, memory captures) are in [`research/NOTES.md`](research/NOTES.md), in French. The scripts used during the research are in [`research/scripts`](research/scripts).
 
 ## Limitations
 
-- Only one `PES6.exe` build is supported.
+- Only one build has been tested in game so far; others are patched if their code matches (see above).
 - Menu backgrounds are 512 units wide: black bars remain on the sides.
 - Free directions correct ±22.5° around the 8 directions. True 360° movement would require reworking the game's running system.
 

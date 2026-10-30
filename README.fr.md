@@ -21,9 +21,7 @@ Le reste du gameplay est inchangé.
 
 ## Prérequis
 
-- **PES6 PC avec la version de `PES6.exe` supportée.** Les adresses du patch ont été trouvées dans une seule version de l'exe, identifiée par son empreinte SHA-256 :
-  `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382`.
-  L'application refuse tout autre exe et ne modifie alors rien.
+- **PES6 PC avec un exécutable non protégé** : `PES6.exe` « No-DVD » 1.00 ou 1.10, ou l'exe d'un patch communautaire. Voir [Exécutables pris en charge](#exécutables-pris-en-charge).
 - **[Kitserver 6](https://www.evoweb.uk/)**, avec les modules LOD Mixer et Speeder. Il sert à régler la résolution et le format 3D.
 - **Windows 10/11** et le **.NET 10 Desktop Runtime**.
 
@@ -31,7 +29,7 @@ Le reste du gameplay est inchangé.
 
 1. Fermer PES6 et `settings.exe`.
 2. Lancer `PES6Patcher.exe`. Il demande les droits administrateur, car le jeu est installé dans `Program Files`.
-3. Vérifier le dossier du jeu (détecté automatiquement) et la résolution (celle de l'écran par défaut).
+3. Vérifier le dossier du jeu (détecté automatiquement), l'exécutable et la résolution (celle de l'écran par défaut).
 4. Choisir les options, puis cliquer sur **Appliquer**.
 
 **Restaurer l'original** remet tous les fichiers tels qu'ils étaient avant la première application.
@@ -44,7 +42,7 @@ Remarques :
 
 | Fichier | Modification | Sauvegarde |
 |---|---|---|
-| `PES6.exe` | patch (voir ci-dessous) | `PES6.exe.orig` |
+| `PES6.exe` (ou l'exécutable choisi) | patch (voir ci-dessous) | `PES6.exe.orig` |
 | `kitserver\kload.cfg` | résolution de rendu, fenêtre sans bordure | `kload.cfg.orig` |
 | `kitserver\lodmixer.dat` | format d'image 3D | `lodmixer.dat.orig` |
 | `kitserver\speeder.cfg` | vitesse du jeu | `speeder.cfg.orig` |
@@ -62,13 +60,32 @@ Le jeu dessine ses menus dans un repère hérité de la PS2, de **512 × 448** u
 | Curseur du joueur | Code ajouté qui ajuste l'échelle de la projection 3D → repère 2D. |
 | Directions libres | Code ajouté autour de la conversion bits de direction → cap : ajoute l'écart entre l'angle précis du stick et le centre de son secteur de 45°. Le seuil de virage de la course passe de 45° à environ 17°. |
 
-Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe. Avant toute écriture, chaque emplacement est vérifié par rapport aux octets d'origine.
+Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe.
+
+## Exécutables pris en charge
+
+PES6 existe en plusieurs versions : 1.00 et 1.10, d'origine ou « No-DVD », sans compter les exécutables fournis par les patchs communautaires (`online_pes6.exe`, `offline_pes6.exe`…). Le patch ne repose pas sur des adresses fixes : il **retrouve chaque emplacement par signature**, c'est-à-dire par le code qui l'entoure, avec les adresses laissées en joker. Il en déduit ensuite les adresses dont il a besoin, puis les vérifie : les constantes doivent valoir 256,0 et 1/512, les appels doivent mener aux bonnes fonctions… Toute version qui contient le même code du jeu est donc patchée de la même façon, quel que soit l'endroit où ce code se trouve.
+
+Pour l'exécutable choisi, l'application indique :
+- **version testée en jeu** : le patch est connu pour fonctionner ;
+- **pas encore testée en jeu** : tous les emplacements ont été trouvés, le patch devrait donc fonctionner. Merci d'indiquer ce que ça donne ;
+- **non prise en charge** : certains emplacements sont introuvables. Rien n'est modifié.
+
+Les exécutables d'origine qui vérifient le DVD gardent peut-être une partie de leur code chiffrée par la protection anticopie. Dans ce cas, l'application les signale comme non pris en charge, et il faut un exécutable « No-DVD ».
+
+**Copier le rapport** place un court rapport dans le presse-papiers : nom du fichier, SHA-256, ce qui peut être appliqué et emplacements introuvables. Merci de le partager, par exemple sur le fil du forum, pour que d'autres versions puissent être confirmées.
+
+Versions testées en jeu :
+
+| SHA-256 | Remarques |
+|---|---|
+| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | `PES6.exe` « No-DVD », écran large et directions libres testés |
 
 Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt matériels et des relevés mémoire, est dans [`research/NOTES.md`](research/NOTES.md). Les scripts utilisés pendant la recherche sont dans [`research/scripts`](research/scripts).
 
 ## Limites
 
-- Une seule version de `PES6.exe` est supportée.
+- Une seule version a été testée en jeu pour l'instant. Les autres sont patchées si leur code correspond (voir plus haut).
 - Les décors des menus font 512 unités de large : il reste des bandes noires sur les côtés.
 - Les directions libres corrigent ±22,5° autour des 8 directions. Un vrai 360° demanderait de refondre le système de course du jeu.
 

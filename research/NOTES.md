@@ -59,6 +59,20 @@ Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'appli
 | `pes6stick.ps1` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
 | `pes6heading.ps1` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
 | `pes6window.ps1`, `capture-window.ps1` | géométrie et capture de la fenêtre du jeu ou de l'application |
+| `make-signatures.ps1` | construit la signature d'un emplacement : les octets qui l'entourent, adresses absolues et cibles d'appel masquées, allongés jusqu'à n'apparaître qu'une fois dans le code |
+| `StringRefs.java` | script Ghidra : décompile les fonctions qui utilisent une chaîne (par exemple les noms de versions de Kitserver dans `kload.dll`) |
+| `set-resx.ps1` | ajoute, modifie ou supprime des textes dans les ressources anglaises et françaises |
+
+### Plusieurs versions de l'exe
+
+Kitserver distingue trois versions du jeu : « PES6 PC » (1.00), « PES6 PC 1.10 » et « WE-PES 2007 PC ». Les patchs communautaires fournissent aussi leurs propres exe. Plutôt qu'une table d'adresses par version, qui demanderait de posséder chaque exe, l'application retrouve les emplacements par signature (`src/PES6Patcher.Core/Patching/ExeLocator.cs`) :
+
+- les signatures sont celles de `make-signatures.ps1`, construites vers l'avant à partir de chaque emplacement ;
+- les adresses utilisées par le code ajouté (constantes 256,0 et 1/512, fonction de largeur de l'écran, variable des bits de direction, table du stick…) sont lues dans le code trouvé, puis vérifiées ;
+- les deux appels qui transmettent la largeur à la 3D sont reconnus par le contenu de la fonction appelée, car un troisième appel identique alimente le découpage 2D ;
+- les zones libres sont les plages de `CC` d'au moins 80 octets du code, et les constantes vont dans la dernière page de `.rdata`, chargée par Windows même au-delà des données du fichier.
+
+Sur l'exe de référence, ce moteur produit octet pour octet la v6 validée en jeu (tests `Build_matches_the_exe_validated_in_game`).
 
 Le décompilateur de Ghidra ne se lance pas depuis un chemin de plus de 260 caractères : installer Ghidra dans un dossier court.
 

@@ -61,16 +61,13 @@
     <value>Restore original</value>
   </data>
   <data name="State.NotFound" xml:space="preserve">
-    <value>PES6.exe not found in this folder.</value>
-  </data>
-  <data name="State.Original" xml:space="preserve">
-    <value>PES6.exe: original version, supported.</value>
+    <value>No game executable found in this folder.</value>
   </data>
   <data name="State.Patched" xml:space="preserve">
-    <value>PES6.exe: already patched (the original is saved as PES6.exe.orig).</value>
+    <value>{0}: already patched (the original is saved as {1}).</value>
   </data>
   <data name="State.Unsupported" xml:space="preserve">
-    <value>PES6.exe: unsupported version. This patch only works with one specific build of the exe.</value>
+    <value>{0}: not supported (some locations were not found). Use "Copy report" to share the details.</value>
   </data>
   <data name="Log.Game" xml:space="preserve">
     <value>Game: {0}</value>
@@ -188,5 +185,47 @@
   </data>
   <data name="Hook.FreeDirection" xml:space="preserve">
     <value>free directions</value>
+  </data>
+  <data name="Log.ReportCopied" xml:space="preserve">
+    <value>Report copied to the clipboard.</value>
+  </data>
+  <data name="State.Validated" xml:space="preserve">
+    <value>{0}: original, build tested in game.</value>
+  </data>
+  <data name="Report.File" xml:space="preserve">
+    <value>File: {0} ({1:N0} bytes)</value>
+  </data>
+  <data name="Report.Title" xml:space="preserve">
+    <value>PES6 Patcher {0} – executable report</value>
+  </data>
+  <data name="Report.Missing" xml:space="preserve">
+    <value>Not found: {0}</value>
+  </data>
+  <data name="Report.Hash" xml:space="preserve">
+    <value>SHA-256: {0}</value>
+  </data>
+  <data name="Log.Untested" xml:space="preserve">
+    <value>This build has not been tested in game yet (SHA-256 {0}). Please report how it works.</value>
+  </data>
+  <data name="Action.CopyReport" xml:space="preserve">
+    <value>Copy report</value>
+  </data>
+  <data name="Gameplay.FreeDirectionUnavailable" xml:space="preserve">
+    <value>(not available for this executable)</value>
+  </data>
+  <data name="Report.Result" xml:space="preserve">
+    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Tested in game: {3}</value>
+  </data>
+  <data name="Error.AlreadyPatched" xml:space="preserve">
+    <value>This executable is already patched.</value>
+  </data>
+  <data name="State.PatchedWithoutBackup" xml:space="preserve">
+    <value>{0}: already patched, but its original ({1}) is missing: put the unpatched exe back before applying.</value>
+  </data>
+  <data name="Folder.Exe" xml:space="preserve">
+    <value>Executable:</value>
+  </data>
+  <data name="State.Compatible" xml:space="preserve">
+    <value>{0}: original, build not tested in game yet (every location was found).</value>
   </data>
 </root>

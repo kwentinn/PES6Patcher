@@ -7,6 +7,15 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="FreeDirection">Run along the analog stick's precise angle instead of 8 directions.</param>
 public sealed record PatchOptions(int Half, bool FreeDirection);
 
+/// <summary>What the patcher can do with a given PES6.exe.</summary>
+/// <param name="Sha256">Hash of the file.</param>
+/// <param name="Validated">This exact build was tested in game.</param>
+/// <param name="AlreadyPatched">The file is already patched (its 2D layer is not 512 units wide).</param>
+/// <param name="Display">The widescreen fix can be applied.</param>
+/// <param name="FreeDirection">The free stick direction fix can be applied.</param>
+/// <param name="Problems">Locations that could not be found.</param>
+public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatched, bool Display, bool FreeDirection, IReadOnlyList<string> Problems);
+
 public sealed class PatchException(IReadOnlyList<string> problems)
     : Exception(Loc.T("Error.UnsupportedExe", string.Join(" ; ", problems)))
 {
@@ -14,33 +23,35 @@ public sealed class PatchException(IReadOnlyList<string> problems)
 }
 
 /// <summary>
-/// Builds a patched copy of the one supported PES6.exe. Every location is checked against the
-/// original bytes first; nothing is produced if any check fails.
+/// Builds a patched copy of a PES6.exe. Locations are found by signature (see <see cref="ExeLocator"/>),
+/// so any build with the same game code can be patched; nothing is produced if a location is missing.
 /// </summary>
 public static class ExePatcher
 {
-    /// <summary>SHA-256 of the only PES6.exe build these addresses were found in.</summary>
-    public const string SupportedSha256 = "3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382";
-
-    // Shared constants read by the 2D conversions: 256.0 (half of the 512-unit 2D layer) and 1/512.
-    private const int HalfConstant = 0x00B8AD44, InverseConstant = 0x00B84978;
-    // New private constants, in the zero padding at the end of .rdata.
-    private const int NewHalf = 0x00BC3F00, NewInverse = 0x00BC3F04;
-
-    // Instructions of the 2D layer that read 256.0 / 1/512. Readers in gameplay code are left alone
-    // (redirecting them made the players slide).
-    private static readonly int[] HalfReaders =
-    [
-        0x78ED90, 0x78F038, 0x78F0D7,
-        0x867BE2, 0x867C0B, 0x867C40, 0x867C69,
-        0x87AEDC, 0x8B6E9D, 0x8B6EC9,
-        0x922EA5, 0x941B98,
-    ];
-    private static readonly int[] InverseReaders = [0x87AEE4];
+    /// <summary>SHA-256 of the builds tested in game.</summary>
+    public static readonly IReadOnlySet<string> ValidatedSha256 = new HashSet<string>
+    {
+        "3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382",
+    };
 
     public static string Sha256(byte[] exe) => Convert.ToHexString(SHA256.HashData(exe));
 
-    public static bool IsSupported(byte[] exe) => Sha256(exe) == SupportedSha256;
+    public static ExeReport Analyze(byte[] exe)
+    {
+        string hash = Sha256(exe);
+        try
+        {
+            var (display, direction, patched, problems) = ExeLocator.Locate(exe);
+            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, display != null && direction != null, problems);
+        }
+        catch (InvalidDataException ex)
+        {
+            return new ExeReport(hash, false, false, false, false, [ex.Message]);
+        }
+    }
+
+    /// <summary>An unpatched exe whose display fix locations are all found.</summary>
+    public static bool IsSupported(byte[] exe) => Analyze(exe) is { Display: true, AlreadyPatched: false };
 
     /// <summary>Returns a patched copy of <paramref name="original"/>.</summary>
     public static byte[] Build(byte[] original, PatchOptions options)
@@ -48,74 +59,56 @@ public static class ExePatcher
         if (options.Half is < 256 or > 2048) throw new ArgumentOutOfRangeException(nameof(options), Loc.T("Error.HalfOutOfRange"));
 
         var image = new PeImage((byte[])original.Clone());
-        var plan = new List<(int Va, byte[] Bytes)>();
-        var problems = new List<string>();
+        var (display, direction, patched, problems) = ExeLocator.Locate(original);
+        if (patched) throw new InvalidOperationException(Loc.T("Error.AlreadyPatched"));
+        if (display == null) throw new PatchException(problems);
+        if (options.FreeDirection && direction == null) throw new PatchException(problems);
+
         int half = options.Half;
+        var plan = new List<(int Va, byte[] Bytes)>();
+        var caves = new CaveAllocator(image);
+        int Cave(int size) => caves.Allocate(size) is var at and not 0 ? at : throw new PatchException([Loc.T("Check.HookCave", "")]);
 
-        void Require(int va, byte[] expected, string whatKey)
-        {
-            if (!image.Matches(va, expected)) problems.Add(Loc.T("Check.Location", Loc.T(whatKey), va));
-        }
-        void RequireHook(int va, byte[] expected, string formatKey, string nameKey)
-        {
-            if (!image.Matches(va, expected)) problems.Add(Loc.T("Check.Location", Loc.T(formatKey, Loc.T(nameKey)), va));
-        }
-        void Hook(Hook h)
-        {
-            RequireHook(h.Cave, Enumerable.Repeat((byte)0xCC, h.CaveBytes.Length).ToArray(), "Check.HookCave", h.NameKey);
-            RequireHook(h.Entry, h.Original, "Check.HookEntry", h.NameKey);
-            plan.Add((h.Cave, h.CaveBytes));
-            plan.Add((h.Entry, h.EntryBytes));
-        }
-        void Retarget(int instruction, int from, int to)
-        {
-            int at = image.FindOperand(instruction, from);
-            if (at < 0) problems.Add(Loc.T("Check.Location", Loc.T("Check.Operand"), instruction));
-            else plan.Add((at, BitConverter.GetBytes(to)));
-        }
+        // 1. private constants: half-width, 1/width, cursor scale
+        int scale = display.ConstantsArea + 8;
+        plan.Add((display.ConstantsArea, BitConverter.GetBytes((float)half)));
+        plan.Add((display.ConstantsArea + 4, BitConverter.GetBytes(1f / (2 * half))));
+        plan.Add((scale, BitConverter.GetBytes((2 * half) / 512f)));
 
-        // 1. private constants
-        Require(NewHalf, new byte[8], "Check.Constants");
-        plan.Add((NewHalf, BitConverter.GetBytes((float)half)));
-        plan.Add((NewInverse, BitConverter.GetBytes(1f / (2 * half))));
-
-        // 2. 2D layer width: getter returns 2 * half (layout and clipping) ...
-        Require(0x8744F0, [0xB8, 0x00, 0x02, 0x00, 0x00, 0xC3], "Check.Width2D");
-        plan.Add((0x8744F1, BitConverter.GetBytes(2 * half)));
-        // ... but the two calls feeding it to the 3D projection (0xF84064) keep 512
-        Require(0x661123, [0xE8, 0xC8, 0x33, 0x21, 0x00], "Check.Width3D");
-        plan.Add((0x661123, [0xB8, 0x00, 0x02, 0x00, 0x00]));
-        Require(0xB3F939, [0xE8, 0xB2, 0x4B, 0xD3, 0xFF], "Check.Width3D");
-        plan.Add((0xB3F939, [0xB8, 0x00, 0x02, 0x00, 0x00]));
+        // 2. 2D layer width: the getter returns 2 * half (layout and clipping), but the two calls
+        //    feeding it to the 3D projection get 512 (mov eax,0x200: same 5 bytes as the call)
+        plan.Add((display.WidthGetter + 1, BitConverter.GetBytes(2 * half)));
+        foreach (int call in display.Width3DCalls) plan.Add((call, [0xB8, 0x00, 0x02, 0x00, 0x00]));
 
         // clipping of scrolling lists, player cursor
-        Hook(CodeCaves.Clip(half));
-        Require(CodeCaves.CursorScaleAddress, new byte[4], "Check.CursorConstant");
-        plan.Add((CodeCaves.CursorScaleAddress, BitConverter.GetBytes((2 * half) / 512f)));
-        Hook(CodeCaves.Cursor());
+        var clip = CodeCaves.Clip(half, Cave(CodeCaves.ClipSize), display.ClipEntry, display.ScreenWidthGetter);
+        var cursor = CodeCaves.Cursor(Cave(CodeCaves.CursorSize), display.CursorEntry, scale);
+        foreach (var hook in new[] { clip, cursor }) { plan.Add((hook.Cave, hook.CaveBytes)); plan.Add((hook.Entry, hook.EntryBytes)); }
 
-        // 3. 2D conversions read the private constants
-        foreach (int ins in HalfReaders) Retarget(ins, HalfConstant, NewHalf);
-        foreach (int ins in InverseReaders) Retarget(ins, InverseConstant, NewInverse);
+        // 3. 2D conversions read the private constants (gameplay readers of 256.0 are left alone)
+        foreach (int ins in display.HalfReaders) plan.Add((ins + 2, BitConverter.GetBytes(display.ConstantsArea)));
+        foreach (int ins in display.InverseReaders) plan.Add((ins + 2, BitConverter.GetBytes(display.ConstantsArea + 4)));
 
         // 4. free stick direction, and a lower turn threshold (45 -> ~17 degrees) for the running state
         if (options.FreeDirection)
         {
-            Hook(CodeCaves.FreeDirection());
-            Require(0x5AF3CC, [0x66, 0x83, 0xFE, 0x20], "Check.TurnThreshold");
-            plan.Add((0x5AF3CF, [0x0C]));
+            var hook = CodeCaves.FreeDirection(Cave(CodeCaves.FreeDirectionSize), direction!);
+            plan.Add((hook.Cave, hook.CaveBytes));
+            plan.Add((hook.Entry, hook.EntryBytes));
+            plan.Add((direction!.TurnThreshold + 3, [0x0C]));
         }
 
         // 5. initial 2D view rectangles (x, y, w, h)
-        byte[] rect = [.. BitConverter.GetBytes(-256f), .. BitConverter.GetBytes(-224f), .. BitConverter.GetBytes(512f), .. BitConverter.GetBytes(448f)];
-        foreach (int r in new[] { 0xBEE2D4, 0xBEE2E4 })
+        foreach (int r in new[] { display.ViewRects, display.ViewRects + 16 })
         {
-            Require(r, rect, "Check.ViewRect");
             plan.Add((r, BitConverter.GetBytes((float)-half)));
             plan.Add((r + 8, BitConverter.GetBytes((float)(2 * half))));
         }
 
-        if (problems.Count > 0) throw new PatchException(problems);
+        if (clip.CaveBytes.Length != CodeCaves.ClipSize || cursor.CaveBytes.Length != CodeCaves.CursorSize ||
+            plan.Any(p => p.Bytes.Length == CodeCaves.FreeDirectionSize) != options.FreeDirection)
+            throw new InvalidOperationException("Added code size does not match its reserved space.");
+
         foreach (var (va, bytes) in plan) image.Write(va, bytes);
         return image.Bytes;
     }

@@ -4,16 +4,19 @@ using PES6Patcher.Core.Patching;
 
 namespace PES6Patcher.Core;
 
-public enum ExeState { Missing, Original, Patched, Unsupported }
+public enum ExeState { Missing, Original, Patched, PatchedWithoutBackup, Unsupported }
 
 /// <summary>Files of a PES6 installation that the patcher reads and writes.</summary>
-public sealed class GameInstall(string folder)
+/// <param name="folder">Game folder.</param>
+/// <param name="exeName">Game executable: PES6.exe, or the one shipped by a community patch.</param>
+public sealed class GameInstall(string folder, string exeName = GameInstall.DefaultExe)
 {
     public const string DefaultFolder = @"C:\Program Files (x86)\KONAMI\Pro Evolution Soccer 6";
+    public const string DefaultExe = "PES6.exe";
     private const string BackupSuffix = ".orig";
 
     public string Folder { get; } = folder;
-    public string Exe => Path.Combine(Folder, "PES6.exe");
+    public string Exe => Path.Combine(Folder, exeName);
     public string ExeBackup => Exe + BackupSuffix;
     public string Kload => Path.Combine(Folder, "kitserver", "kload.cfg");
     public string Lodmixer => Path.Combine(Folder, "kitserver", "lodmixer.dat");
@@ -32,17 +35,34 @@ public sealed class GameInstall(string folder)
         foreach (var path in new[] { @"SOFTWARE\WOW6432Node\KONAMIPES6\PES6", @"SOFTWARE\KONAMIPES6\PES6" })
         {
             using var key = Registry.LocalMachine.OpenSubKey(path);
-            if (key?.GetValue("installdir") is string dir && File.Exists(Path.Combine(dir, "PES6.exe")))
+            if (key?.GetValue("installdir") is string dir && File.Exists(Path.Combine(dir, DefaultExe)))
                 return dir.TrimEnd('\\');
         }
-        return File.Exists(Path.Combine(DefaultFolder, "PES6.exe")) ? DefaultFolder : null;
+        return File.Exists(Path.Combine(DefaultFolder, DefaultExe)) ? DefaultFolder : null;
     }
 
-    public ExeState GetExeState()
+    /// <summary>Game executables of a folder (large .exe files), PES6.exe first.</summary>
+    public static IReadOnlyList<string> FindExecutables(string folder)
     {
-        if (!File.Exists(Exe)) return ExeState.Missing;
-        if (ExePatcher.IsSupported(File.ReadAllBytes(Exe))) return ExeState.Original;
-        return File.Exists(ExeBackup) && ExePatcher.IsSupported(File.ReadAllBytes(ExeBackup)) ? ExeState.Patched : ExeState.Unsupported;
+        if (!Directory.Exists(folder)) return [];
+        return Directory.EnumerateFiles(folder, "*.exe")
+            .Where(f => new FileInfo(f).Length > 8_000_000)
+            .Select(Path.GetFileName)
+            .OfType<string>()
+            .OrderBy(n => n.Equals(DefaultExe, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
+            .ThenBy(n => n, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>State of the executable, and the analysis of the one that would be patched.</summary>
+    public (ExeState State, ExeReport? Report) Inspect()
+    {
+        if (!File.Exists(Exe)) return (ExeState.Missing, null);
+        var current = ExePatcher.Analyze(File.ReadAllBytes(Exe));
+        if (!current.AlreadyPatched) return (current.Display ? ExeState.Original : ExeState.Unsupported, current);
+
+        var backup = File.Exists(ExeBackup) ? ExePatcher.Analyze(File.ReadAllBytes(ExeBackup)) : null;
+        return backup is { Display: true, AlreadyPatched: false } ? (ExeState.Patched, backup) : (ExeState.PatchedWithoutBackup, current);
     }
 
     /// <summary>The unpatched exe: the backup when the installed one is patched, else the installed one.</summary>

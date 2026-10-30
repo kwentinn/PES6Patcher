@@ -55,21 +55,83 @@ public class PatcherTests(ITestOutputHelper output)
         if (original == null) return;
 
         var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: false));
-        int entry = PeImage.Offset(0x4B27E0), threshold = PeImage.Offset(0x5AF3CF);
+        var image = new PeImage(original);
+        int entry = image.Offset(0x4B27E0), threshold = image.Offset(0x5AF3CF);
         Assert.Equal(original.AsSpan(entry, 7).ToArray(), built.AsSpan(entry, 7).ToArray());
         Assert.Equal(original[threshold], built[threshold]);
     }
 
     [Fact]
-    public void Build_refuses_an_exe_that_differs_at_a_patched_location()
+    public void Build_refuses_an_exe_where_a_location_is_missing()
     {
         var original = Load("PES6.orig.exe");
         if (original == null) return;
 
         var altered = (byte[])original.Clone();
-        altered[PeImage.Offset(0x8744F0)] ^= 0xFF;
-        var ex = Assert.Throws<PatchException>(() => ExePatcher.Build(altered, new PatchOptions(398, true)));
-        Assert.Contains(ex.Problems, p => p.Contains("0x8744F0"));
+        altered[new PeImage(original).Offset(0x40D740)] ^= 0xFF;   // clip function entry
+        var report = ExePatcher.Analyze(altered);
+        Assert.False(report.Display);
+        Assert.NotEmpty(report.Problems);
+        Assert.Throws<PatchException>(() => ExePatcher.Build(altered, new PatchOptions(398, true)));
+    }
+
+    [Fact]
+    public void Analyze_recognises_the_validated_build_and_finds_every_location()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var report = ExePatcher.Analyze(original);
+        Assert.Empty(report.Problems);
+        Assert.True(report.Validated);
+        Assert.False(report.AlreadyPatched);
+        Assert.True(report.Display);
+        Assert.True(report.FreeDirection);
+    }
+
+    [Theory]
+    [InlineData("PES6_v6_16x9.exe")]
+    [InlineData("PES6_v6_32x9.exe")]
+    public void Analyze_detects_an_exe_patched_by_earlier_versions(string patched)
+    {
+        var exe = Load(patched);
+        if (exe == null) return;
+
+        var report = ExePatcher.Analyze(exe);
+        Assert.True(report.AlreadyPatched);
+        Assert.False(ExePatcher.IsSupported(exe));
+    }
+
+    [Fact]
+    public void Report_names_the_file_its_hash_and_what_can_be_applied()
+    {
+        var path = Reference == null ? null : Path.Combine(Reference, "PES6.orig.exe");
+        if (path == null || !File.Exists(path)) return;
+
+        var text = Diagnostics.Report(path);
+        Assert.Contains("PES6.orig.exe", text);
+        Assert.Contains(ExePatcher.ValidatedSha256.First(), text);
+    }
+
+    [Fact]
+    public void A_build_with_another_hash_but_the_same_code_is_patched_the_same_way()
+    {
+        var original = Load("PES6.orig.exe");
+        var expected = Load("PES6_v6_16x9.exe");
+        if (original == null || expected == null) return;
+
+        // change the PE timestamp: another hash, same code
+        var other = (byte[])original.Clone();
+        int timestamp = BitConverter.ToInt32(other, 0x3C) + 8;
+        other[timestamp] ^= 0x5A;
+
+        var report = ExePatcher.Analyze(other);
+        Assert.False(report.Validated);
+        Assert.True(report.Display && report.FreeDirection);
+
+        var built = ExePatcher.Build(other, new PatchOptions(398, FreeDirection: true));
+        expected[timestamp] ^= 0x5A;
+        Assert.Equal(expected, built);
     }
 
     [Theory]

@@ -61,16 +61,13 @@
     <value>Restaurer l'original</value>
   </data>
   <data name="State.NotFound" xml:space="preserve">
-    <value>PES6.exe introuvable dans ce dossier.</value>
-  </data>
-  <data name="State.Original" xml:space="preserve">
-    <value>PES6.exe : version d'origine, prise en charge.</value>
+    <value>Aucun exécutable du jeu dans ce dossier.</value>
   </data>
   <data name="State.Patched" xml:space="preserve">
-    <value>PES6.exe : déjà patché (l'original est sauvegardé dans PES6.exe.orig).</value>
+    <value>{0} : déjà patché (l'original est sauvegardé dans {1}).</value>
   </data>
   <data name="State.Unsupported" xml:space="preserve">
-    <value>PES6.exe : version non prise en charge. Ce patch ne fonctionne qu'avec une version précise de l'exe.</value>
+    <value>{0} : non pris en charge (certains emplacements sont introuvables). « Copier le rapport » permet de partager les détails.</value>
   </data>
   <data name="Log.Game" xml:space="preserve">
     <value>Jeu : {0}</value>
@@ -188,5 +185,47 @@
   </data>
   <data name="Hook.FreeDirection" xml:space="preserve">
     <value>directions libres</value>
+  </data>
+  <data name="Log.ReportCopied" xml:space="preserve">
+    <value>Rapport copié dans le presse-papiers.</value>
+  </data>
+  <data name="State.Validated" xml:space="preserve">
+    <value>{0} : d'origine, version testée en jeu.</value>
+  </data>
+  <data name="Report.File" xml:space="preserve">
+    <value>Fichier : {0} ({1:N0} octets)</value>
+  </data>
+  <data name="Report.Title" xml:space="preserve">
+    <value>PES6 Patcher {0} – rapport sur l'exécutable</value>
+  </data>
+  <data name="Report.Missing" xml:space="preserve">
+    <value>Introuvable : {0}</value>
+  </data>
+  <data name="Report.Hash" xml:space="preserve">
+    <value>SHA-256 : {0}</value>
+  </data>
+  <data name="Log.Untested" xml:space="preserve">
+    <value>Cette version n'a pas encore été testée en jeu (SHA-256 {0}). Merci d'indiquer comment elle fonctionne.</value>
+  </data>
+  <data name="Action.CopyReport" xml:space="preserve">
+    <value>Copier le rapport</value>
+  </data>
+  <data name="Gameplay.FreeDirectionUnavailable" xml:space="preserve">
+    <value>(indisponible pour cet exécutable)</value>
+  </data>
+  <data name="Report.Result" xml:space="preserve">
+    <value>Déjà patché : {0} | Correctif écran large : {1} | Directions libres : {2} | Testé en jeu : {3}</value>
+  </data>
+  <data name="Error.AlreadyPatched" xml:space="preserve">
+    <value>Cet exécutable est déjà patché.</value>
+  </data>
+  <data name="State.PatchedWithoutBackup" xml:space="preserve">
+    <value>{0} : déjà patché, mais son original ({1}) est introuvable : remettre l'exe non patché avant d'appliquer.</value>
+  </data>
+  <data name="Folder.Exe" xml:space="preserve">
+    <value>Exécutable :</value>
+  </data>
+  <data name="State.Compatible" xml:space="preserve">
+    <value>{0} : d'origine, version pas encore testée en jeu (tous les emplacements ont été trouvés).</value>
   </data>
 </root>

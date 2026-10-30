@@ -1,21 +1,23 @@
 namespace PES6Patcher.Core.Patching;
 
 /// <summary>A hook (<see cref="NameKey"/> = resource key of its name): original bytes at <see cref="Entry"/> replaced by a jump to code placed in a cave.</summary>
-internal sealed record Hook(string NameKey, int Entry, byte[] Original, byte[] EntryBytes, int Cave, byte[] CaveBytes);
+internal sealed record Hook(string NameKey, int Entry, byte[] EntryBytes, int Cave, byte[] CaveBytes);
 
 /// <summary>
-/// Code added to PES6.exe. Caves live in runs of 0xCC padding inside .text.
-/// See research/NOTES.md for how each location was found.
+/// Code added to PES6.exe. Every address comes from <see cref="ExeLocator"/>, so the same code works
+/// in builds where the game code lives elsewhere. See research/NOTES.md for how each fix was found.
 /// </summary>
 internal static class CodeCaves
 {
+    public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156;
+
     /// <summary>
-    /// 0x40D740(x0, y0, x1, y1) converts the 2D clip rectangle to pixels with x * screenWidth / 512.
-    /// The cave rescales x0 and x1 by 512 / (2 * half) before running the original code.
+    /// clip(x0, y0, x1, y1) converts the 2D clip rectangle to pixels with x * screenWidth / 512.
+    /// The cave rescales x0 and x1 by 512 / (2 * half), then replays the 10 replaced bytes
+    /// (push ecx/ebx/ebp/esi/edi ; call screenWidth).
     /// </summary>
-    public static Hook Clip(int half)
+    public static Hook Clip(int half, int cave, int entry, int screenWidthGetter)
     {
-        const int cave = 0x403500, entry = 0x40D740, resume = 0x40D74A, getScreenWidth = 0x405960;
         var code = new CodeBuilder(cave)
             .Bytes(0x50, 0x52, 0x51)                            // push eax ; push edx ; push ecx
             .Bytes(0x8B, 0x44, 0x24, 0x10)                      // mov eax,[esp+0x10]   ; x0
@@ -31,42 +33,35 @@ internal static class CodeCaves
             .Bytes(0x89, 0x44, 0x24, 0x18)                      // mov [esp+0x18],eax
             .Bytes(0x59, 0x5A, 0x58)                            // pop ecx ; pop edx ; pop eax
             .Bytes(0x51, 0x53, 0x55, 0x56, 0x57)                // original: push ecx/ebx/ebp/esi/edi
-            .CallTo(getScreenWidth)                             // original: call 0x405960
+            .CallTo(screenWidthGetter)                          // original: call screenWidth
             .Build();
-        code = [.. code, .. CodeBuilder.JumpPatch(cave + code.Length, resume, 5)];
-        return new Hook("Hook.Clip", entry,
-            [0x51, 0x53, 0x55, 0x56, 0x57, 0xE8, 0x16, 0x82, 0xFF, 0xFF],
-            CodeBuilder.JumpPatch(entry, cave, 10), cave, code);
+        code = [.. code, .. CodeBuilder.JumpPatch(cave + code.Length, entry + 10, 5)];
+        return new Hook("Hook.Clip", entry, CodeBuilder.JumpPatch(entry, cave, 10), cave, code);
     }
 
-    /// <summary>Float multiplier used by <see cref="Cursor"/>: (2 * half) / 512.</summary>
-    public const int CursorScaleAddress = 0x00BC3F08;
-
     /// <summary>
-    /// 0x40CD40 builds the 3D -> 2D layer projection (0xF840A0) with an x scale of
-    /// viewportWidth (512) / aspect. The cave multiplies that scale by (2 * half) / 512.
+    /// The 3D -> 2D layer projection gets an x scale of viewportWidth (512) / aspect from
+    /// "fild [esp+0x4C] ; fmul [esp+0x40]". The cave replays them, then multiplies by
+    /// (2 * half) / 512, stored at <paramref name="scaleAddress"/>.
     /// </summary>
-    public static Hook Cursor()
+    public static Hook Cursor(int cave, int entry, int scaleAddress)
     {
-        const int cave = 0x403540, entry = 0x40CE95, resume = 0x40CE9D;
-        byte[] original = [0xDB, 0x44, 0x24, 0x4C, 0xD8, 0x4C, 0x24, 0x40];   // fild [esp+0x4C] ; fmul [esp+0x40]
         var code = new CodeBuilder(cave)
-            .Bytes(original)
-            .Bytes([0xD8, 0x0D], CursorScaleAddress)            // fmul dword [CursorScaleAddress]
+            .Bytes(0xDB, 0x44, 0x24, 0x4C, 0xD8, 0x4C, 0x24, 0x40)   // original: fild [esp+0x4C] ; fmul [esp+0x40]
+            .Bytes([0xD8, 0x0D], scaleAddress)                       // fmul dword [scale]
             .Build();
-        code = [.. code, .. CodeBuilder.JumpPatch(cave + code.Length, resume, 5)];
-        return new Hook("Hook.Cursor", entry, original, CodeBuilder.JumpPatch(entry, cave, 8), cave, code);
+        code = [.. code, .. CodeBuilder.JumpPatch(cave + code.Length, entry + 8, 5)];
+        return new Hook("Hook.Cursor", entry, CodeBuilder.JumpPatch(entry, cave, 8), cave, code);
     }
 
     /// <summary>
-    /// 0x4B27E0(bits) turns the 8-way direction bits into a heading (its body is virtualised by
-    /// the exe protection). The cave calls it unchanged, then - only when the bits are the current
-    /// human input (0x3BE09FC) and match a pad's analog stick - adds the offset between that
-    /// stick's precise angle (0x1016680 + pad * 4) and the centre of its 45-degree sector.
+    /// The direction function turns the 8-way direction bits into a heading (its body is virtualised
+    /// by the exe protection). The cave calls its original body (copied as is), then - only when the
+    /// bits are the current human input and match a pad's analog stick - adds the offset between that
+    /// stick's precise angle (stickTable + pad * 4) and the centre of its 45-degree sector.
     /// </summary>
-    public static Hook FreeDirection()
+    public static Hook FreeDirection(int cave, DirectionSites sites)
     {
-        const int cave = 0x404338, entry = 0x4B27E0, rotateBits = 0x4B2710;
         var code = new CodeBuilder(cave)
             .Bytes(0x8B, 0x44, 0x24, 0x04)                      // mov eax,[esp+4]       ; bits argument
             .Bytes(0x50)                                        // push eax
@@ -77,17 +72,17 @@ internal static class CodeCaves
             .Bytes(0x0F, 0xB6, 0x4C, 0x24, 0x18)                // movzx ecx,byte [esp+0x18]
             .Bytes([0x81, 0xE1], 0xF0)                          // and ecx,0xF0
             .Jump(0x74, "done")                                 // jz done
-            .Bytes([0x0F, 0xB6, 0x15], 0x03BE09FC)              // movzx edx,byte [0x3BE09FC]
+            .Bytes([0x0F, 0xB6, 0x15], sites.DirectionBits)     // movzx edx,byte [human input bits]
             .Bytes([0x81, 0xE2], 0xF0)                          // and edx,0xF0
             .Bytes(0x3B, 0xCA)                                  // cmp ecx,edx
             .Jump(0x75, "done")                                 // jne done
             .Bytes(0x33, 0xF6)                                  // xor esi,esi           ; pad index
             .Mark("loop")
-            .Bytes([.. new byte[] { 0x80, 0x3C, 0xB5 }, .. BitConverter.GetBytes(0x01016682), 0x00])   // cmp byte [esi*4+0x1016682],0
+            .Bytes([.. new byte[] { 0x80, 0x3C, 0xB5 }, .. BitConverter.GetBytes(sites.StickTable + 2), 0x00])   // cmp byte [esi*4+magnitude],0
             .Jump(0x74, "next")                                 // je next
-            .Bytes([0x0F, 0xB6, 0x14, 0xB5], 0x01016683)        // movzx edx,byte [esi*4+0x1016683]
+            .Bytes([0x0F, 0xB6, 0x14, 0xB5], sites.StickTable + 3)   // movzx edx,byte [esi*4+bits]
             .Bytes(0x51, 0x52)                                  // push ecx ; push edx
-            .CallTo(rotateBits)                                 // call 0x4B2710
+            .CallTo(sites.RotateBits)                           // call rotate (attacking side)
             .Bytes(0x83, 0xC4, 0x04, 0x59)                      // add esp,4 ; pop ecx
             .Bytes(0x0F, 0xB6, 0xC0)                            // movzx eax,al
             .Bytes([0x25], 0xF0)                                // and eax,0xF0
@@ -98,7 +93,7 @@ internal static class CodeCaves
             .Jump(0x7C, "loop")                                 // jl loop
             .Jump(0xEB, "done")                                 // jmp done
             .Mark("found")
-            .Bytes([0x0F, 0xB7, 0x04, 0xB5], 0x01016680)        // movzx eax,word [esi*4+0x1016680]
+            .Bytes([0x0F, 0xB7, 0x04, 0xB5], sites.StickTable)  // movzx eax,word [esi*4+angle]
             .Bytes(0x8B, 0xD0)                                  // mov edx,eax
             .Bytes([0x81, 0xC2], 0x1000)                        // add edx,0x1000
             .Bytes([0x81, 0xE2], 0xE000)                        // and edx,0xE000
@@ -109,12 +104,9 @@ internal static class CodeCaves
             .Bytes(0x8B, 0xC3)                                  // mov eax,ebx
             .Bytes(0x5F, 0x5E, 0x5A, 0x59, 0x5B)                // pop edi/esi/edx/ecx/ebx
             .Bytes(0xC3)                                        // ret
-            .Mark("stub")                                       // original body: sub esp,0x10 ; mov ecx,[esp+0x14] ;
-            .Bytes(0x83, 0xEC, 0x10, 0x8B, 0x4C, 0x24, 0x14,    //   xor eax,eax ; mov [esp],ax ; jmp [0x44658C8]
-                   0x33, 0xC0, 0x66, 0x89, 0x04, 0x24, 0xFF, 0x25, 0xC8, 0x58, 0x46, 0x04)
+            .Mark("stub")
+            .Bytes(sites.OriginalBody)                          // original body, ends with jmp [virtualised body]
             .Build();
-        return new Hook("Hook.FreeDirection", entry,
-            [0x83, 0xEC, 0x10, 0x8B, 0x4C, 0x24, 0x14],
-            CodeBuilder.JumpPatch(entry, cave, 7), cave, code);
+        return new Hook("Hook.FreeDirection", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 7), cave, code);
     }
 }

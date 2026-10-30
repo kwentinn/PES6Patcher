@@ -25,6 +25,8 @@ public static class Installer
 
         // Build first: nothing is touched if the exe does not match.
         byte[] original = game.ReadOriginalExe();
+        var report = ExePatcher.Analyze(original);
+        if (!report.Validated) log(Loc.T("Log.Untested", report.Sha256));
         byte[] patched = ExePatcher.Build(original, new PatchOptions(settings.Half, settings.FreeDirection));
         log(Loc.T("Log.ExeBuilt", settings.Half, Loc.T(settings.FreeDirection ? "Common.Yes" : "Common.No")));
 
