@@ -93,6 +93,18 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat : format 3D {0:0.#####}.</value>
   </data>
+  <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
+    <value>Exe construit sans le correctif d'affichage (directions libres : {0}).</value>
+  </data>
+  <data name="Log.DisplayUntouched" xml:space="preserve">
+    <value>Affichage non sélectionné : kload.cfg, lodmixer.dat et settings.dat laissés tels quels.</value>
+  </data>
+  <data name="Error.NothingSelected" xml:space="preserve">
+    <value>Sélectionner Affichage, Gameplay ou les deux.</value>
+  </data>
+  <data name="Display.Unavailable" xml:space="preserve">
+    <value>(indisponible pour cet exécutable)</value>
+  </data>
   <data name="Log.LodmixerUnknown" xml:space="preserve">
     <value>lodmixer.dat laissé tel quel (format non reconnu) : régler le format sur {0:0.#####} dans lodcfg.exe de Kitserver.</value>
   </data>

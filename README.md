@@ -30,7 +30,7 @@ The rest of the gameplay is unchanged.
 1. Close PES6 and `settings.exe`.
 2. Run `PES6Patcher.exe`. It asks for administrator rights, because the game is installed in `Program Files`.
 3. Check the game folder (detected automatically), the executable and the resolution (the screen's by default).
-4. Choose the options, then click **Apply**.
+4. Choose the options, then click **Apply**. Each group (**Display**, **Gameplay**) can be unchecked: to change only the gameplay, uncheck **Display** and `kload.cfg`, `lodmixer.dat` and `settings.dat` are left as they are.
 
 **Restore original** puts every file back as it was before the first apply.
 

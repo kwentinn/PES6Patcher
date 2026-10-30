@@ -8,7 +8,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, decimal Width, decimal Height, bool Borderless, bool FreeDirection, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -18,6 +18,8 @@ internal sealed class MainForm : Form
     private readonly ComboBox _exe = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 220 };
     private readonly Button _report = new() { Text = Loc.T("Action.CopyReport"), AutoSize = true };
     private readonly Label _exeState = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
+    private readonly CheckBox _display = new() { Text = Loc.T("Display.Group"), AutoSize = true, Checked = true };
+    private readonly CheckBox _gameplay = new() { Text = Loc.T("Gameplay.Group"), AutoSize = true, Checked = true };
     private readonly NumericUpDown _width = new() { Minimum = 640, Maximum = 10240, Increment = 10, Width = 80 };
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Increment = 10, Width = 80 };
     private readonly Label _formatInfo = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
@@ -27,6 +29,7 @@ internal sealed class MainForm : Form
     private readonly Button _apply = new() { Text = Loc.T("Action.Apply"), AutoSize = true };
     private readonly Button _restore = new() { Text = Loc.T("Action.Restore"), AutoSize = true };
     private readonly TextBox _log = new() { Multiline = true, ReadOnly = true, ScrollBars = ScrollBars.Vertical, Dock = DockStyle.Fill };
+    private bool _exeReady;
 
     public MainForm(State? previous = null)
     {
@@ -61,11 +64,11 @@ internal sealed class MainForm : Form
         folderRow.ColumnStyles[0] = new ColumnStyle(SizeType.Percent, 100);
         var exeRow = Flow(LabelText(Loc.T("Folder.Exe")), _exe, _report);
 
-        var display = Group(Loc.T("Display.Group"),
+        var display = Group(_display,
             Flow(LabelText(Loc.T("Display.Resolution")), _width, LabelText("×"), _height, screen),
             _formatInfo,
             _borderless);
-        var gameplay = Group(Loc.T("Gameplay.Group"),
+        var gameplay = Group(_gameplay,
             _freeDirection,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
 
@@ -96,6 +99,8 @@ internal sealed class MainForm : Form
         {
             _folder.Text = previous.Folder;
             FillExecutables(previous.Exe);
+            _display.Checked = previous.Display;
+            _gameplay.Checked = previous.Gameplay;
             _width.Value = previous.Width;
             _height.Value = previous.Height;
             _borderless.Checked = previous.Borderless;
@@ -124,12 +129,20 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _width.Value, _height.Value, _borderless.Checked, _freeDirection.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _speed.Value, _log.Text);
         Close();
     }
 
     private InstallSettings CurrentSettings() =>
-        new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value);
+        new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value,
+            Display: _display.Enabled && _display.Checked, Gameplay: _gameplay.Checked);
+
+    /// <summary>Apply needs a patchable exe and at least one group selected.</summary>
+    private void UpdateApply()
+    {
+        var s = CurrentSettings();
+        _apply.Enabled = _exeReady && (s.Display || s.Gameplay);
+    }
 
     private void UseScreenResolution()
     {
@@ -171,7 +184,7 @@ internal sealed class MainForm : Form
         if (game == null)
         {
             _exeState.Text = Loc.T("State.NotFound");
-            _apply.Enabled = _restore.Enabled = false;
+            _exeReady = _apply.Enabled = _restore.Enabled = false;
             return;
         }
 
@@ -186,15 +199,19 @@ internal sealed class MainForm : Form
             ExeState.Missing => Loc.T("State.NotFound"),
             _ => Loc.T("State.Unsupported", exe),
         };
-        _apply.Enabled = state is ExeState.Original or ExeState.Patched;
+        _exeReady = state is ExeState.Original or ExeState.Patched;
         _restore.Enabled = File.Exists(game.ExeBackup) || game.ConfigFiles.Any(f => File.Exists(f + ".orig"));
 
+        bool display = report is { Display: true };
+        _display.Enabled = display;
+        _display.Text = Loc.T("Display.Group") + (display || report == null ? "" : " " + Loc.T("Display.Unavailable"));
         bool freeDirection = report is { FreeDirection: true };
         _freeDirection.Enabled = freeDirection;
         _freeDirection.Text = Loc.T("Gameplay.FreeDirection") + (freeDirection || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
 
         if (File.Exists(game.Speeder) && SpeederConfig.Read(File.ReadAllText(game.Speeder)) is double speed)
             _speed.Value = Math.Clamp((decimal)speed, _speed.Minimum, _speed.Maximum);
+        UpdateApply();
         if (log)
         {
             Log(Loc.T("Log.Game", game.Folder));
@@ -248,12 +265,21 @@ internal sealed class MainForm : Form
 
     private static Label LabelText(string text) => new() { Text = text, AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
 
-    private static GroupBox Group(string title, params Control[] rows)
+    /// <summary>Group whose title is <paramref name="header"/>: unchecking it greys out the rows.</summary>
+    private GroupBox Group(CheckBox header, params Control[] rows)
     {
         var panel = new FlowLayoutPanel { Dock = DockStyle.Fill, FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false };
         panel.Controls.AddRange(rows);
-        var box = new GroupBox { Text = title, Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(8) };
+        var box = new GroupBox { Dock = DockStyle.Fill, AutoSize = true, Padding = new Padding(8, 12, 8, 8) };
         box.Controls.Add(panel);
+        // drawn over the frame line, where the title would be
+        header.Location = new Point(8, 0);
+        header.Padding = new Padding(2, 0, 0, 0);
+        header.BackColor = BackColor;
+        box.Controls.Add(header);
+        header.BringToFront();
+        header.CheckedChanged += (_, _) => { panel.Enabled = header.Checked; UpdateApply(); };
+        header.EnabledChanged += (_, _) => panel.Enabled = header.Enabled && header.Checked;
         return box;
     }
 

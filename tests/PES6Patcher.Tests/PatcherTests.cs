@@ -62,6 +62,41 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Gameplay_only_build_leaves_the_display_code_untouched_and_is_detected_as_patched()
+    {
+        var original = Load("PES6.orig.exe");
+        var full = Load("PES6_v6_16x9.exe");
+        if (original == null || full == null) return;
+
+        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true, Display: false));
+        var image = new PeImage(original);
+        int widthGetter = image.Offset(0x8744F0), entry = image.Offset(0x4B27E0), threshold = image.Offset(0x5AF3CF);
+        Assert.Equal(original.AsSpan(widthGetter, 6).ToArray(), built.AsSpan(widthGetter, 6).ToArray());
+        Assert.NotEqual(original.AsSpan(entry, 7).ToArray(), built.AsSpan(entry, 7).ToArray());
+        Assert.Equal(0x0C, built[threshold]);
+
+        var report = ExePatcher.Analyze(built);
+        Assert.True(report.AlreadyPatched);
+        Assert.False(ExePatcher.IsSupported(built));
+        Assert.Throws<InvalidOperationException>(() => ExePatcher.Build(built, new PatchOptions(398, true)));
+    }
+
+    [Fact]
+    public void Free_direction_is_available_even_when_the_display_fix_is_not()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var altered = (byte[])original.Clone();
+        altered[new PeImage(original).Offset(0x40D740)] ^= 0xFF;   // clip function entry
+        var report = ExePatcher.Analyze(altered);
+        Assert.False(report.Display);
+        Assert.True(report.FreeDirection);
+        Assert.True(ExePatcher.IsSupported(altered));
+        ExePatcher.Build(altered, new PatchOptions(398, FreeDirection: true, Display: false));
+    }
+
+    [Fact]
     public void Build_refuses_an_exe_where_a_location_is_missing()
     {
         var original = Load("PES6.orig.exe");

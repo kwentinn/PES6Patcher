@@ -5,12 +5,13 @@ namespace PES6Patcher.Core.Patching;
 /// <summary>Options of a patch build.</summary>
 /// <param name="Half">Virtual half-width of the 2D layer: 224 * aspect (398 for 16:9, 796 for 32:9). 256 = original.</param>
 /// <param name="FreeDirection">Run along the analog stick's precise angle instead of 8 directions.</param>
-public sealed record PatchOptions(int Half, bool FreeDirection);
+/// <param name="Display">Widescreen 2D layer (menus, HUD, list clipping, player cursor).</param>
+public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true);
 
 /// <summary>What the patcher can do with a given PES6.exe.</summary>
 /// <param name="Sha256">Hash of the file.</param>
 /// <param name="Validated">This exact build was tested in game.</param>
-/// <param name="AlreadyPatched">The file is already patched (its 2D layer is not 512 units wide).</param>
+/// <param name="AlreadyPatched">The file is already patched (2D layer not 512 units wide, or lowered turn threshold).</param>
 /// <param name="Display">The widescreen fix can be applied.</param>
 /// <param name="FreeDirection">The free stick direction fix can be applied.</param>
 /// <param name="Problems">Locations that could not be found.</param>
@@ -42,7 +43,7 @@ public static class ExePatcher
         try
         {
             var (display, direction, patched, problems) = ExeLocator.Locate(exe);
-            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, display != null && direction != null, problems);
+            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems);
         }
         catch (InvalidDataException ex)
         {
@@ -50,8 +51,8 @@ public static class ExePatcher
         }
     }
 
-    /// <summary>An unpatched exe whose display fix locations are all found.</summary>
-    public static bool IsSupported(byte[] exe) => Analyze(exe) is { Display: true, AlreadyPatched: false };
+    /// <summary>An unpatched exe where at least one fix (display or free direction) can be applied.</summary>
+    public static bool IsSupported(byte[] exe) => Analyze(exe) is { AlreadyPatched: false } r && (r.Display || r.FreeDirection);
 
     /// <summary>Returns a patched copy of <paramref name="original"/>.</summary>
     public static byte[] Build(byte[] original, PatchOptions options)
@@ -61,14 +62,32 @@ public static class ExePatcher
         var image = new PeImage((byte[])original.Clone());
         var (display, direction, patched, problems) = ExeLocator.Locate(original);
         if (patched) throw new InvalidOperationException(Loc.T("Error.AlreadyPatched"));
-        if (display == null) throw new PatchException(problems);
+        if (options.Display && display == null) throw new PatchException(problems);
         if (options.FreeDirection && direction == null) throw new PatchException(problems);
 
-        int half = options.Half;
         var plan = new List<(int Va, byte[] Bytes)>();
         var caves = new CaveAllocator(image);
         int Cave(int size) => caves.Allocate(size) is var at and not 0 ? at : throw new PatchException([Loc.T("Check.HookCave", "")]);
 
+        if (options.Display) PlanDisplay(display!, options.Half, plan, Cave);
+
+        // free stick direction, and a lower turn threshold (45 -> ~17 degrees) for the running state
+        if (options.FreeDirection)
+        {
+            var hook = CodeCaves.FreeDirection(Cave(CodeCaves.FreeDirectionSize), direction!);
+            if (hook.CaveBytes.Length != CodeCaves.FreeDirectionSize) throw new InvalidOperationException("Added code size does not match its reserved space.");
+            plan.Add((hook.Cave, hook.CaveBytes));
+            plan.Add((hook.Entry, hook.EntryBytes));
+            plan.Add((direction!.TurnThreshold + 3, [0x0C]));
+        }
+
+        foreach (var (va, bytes) in plan) image.Write(va, bytes);
+        return image.Bytes;
+    }
+
+    /// <summary>Widescreen 2D layer. Its caves are allocated first, so the output matches the builds validated in game.</summary>
+    private static void PlanDisplay(DisplaySites display, int half, List<(int Va, byte[] Bytes)> plan, Func<int, int> Cave)
+    {
         // 1. private constants: half-width, 1/width, cursor scale
         int scale = display.ConstantsArea + 8;
         plan.Add((display.ConstantsArea, BitConverter.GetBytes((float)half)));
@@ -89,27 +108,14 @@ public static class ExePatcher
         foreach (int ins in display.HalfReaders) plan.Add((ins + 2, BitConverter.GetBytes(display.ConstantsArea)));
         foreach (int ins in display.InverseReaders) plan.Add((ins + 2, BitConverter.GetBytes(display.ConstantsArea + 4)));
 
-        // 4. free stick direction, and a lower turn threshold (45 -> ~17 degrees) for the running state
-        if (options.FreeDirection)
-        {
-            var hook = CodeCaves.FreeDirection(Cave(CodeCaves.FreeDirectionSize), direction!);
-            plan.Add((hook.Cave, hook.CaveBytes));
-            plan.Add((hook.Entry, hook.EntryBytes));
-            plan.Add((direction!.TurnThreshold + 3, [0x0C]));
-        }
-
-        // 5. initial 2D view rectangles (x, y, w, h)
+        // 4. initial 2D view rectangles (x, y, w, h)
         foreach (int r in new[] { display.ViewRects, display.ViewRects + 16 })
         {
             plan.Add((r, BitConverter.GetBytes((float)-half)));
             plan.Add((r + 8, BitConverter.GetBytes((float)(2 * half))));
         }
 
-        if (clip.CaveBytes.Length != CodeCaves.ClipSize || cursor.CaveBytes.Length != CodeCaves.CursorSize ||
-            plan.Any(p => p.Bytes.Length == CodeCaves.FreeDirectionSize) != options.FreeDirection)
+        if (clip.CaveBytes.Length != CodeCaves.ClipSize || cursor.CaveBytes.Length != CodeCaves.CursorSize)
             throw new InvalidOperationException("Added code size does not match its reserved space.");
-
-        foreach (var (va, bytes) in plan) image.Write(va, bytes);
-        return image.Bytes;
     }
 }

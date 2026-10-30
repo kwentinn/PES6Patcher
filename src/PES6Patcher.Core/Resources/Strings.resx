@@ -93,6 +93,18 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat: 3D aspect ratio {0:0.#####}.</value>
   </data>
+  <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
+    <value>Exe built without the display fix (free directions: {0}).</value>
+  </data>
+  <data name="Log.DisplayUntouched" xml:space="preserve">
+    <value>Display not selected: kload.cfg, lodmixer.dat and settings.dat left unchanged.</value>
+  </data>
+  <data name="Error.NothingSelected" xml:space="preserve">
+    <value>Select Display, Gameplay or both.</value>
+  </data>
+  <data name="Display.Unavailable" xml:space="preserve">
+    <value>(not available for this executable)</value>
+  </data>
   <data name="Log.LodmixerUnknown" xml:space="preserve">
     <value>lodmixer.dat left unchanged (format not recognised): set the aspect ratio to {0:0.#####} in Kitserver's lodcfg.exe.</value>
   </data>

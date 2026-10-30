@@ -43,10 +43,14 @@ internal sealed class ExeLocator
         "D8 25 ?? ?? ?? ?? D9 59 6C 8B 06",
     ];
 
+    private const string PatchedTurnThreshold = "66 83 FE 0C 72 ?? 8B 57 04 66 83 7A 30 3E";
+
     public static (DisplaySites? Display, DirectionSites? Direction, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
     {
         var locator = new ExeLocator(new PeImage(exe));
         var (display, patched) = locator.FindDisplay();
+        // a gameplay-only patch leaves the 2D width alone but lowers the turn threshold (0x20 -> 0x0C)
+        patched |= locator.Hits(PatchedTurnThreshold).Count == 1;
         int displayProblems = locator._problems.Count;
         var direction = locator.FindDirection();
         if (locator._problems.Count > displayProblems) direction = null;
