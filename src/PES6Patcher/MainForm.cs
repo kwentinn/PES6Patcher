@@ -9,7 +9,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -27,6 +27,7 @@ internal sealed class MainForm : Form
     private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
     private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
     private readonly CheckBox _closeDribble = new() { Text = Loc.T("Gameplay.CloseDribble"), AutoSize = true };
+    private readonly CheckBox _freeKick = new() { Text = Loc.T("Gameplay.FreeKick"), AutoSize = true };
     private readonly CheckBox _physicsMod = new() { Text = Loc.T("Gameplay.PhysicsMod"), AutoSize = true };
     // shown visibly, as the physics mod's licence asks
     private readonly LinkLabel _physicsCredit = new() { Text = PhysicsMod.Credit, AutoSize = true, Margin = new Padding(22, 0, 3, 3) };
@@ -79,6 +80,7 @@ internal sealed class MainForm : Form
         var gameplay = Group(_gameplay,
             _freeDirection,
             _closeDribble,
+            _freeKick,
             _physicsMod,
             _physicsCredit,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
@@ -118,6 +120,7 @@ internal sealed class MainForm : Form
             _borderless.Checked = previous.Borderless;
             _freeDirection.Checked = previous.FreeDirection;
             _closeDribble.Checked = previous.CloseDribble;
+            _freeKick.Checked = previous.FreeKick;
             _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
@@ -143,14 +146,15 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
     private InstallSettings CurrentSettings() =>
         new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value,
             Display: _display.Enabled && _display.Checked, Gameplay: _gameplay.Checked, CloseDribble: _closeDribble.Enabled && _closeDribble.Checked,
-            SkipIntro: _skipIntro.Enabled && _skipIntro.Checked, PhysicsMod: _physicsMod.Enabled ? _physicsMod.Checked : null);
+            SkipIntro: _skipIntro.Enabled && _skipIntro.Checked, PhysicsMod: _physicsMod.Enabled ? _physicsMod.Checked : null,
+            FreeKick: _freeKick.Enabled && _freeKick.Checked);
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()
@@ -226,6 +230,9 @@ internal sealed class MainForm : Form
         bool closeDribble = report is { CloseDribble: true };
         _closeDribble.Enabled = closeDribble;
         _closeDribble.Text = Loc.T("Gameplay.CloseDribble") + (closeDribble || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        bool freeKick = report is { FreeKick: true };
+        _freeKick.Enabled = freeKick;
+        _freeKick.Text = Loc.T("Gameplay.FreeKick") + (freeKick || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
         bool skipIntro = report is { SkipIntro: true };
         _skipIntro.Enabled = skipIntro;
         _skipIntro.Text = Loc.T("Startup.SkipIntro") + (skipIntro || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));

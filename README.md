@@ -2,7 +2,7 @@
 
 *English | [Français](README.fr.md)*
 
-Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretching (16:9, 21:9, 32:9…), free analog stick movement (including dribbling), optional close dribbling, and no intro at startup.
+Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretching (16:9, 21:9, 32:9…), free analog stick movement (including dribbling), optional close dribbling, easier free kicks, and no intro at startup.
 
 ![PES6 Patcher](docs/app.png)
 
@@ -16,6 +16,7 @@ Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretchi
 **Gameplay**
 - **Free analog stick direction**: the player follows the stick's precise angle instead of the 8 original directions only, when running and when dribbling (the ball is pushed at the stick's angle instead of the nearest multiple of 22.5°). The D-pad, the keyboard and the AI are unchanged.
 - **Close dribbling** (optional): while dribbling, the player can only change direction at his next touch of the ball. This option makes the dribble touches shorter, so the ball stays closer and the player follows the stick sooner. The reduction follows the player's dribble accuracy: none up to 65 (the game's own touches), full from 95 (× 0.875 when running, × 0.81 when sprinting), in proportion between, so good dribblers keep the ball closer than weak ones. Passes and shots are unchanged. In a match, **F1** switches it on and off; the state shows on screen for a moment (through Kitserver), and at kick-off.
+- **Easier free kicks** (optional): after a direct free kick shot, the ball is 50 % heavier until the next touch, so it dips sooner after the wall. The rest of the game keeps its ball weight; the keeper and the AI see the same trajectory.
 - Adjustable **game speed** (Kitserver's Speeder module).
 - **PityCharly's physics mod** (optional, separate download): stronger first-time and short passes, ball weight adjusted while dribbling. See [Physics mod](#physics-mod).
 
@@ -67,6 +68,7 @@ The game draws its menus in a layer inherited from the PS2, **512 × 448** units
 | Player cursor | Code added that adjusts the scale of the 3D → 2D layer projection. |
 | Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. For the most frequent dribble touch, whose direction the game rounds to 22.5°, code added at the entry of the ball kick function adds back what the rounding removed (for the pad whose stick gives that direction). |
 | Close dribbling | Code added at the entry of the ball kick function: when the call comes from one of the 7 dribble touches (5 running, 2 sprinting), the kick speed is scaled down according to the player's dribble accuracy (the stat the game reads for the touch direction noise). |
+| Free kicks | The set piece's call to the shot function goes through added code that flags the kick; the ball flight (also used by the trajectory predictions) then adds 50 % of the ball weight until the next kick. The game's weight constant is left alone (PityCharly's physics mod changes it while the game runs). |
 | Intro | The game already skips the opening movie when asked to, and a skippable logo when a button is pressed: those two paths are always taken (3 conditional jumps made inactive). Loading during the logos still happens. |
 
 The added code lives in unused padding areas of the exe.
@@ -88,7 +90,7 @@ Builds tested in game:
 
 | SHA-256 | Notes |
 |---|---|
-| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | no-DVD `PES6.exe`: widescreen (16:9, 32:9), free direction (running and dribbling), close dribbling and intro skip tested |
+| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | no-DVD `PES6.exe`: widescreen (16:9, 32:9), free direction (running and dribbling), close dribbling, free kicks and intro skip tested |
 
 Addresses and method details (Ghidra, hardware breakpoints, memory captures) are in [`research/NOTES.md`](research/NOTES.md), in French. The scripts used during the research are in [`research/scripts`](research/scripts).
 

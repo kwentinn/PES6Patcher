@@ -18,7 +18,7 @@ public static class Diagnostics
             Loc.T("Report.Title", version),
             Loc.T("Report.File", Path.GetFileName(path), bytes.LongLength),
             Loc.T("Report.Hash", report.Sha256),
-            Loc.T("Report.Result", YesNo(report.AlreadyPatched), YesNo(report.Display), YesNo(report.FreeDirection), YesNo(report.CloseDribble), YesNo(report.SkipIntro), YesNo(report.Validated)),
+            Loc.T("Report.Result", YesNo(report.AlreadyPatched), YesNo(report.Display), YesNo(report.FreeDirection), YesNo(report.CloseDribble), YesNo(report.SkipIntro), YesNo(report.FreeKick), YesNo(report.Validated)),
         };
         lines.AddRange(report.Problems.Select(p => Loc.T("Report.Missing", p)));
         return string.Join(Environment.NewLine, lines);

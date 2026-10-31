@@ -8,7 +8,8 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="Display">Widescreen 2D layer (menus, HUD, list clipping, player cursor).</param>
 /// <param name="CloseDribble">Shorter dribble touches: the player can change direction sooner.</param>
 /// <param name="SkipIntro">Skip the opening movie and the logos (the game's own skip paths).</param>
-public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false);
+/// <param name="FreeKick">Easier free kicks: a heavier ball after a free kick shot, so it dips sooner after the wall.</param>
+public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false);
 
 /// <summary>What the patcher can do with a given PES6.exe.</summary>
 /// <param name="Sha256">Hash of the file.</param>
@@ -25,7 +26,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The intro can be skipped.</summary>
     public bool SkipIntro { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro;
+    /// <summary>The free kick fix can be applied.</summary>
+    public bool FreeKick { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -57,8 +61,8 @@ public static class ExePatcher
         string hash = Sha256(exe);
         try
         {
-            var (display, direction, dribble, intro, patched, problems) = ExeLocator.Locate(exe);
-            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems) { CloseDribble = dribble != null, SkipIntro = intro != null };
+            var (display, direction, dribble, intro, freeKick, patched, problems) = ExeLocator.Locate(exe);
+            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems) { CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null };
         }
         catch (InvalidDataException ex)
         {
@@ -75,12 +79,13 @@ public static class ExePatcher
         if (options.Half is < 256 or > 2048) throw new ArgumentOutOfRangeException(nameof(options), Loc.T("Error.HalfOutOfRange"));
 
         var image = new PeImage((byte[])original.Clone());
-        var (display, direction, dribble, intro, patched, problems) = ExeLocator.Locate(original);
+        var (display, direction, dribble, intro, freeKick, patched, problems) = ExeLocator.Locate(original);
         if (patched) throw new InvalidOperationException(Loc.T("Error.AlreadyPatched"));
         if (options.Display && display == null) throw new PatchException(problems);
         if (options.FreeDirection && direction == null) throw new PatchException(problems);
         if (options.CloseDribble && dribble == null) throw new PatchException(problems);
         if (options.SkipIntro && intro == null) throw new PatchException(problems);
+        if (options.FreeKick && freeKick == null) throw new PatchException(problems);
 
         var plan = new List<(int Va, byte[] Bytes)>();
         var caves = new CaveAllocator(image);
@@ -124,6 +129,18 @@ public static class ExePatcher
         // intro: the movie and logo skip paths are always taken (je -> nop nop)
         if (options.SkipIntro)
             foreach (int jump in intro!.Jumps) plan.Add((jump, [0x90, 0x90]));
+
+        // free kicks: heavier ball after a free kick shot; its flags live in the last 16 bytes of .rdata
+        if (options.FreeKick)
+        {
+            float extra = image.ReadFloat(freeKick!.Weight) * CodeCaves.FreeKickExtraWeight;
+            int at = Cave(CodeCaves.FreeKickSize);
+            var (cave, entries) = CodeCaves.FreeKick(at, freeKick, extra);
+            if (cave.Length != CodeCaves.FreeKickSize) throw new InvalidOperationException("Added code size does not match its reserved space.");
+            plan.Add((at, cave));
+            plan.AddRange(entries);
+            image.MakeWritable(image.SectionOf(freeKick.State)!);
+        }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);
         return image.Bytes;

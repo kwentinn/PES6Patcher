@@ -37,6 +37,14 @@ internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTou
     public int DribbleAccuracy { get; init; }
 }
 
+/// <summary>
+/// Where the free kick fix applies: the set piece's "call shot" (<see cref="ShotCall"/>, to <see cref="Shot"/>),
+/// the ball kick function's entry, and the "fadd [weight]" of the ball flight (also used by the trajectory
+/// predictions). <see cref="State"/>: last 16 bytes of .rdata (made writable), +12 free kick shot under way,
+/// +13 the ball in flight comes from a free kick.
+/// </summary>
+internal sealed record FreeKickSites(int ShotCall, int Shot, int KickEntry, int WeightAdd, int Weight, int State);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -112,6 +120,21 @@ internal sealed class ExeLocator
     private const string DribbleAccuracyReader = "0F B6 4F 12 0F B6 57 11 C1 E1 05 03 CA 69 C9 48 03 00 00 8B F0 8B 81 ?? ?? ?? ?? 83 E0 7F 6A 28 50 E8";
 
     /// <summary>
+    /// Set piece (direct free kick) shot: push esi ; call ; xor edx,edx ; mov dx,[...] ; push 0 ; push edi ;
+    /// push edx ; push esi ; call shot (at +20). Shots in open play call the same function from elsewhere.
+    /// </summary>
+    private const string FreeKickShot = "56 E8 ?? ?? ?? ?? 33 D2 66 8B 15 ?? ?? ?? ?? 6A 00 57 52 56 E8 ?? ?? ?? ?? 0F B6";
+    private const int FreeKickShotCall = 20;
+
+    /// <summary>Ball kick function (player, direction, speed, height, flag): push ebx/ebp/esi ; mov esi,[esp+0x10] ; ...</summary>
+    private const string KickEntry = "53 55 56 8B 74 24 10 8A 06 33 DB 3A C3 74";
+    private const string PatchedKickEntry = "E9 ?? ?? ?? ?? 90 90 8A 06 33 DB 3A C3 74";
+
+    /// <summary>Ball flight: fdiv ; fimul ; fmul ; fadd [weight] (at +16) ; fmul [esp+0x58] ; fadd [eax] ; fstp [eax].</summary>
+    private const string BallWeight = "D8 35 ?? ?? ?? ?? DA 4C 24 14 D8 0D ?? ?? ?? ?? D8 05 ?? ?? ?? ?? D8 4C 24 58 D8 00 D9 18";
+    private const int BallWeightAdd = 16;
+
+    /// <summary>
     /// Opening movie: "push edi ; xor edi,edi ; call skipRequested ; test ax,ax ; je play" - the movie
     /// function already returns early when skipping is requested (je at +11).
     /// </summary>
@@ -126,14 +149,14 @@ internal sealed class ExeLocator
     private const string LogoSkip = "8B 46 08 8D 7E 08 C1 E0 04 F6 80 ?? ?? ?? ?? 01 BB 04 00 00 00 74 1E 6A 00 E8 ?? ?? ?? ?? 83 C4 04 F6 C4 40 74 0F 8B 07";
     private static readonly int[] LogoSkipJumps = [21, 36];
 
-    public static (DisplaySites? Display, DirectionSites? Direction, DribbleSites? Dribble, IntroSites? Intro, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
+    public static (DisplaySites? Display, DirectionSites? Direction, DribbleSites? Dribble, IntroSites? Intro, FreeKickSites? FreeKick, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
     {
         var locator = new ExeLocator(new PeImage(exe));
         var (display, patched) = locator.FindDisplay();
         // a patch without the display fix leaves the 2D width alone but lowers the turn threshold
-        // (0x20 -> 0x0C), hooks the kick relay or skips the opening movie
+        // (0x20 -> 0x0C), hooks the kick relay or the kick function, or skips the opening movie
         patched |= locator.Hits(PatchedTurnThreshold).Count == 1 || locator.Hits(PatchedKickRelay).Count == 1
-            || locator.Hits(PatchedMovieSkip).Count == 1;
+            || locator.Hits(PatchedKickEntry).Count == 1 || locator.Hits(PatchedMovieSkip).Count == 1;
         int displayProblems = locator._problems.Count;
         var direction = locator.FindDirection();
         if (locator._problems.Count > displayProblems) direction = null;
@@ -143,7 +166,26 @@ internal sealed class ExeLocator
         otherProblems = locator._problems.Count;
         var intro = locator.FindIntro();
         if (locator._problems.Count > otherProblems) intro = null;
-        return (displayProblems == 0 ? display : null, direction, dribble, intro, patched, locator._problems);
+        otherProblems = locator._problems.Count;
+        var freeKick = locator.FindFreeKick();
+        if (locator._problems.Count > otherProblems) freeKick = null;
+        return (displayProblems == 0 ? display : null, direction, dribble, intro, freeKick, patched, locator._problems);
+    }
+
+    private FreeKickSites? FindFreeKick()
+    {
+        int shot = Unique(FreeKickShot, "Hook.FreeKick");
+        int kick = Unique(KickEntry, "Hook.FreeKick");
+        int weight = Unique(BallWeight, "Hook.FreeKick");
+        var rdata = _image.Named(".rdata");
+        int state = rdata != null && _image.Matches(rdata.End - 0x10, new byte[0x10]) ? rdata.End - 0x10 : 0;
+        if (shot == 0 || kick == 0 || weight == 0 || state == 0) { if (state == 0) Problem("Hook.FreeKick", 0); return null; }
+
+        // the ball weight constant is a positive float (188.0 in the reference build)
+        int weightConstant = _image.ReadInt32(weight + BallWeightAdd + 2);
+        if (!(_image.ReadFloat(weightConstant) is > 0f and < 10000f)) { Problem("Hook.FreeKick", weight); return null; }
+        int call = shot + FreeKickShotCall;
+        return new FreeKickSites(call, _image.Rel32Target(call), kick, weight + BallWeightAdd, weightConstant, state);
     }
 
     private IntroSites? FindIntro()

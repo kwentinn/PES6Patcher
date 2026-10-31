@@ -171,6 +171,39 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Free_kick_hooks_the_set_piece_shot_the_kick_entry_and_the_ball_weight()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).FreeKick);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { FreeKick = true });
+
+        // measured in game: call shot at 0x58CC11, kick function at 0x478020, fadd [weight] at 0x475EEF
+        var image = new PeImage(with);
+        Assert.Equal(0xE9, with[image.Offset(0x58CC11)]);
+        int cave = image.Rel32Target(0x58CC11);
+        Assert.Equal(cave + 24, image.Rel32Target(0x478020));
+        Assert.Equal(cave + 50, image.Rel32Target(0x475EEF));
+        Assert.Equal(0x5B9130, image.Rel32Target(cave + 7));                 // the cave still calls the shot
+        Assert.Equal(94f, image.ReadFloat(cave + CodeCaves.FreeKickSize - 4));   // 188 * 0.5
+
+        // only those 3 entries (5 + 7 + 6 bytes) and the cave change (.rdata is already writable for close dribbling)
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        int[] entries = [.. Range(image, 0x58CC11, 5), .. Range(image, 0x478020, 7), .. Range(image, 0x475EEF, 6)];
+        Assert.DoesNotContain(changed.Except(entries), i => i < image.Offset(cave) || i >= image.Offset(cave) + CodeCaves.FreeKickSize);
+
+        // alone, it makes .rdata writable and is detected as patched
+        var alone = ExePatcher.Build(original, new PatchOptions(398, false, Display: false, FreeKick: true));
+        Assert.Equal(0x80000000u, BitConverter.ToUInt32(alone, RdataFlagsOffset(alone)) & 0x80000000u);
+        Assert.True(ExePatcher.Analyze(ExePatcher.Build(original, new PatchOptions(398, false, Display: false, FreeKick: true))).AlreadyPatched);
+
+        static IEnumerable<int> Range(PeImage image, int va, int length) => Enumerable.Range(image.Offset(va), length);
+    }
+
+    [Fact]
     public void Skip_intro_only_turns_the_three_skip_jumps_into_nops()
     {
         var original = Load("PES6.orig.exe");

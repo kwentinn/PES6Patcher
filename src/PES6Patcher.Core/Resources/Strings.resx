@@ -123,17 +123,26 @@
   <data name="Hook.Intro" xml:space="preserve">
     <value>intro skip</value>
   </data>
+  <data name="Hook.FreeKick" xml:space="preserve">
+    <value>free kicks</value>
+  </data>
   <data name="Log.SkipIntro" xml:space="preserve">
     <value>Intro: opening movie and logos skipped.</value>
   </data>
   <data name="Gameplay.CloseDribble" xml:space="preserve">
     <value>Close dribbling (shorter touches, the player follows the stick sooner)</value>
   </data>
+  <data name="Gameplay.FreeKick" xml:space="preserve">
+    <value>Easier free kicks (the ball dips sooner after the wall)</value>
+  </data>
   <data name="Hook.Dribble" xml:space="preserve">
     <value>dribble touches</value>
   </data>
   <data name="Log.CloseDribble" xml:space="preserve">
     <value>Close dribbling: dribble touches up to x 0.875 when running, x 0.81 when sprinting, depending on dribble accuracy.</value>
+  </data>
+  <data name="Log.FreeKick" xml:space="preserve">
+    <value>Free kicks: ball weight + 50 % after a free kick shot, until the next touch.</value>
   </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe built without the display fix (free directions: {0}).</value>
@@ -274,7 +283,7 @@
     <value>(not available for this executable)</value>
   </data>
   <data name="Report.Result" xml:space="preserve">
-    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Close dribbling: {3} | Skip intro: {4} | Tested in game: {5}</value>
+    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Close dribbling: {3} | Skip intro: {4} | Easier free kicks: {5} | Tested in game: {6}</value>
   </data>
   <data name="Error.AlreadyPatched" xml:space="preserve">
     <value>This executable is already patched.</value>

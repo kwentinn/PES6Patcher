@@ -238,6 +238,55 @@ internal static class CodeCaves
             .JumpTo(sites.Relay + 6);                               // jmp back
     }
 
+    /// <summary>Easier free kicks: weight added to the ball of a free kick shot, as a fraction of the game's weight.</summary>
+    public const float FreeKickExtraWeight = 0.5f;
+
+    public const int FreeKickSize = 24 + 26 + 30;
+
+    /// <summary>
+    /// Easier free kicks: a free kick shot dips sooner after the wall. Three parts in one cave:
+    /// <list type="bullet">
+    /// <item>the set piece's "call shot" becomes a jump here: the call is made with "free kick shot under way" set;</item>
+    /// <item>the ball kick function's entry records whether this kick is that shot (so any later touch clears it);</item>
+    /// <item>the ball flight's "fadd [weight]" also adds <paramref name="extraWeight"/> while the ball comes from a
+    /// free kick. The trajectory predictions (keeper, AI) use the same code, so they see the same dip.</item>
+    /// </list>
+    /// The game's weight stays where it is (PityCharly's physics mod rewrites it while the game runs).
+    /// </summary>
+    public static (byte[] Cave, (int Va, byte[] Bytes)[] Entries) FreeKick(int cave, FreeKickSites sites, float extraWeight)
+    {
+        int pending = sites.State + 12, heavy = sites.State + 13;
+        int kick = cave + 24, weight = kick + 26;
+        var shotPart = new CodeBuilder(cave)
+            .Bytes([0xC6, 0x05, .. BitConverter.GetBytes(pending), 0x01])   // mov byte [pending],1
+            .CallTo(sites.Shot)                                     // call shot
+            .Bytes([0xC6, 0x05, .. BitConverter.GetBytes(pending), 0x00])   // mov byte [pending],0
+            .JumpTo(sites.ShotCall + 5)                             // jmp back
+            .Build();
+        var kickPart = new CodeBuilder(kick)
+            .Bytes([0x80, 0x3D, .. BitConverter.GetBytes(pending), 0x00])   // cmp byte [pending],0
+            .Bytes([0x0F, 0x95, 0x05], heavy)                       // setne byte [heavy]
+            .Bytes(0x53, 0x55, 0x56, 0x8B, 0x74, 0x24, 0x10)        // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
+            .JumpTo(sites.KickEntry + 7)                            // jmp back
+            .Build();
+        var weightPart = new CodeBuilder(weight)
+            .Bytes([0xD8, 0x05], sites.Weight)                      // original: fadd dword [weight]
+            .Bytes([0x80, 0x3D, .. BitConverter.GetBytes(heavy), 0x00])     // cmp byte [heavy],0
+            .Jump(0x74, "done")                                     // je done
+            .Bytes([0xD8, 0x05], weight + 26)                       // fadd dword [extra]
+            .Mark("done")
+            .JumpTo(sites.WeightAdd + 6)                            // jmp back
+            .Bytes(BitConverter.GetBytes(extraWeight))              // extra
+            .Build();
+        var entries = new (int, byte[])[]
+        {
+            (sites.ShotCall, CodeBuilder.JumpPatch(sites.ShotCall, cave, 5)),
+            (sites.KickEntry, CodeBuilder.JumpPatch(sites.KickEntry, kick, 7)),
+            (sites.WeightAdd, CodeBuilder.JumpPatch(sites.WeightAdd, weight, 6)),
+        };
+        return ([.. shotPart, .. kickPart, .. weightPart], entries);
+    }
+
     /// <summary>Close dribbling message: shown this long after a switch (and at the first touch of a match).</summary>
     public const int SwitchMessageMs = 2000, FirstMessageMs = 2500;
 
