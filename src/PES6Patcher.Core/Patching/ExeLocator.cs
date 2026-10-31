@@ -29,6 +29,12 @@ internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTou
     /// hook installed, +4 KDrawText, +8 tick until which the message shows.
     /// </summary>
     public int SwitchState { get; init; }
+
+    /// <summary>
+    /// Dribble accuracy of the players in the match: low 7 bits of the dword at this address +
+    /// (player[0x12] * 32 + player[0x11]) * 0x348 (read by the game's dribble touch direction noise).
+    /// </summary>
+    public int DribbleAccuracy { get; init; }
 }
 
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
@@ -98,6 +104,12 @@ internal sealed class ExeLocator
         ("83 C4 0C 50 33 C0 66 8B 47 30 50 57 E8 ?? ?? ?? ?? 8A 0F 57 88 0D", 12),
         ("33 C9 66 8B 4F 30 83 C4 0C 50 51 57 E8 ?? ?? ?? ?? 8A 17 57 88 15", 12),
     ];
+
+    /// <summary>
+    /// Dribble touch direction noise: index = player[0x12] * 32 + player[0x11] ; mov eax,[index * 0x348 +
+    /// dribble accuracy] (address at +23) ; and eax,0x7F ; push 40 ; push eax ; call.
+    /// </summary>
+    private const string DribbleAccuracyReader = "0F B6 4F 12 0F B6 57 11 C1 E1 05 03 CA 69 C9 48 03 00 00 8B F0 8B 81 ?? ?? ?? ?? 83 E0 7F 6A 28 50 E8";
 
     /// <summary>
     /// Opening movie: "push edi ; xor edi,edi ; call skipRequested ; test ax,ax ; je play" - the movie
@@ -266,12 +278,14 @@ internal sealed class ExeLocator
         var rdata = _image.Named(".rdata");
         int state = rdata != null && _image.Matches(rdata.End - 0x10, new byte[0x10]) ? rdata.End - 0x10 : 0;
         if (state == 0) Problem("Hook.Dribble", rdata?.End ?? 0);
+        int reader = Unique(DribbleAccuracyReader, "Hook.Dribble");
+        int accuracy = reader != 0 ? _image.ReadInt32(reader + 23) : 0;
 
-        return run.Length == RunTouchSignatures.Length && sprint.Length == SprintTouchSignatures.Length && imports && state != 0
+        return run.Length == RunTouchSignatures.Length && sprint.Length == SprintTouchSignatures.Length && imports && state != 0 && accuracy != 0
             ? new DribbleSites(relay, run, sprint, run[SnappedTouchIndex])
             {
                 KeyStateImport = keyState, ModuleHandleImport = moduleHandle, ProcAddressImport = procAddress,
-                TickCountImport = tickCount, SwitchState = state,
+                TickCountImport = tickCount, SwitchState = state, DribbleAccuracy = accuracy,
             }
             : null;
     }

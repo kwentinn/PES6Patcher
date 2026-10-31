@@ -2,7 +2,7 @@ namespace PES6Patcher.Core.Patching;
 
 /// <summary>
 /// Minimal two-pass x86 code builder for the small code caves: raw bytes, labels,
-/// short conditional/unconditional jumps and rel32 calls (to an address or a label).
+/// short conditional/unconditional jumps, rel32 calls (to an address or a label) and rel32 jumps.
 /// </summary>
 internal sealed class CodeBuilder
 {
@@ -10,7 +10,7 @@ internal sealed class CodeBuilder
     private sealed record Raw(byte[] Bytes) : Item;
     private sealed record Label(string Name) : Item;
     private sealed record ShortJump(byte Opcode, string Target) : Item;
-    private sealed record Call(int? Address, string? Target) : Item;
+    private sealed record Call(int? Address, string? Target, byte Opcode = 0xE8) : Item;
     private sealed record AbsoluteLabel(byte[] Prefix, string Target) : Item;
 
     private readonly List<Item> _items = [];
@@ -24,6 +24,7 @@ internal sealed class CodeBuilder
     public CodeBuilder Jump(byte opcode, string target) { _items.Add(new ShortJump(opcode, target)); return this; }
     public CodeBuilder CallTo(int address) { _items.Add(new Call(address, null)); return this; }
     public CodeBuilder CallTo(string label) { _items.Add(new Call(null, label)); return this; }
+    public CodeBuilder JumpTo(int address) { _items.Add(new Call(address, null, 0xE9)); return this; }   // jmp rel32
 
     /// <summary><paramref name="prefix"/> followed by the absolute address of <paramref name="label"/> (e.g. push offset label).</summary>
     public CodeBuilder AddressOf(byte[] prefix, string label) { _items.Add(new AbsoluteLabel(prefix, label)); return this; }
@@ -60,7 +61,7 @@ internal sealed class CodeBuilder
                     break;
                 case Call c:
                     int target = c.Address ?? _origin + labels[c.Target!];
-                    code.Add(0xE8);
+                    code.Add(c.Opcode);
                     code.AddRange(BitConverter.GetBytes(target - (_origin + code.Count + 4)));
                     break;
                 case AbsoluteLabel a:

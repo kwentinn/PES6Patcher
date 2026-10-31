@@ -12,7 +12,7 @@ internal static class CodeCaves
     public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156;
 
     /// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
-    public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 135, RelayTailSize = 11;
+    public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 180, RelayTailSize = 11;
 
     /// <summary>Key that switches close dribbling on and off in game.</summary>
     public const byte CloseDribbleSwitchKey = 0x70;   // VK_F1
@@ -22,6 +22,12 @@ internal static class CodeCaves
 
     /// <summary>Close dribbling: touch speed x 14/16 while running, x 13/16 while sprinting (tuned in game).</summary>
     public const byte RunTouchSixteenths = 14, SprintTouchSixteenths = 13;
+
+    /// <summary>
+    /// The close dribbling reduction follows the player's dribble accuracy: none up to <see cref="MinAccuracy"/>
+    /// (the game's own touches), full from <see cref="MaxAccuracy"/>, in proportion between.
+    /// </summary>
+    public const byte MinAccuracy = 65, MaxAccuracy = 95;
 
     /// <summary>
     /// clip(x0, y0, x1, y1) converts the 2D clip rectangle to pixels with x * screenWidth / 512.
@@ -193,28 +199,43 @@ internal static class CodeCaves
                 code.Bytes([0x3D], touch).Jump(0x74, "run");        // cmp eax,touch ; je run
             foreach (int touch in sites.SprintTouches)
                 code.Bytes([0x3D], touch).Jump(0x74, "sprint");     // cmp eax,touch ; je sprint
-            code.Jump(0xEB, "original")                             // jmp original
+            // the scaling lives after the original bytes, within short jump range of everything
+            Original(code)
+                // speed -= speed * (16 - sixteenths) / 16 * (accuracy - min) / (max - min), accuracy capped at max
                 .Mark("run")
-                .Bytes(Scale(RunTouchSixteenths))
-                .Jump(0xEB, "original")
+                .Bytes(0x6A, 16 - RunTouchSixteenths, 0x59)         // push ; pop ecx      ; full reduction
+                .Jump(0xEB, "scale")                                // jmp scale
                 .Mark("sprint")
-                .Bytes(Scale(SprintTouchSixteenths));
+                .Bytes(0x6A, 16 - SprintTouchSixteenths, 0x59)      // push ; pop ecx
+                .Mark("scale")
+                .Bytes(0x8B, 0x44, 0x24, 0x04)                      // mov eax,[esp+4]      ; player
+                .Bytes(0x0F, 0xB6, 0x50, 0x12)                      // movzx edx,byte [eax+0x12]
+                .Bytes(0x0F, 0xB6, 0x40, 0x11)                      // movzx eax,byte [eax+0x11]
+                .Bytes(0xC1, 0xE2, 0x05, 0x03, 0xC2)                // shl edx,5 ; add eax,edx
+                .Bytes([0x69, 0xC0], 0x348)                         // imul eax,eax,0x348
+                .Bytes([0x8B, 0x80], sites.DribbleAccuracy)         // mov eax,[eax+dribble accuracy]
+                .Bytes(0x83, 0xE0, 0x7F)                            // and eax,0x7F
+                .Bytes(0x83, 0xE8, MinAccuracy)                     // sub eax,min
+                .Jump(0x7E, "original")                             // jle original         ; weak dribbler: game's touch
+                .Bytes(0x83, 0xF8, MaxAccuracy - MinAccuracy)       // cmp eax,max-min
+                .Jump(0x7E, "capped")                               // jle capped
+                .Bytes([0xB8], MaxAccuracy - MinAccuracy)           // mov eax,max-min
+                .Mark("capped")
+                .Bytes(0x0F, 0xAF, 0xC1)                            // imul eax,ecx
+                .Bytes(0x0F, 0xAF, 0x44, 0x24, 0x0C)                // imul eax,[esp+0xC]   ; speed
+                .Bytes(0x99)                                        // cdq
+                .Bytes([0xB9], 16 * (MaxAccuracy - MinAccuracy))    // mov ecx,16*(max-min)
+                .Bytes(0xF7, 0xF9)                                  // idiv ecx
+                .Bytes(0x29, 0x44, 0x24, 0x0C)                      // sub [esp+0xC],eax
+                .Jump(0xEB, "original");                            // jmp original
         }
-        var bytes = code
+        else Original(code);
+        return new Hook("Hook.Dribble", sites.Relay, CodeBuilder.JumpPatch(sites.Relay, cave, 6), cave, code.Build());
+
+        CodeBuilder Original(CodeBuilder c) => c
             .Mark("original")
             .Bytes(0x8B, 0x4C, 0x24, 0x0C, 0x8B, 0xC1)              // original: mov ecx,[esp+0xC] ; mov eax,ecx
-            .Build();
-        bytes = [.. bytes, .. CodeBuilder.JumpPatch(cave + bytes.Length, sites.Relay + 6, 5)];
-        return new Hook("Hook.Dribble", sites.Relay, CodeBuilder.JumpPatch(sites.Relay, cave, 6), cave, bytes);
-
-        // speed argument = speed * sixteenths / 16
-        static byte[] Scale(byte sixteenths) =>
-        [
-            0x8B, 0x44, 0x24, 0x0C,                                 // mov eax,[esp+0xC]
-            0x6B, 0xC0, sixteenths,                                 // imul eax,eax,sixteenths
-            0xC1, 0xF8, 0x04,                                       // sar eax,4
-            0x89, 0x44, 0x24, 0x0C,                                 // mov [esp+0xC],eax
-        ];
+            .JumpTo(sites.Relay + 6);                               // jmp back
     }
 
     /// <summary>Close dribbling message: shown this long after a switch (and at the first touch of a match).</summary>

@@ -150,6 +150,11 @@ public class PatcherTests(ITestOutputHelper output)
             Assert.Equal(touches[k], BitConverter.ToInt32(built, at + 1));
         }
 
+        // the reduction reads the player's dribble accuracy (0x3BCF5C0 in the reference build)
+        byte[] read = [0x8B, 0x80, .. BitConverter.GetBytes(0x3BCF5C0), 0x83, 0xE0, 0x7F];
+        int size = CodeCaves.KickRelaySize(direction: true, closeDribble: true);
+        Assert.True(built.AsSpan(cave, size).IndexOf(read) >= 0);
+
         var report = ExePatcher.Analyze(built);
         Assert.True(report.AlreadyPatched);
     }

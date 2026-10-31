@@ -133,7 +133,7 @@
     <value>dribble touches</value>
   </data>
   <data name="Log.CloseDribble" xml:space="preserve">
-    <value>Close dribbling: dribble touches x 0.875 when running, x 0.81 when sprinting.</value>
+    <value>Close dribbling: dribble touches up to x 0.875 when running, x 0.81 when sprinting, depending on dribble accuracy.</value>
   </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe built without the display fix (free directions: {0}).</value>

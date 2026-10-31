@@ -133,7 +133,7 @@
     <value>touches de dribble</value>
   </data>
   <data name="Log.CloseDribble" xml:space="preserve">
-    <value>Dribble resserré : touches x 0,875 en course, x 0,81 en sprint.</value>
+    <value>Dribble resserré : touches jusqu'à x 0,875 en course, x 0,81 en sprint, selon la précision de dribble.</value>
   </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe construit sans le correctif d'affichage (directions libres : {0}).</value>

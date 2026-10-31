@@ -15,7 +15,7 @@ Patcher for **Pro Evolution Soccer 6 (PC)**: widescreen display without stretchi
 
 **Gameplay**
 - **Free analog stick direction**: the player follows the stick's precise angle instead of the 8 original directions only, when running and when dribbling (the ball is pushed at the stick's angle instead of the nearest multiple of 22.5°). The D-pad, the keyboard and the AI are unchanged.
-- **Close dribbling** (optional): while dribbling, the player can only change direction at his next touch of the ball. This option makes the dribble touches shorter (× 0.875 when running, × 0.81 when sprinting), so the ball stays closer and the player follows the stick sooner. Passes and shots are unchanged. In a match, **F1** switches it on and off; the state shows on screen for a moment (through Kitserver), and at kick-off.
+- **Close dribbling** (optional): while dribbling, the player can only change direction at his next touch of the ball. This option makes the dribble touches shorter, so the ball stays closer and the player follows the stick sooner. The reduction follows the player's dribble accuracy: none up to 65 (the game's own touches), full from 95 (× 0.875 when running, × 0.81 when sprinting), in proportion between, so good dribblers keep the ball closer than weak ones. Passes and shots are unchanged. In a match, **F1** switches it on and off; the state shows on screen for a moment (through Kitserver), and at kick-off.
 - Adjustable **game speed** (Kitserver's Speeder module).
 - **PityCharly's physics mod** (optional, separate download): stronger first-time and short passes, ball weight adjusted while dribbling. See [Physics mod](#physics-mod).
 
@@ -66,7 +66,7 @@ The game draws its menus in a layer inherited from the PS2, **512 × 448** units
 | List clipping | Code added before the clip rectangle is converted to pixels. |
 | Player cursor | Code added that adjusts the scale of the 3D → 2D layer projection. |
 | Free directions | Code added around the direction bits → heading conversion: adds the offset between the stick's precise angle and the centre of its 45° sector. The running turn threshold goes from 45° to about 17°. For the most frequent dribble touch, whose direction the game rounds to 22.5°, code added at the entry of the ball kick function adds back what the rounding removed (for the pad whose stick gives that direction). |
-| Close dribbling | Code added at the entry of the ball kick function: when the call comes from one of the 7 dribble touches (5 running, 2 sprinting), the kick speed is scaled down. |
+| Close dribbling | Code added at the entry of the ball kick function: when the call comes from one of the 7 dribble touches (5 running, 2 sprinting), the kick speed is scaled down according to the player's dribble accuracy (the stat the game reads for the touch direction noise). |
 | Intro | The game already skips the opening movie when asked to, and a skippable logo when a button is pressed: those two paths are always taken (3 conditional jumps made inactive). Loading during the logos still happens. |
 
 The added code lives in unused padding areas of the exe.
@@ -97,8 +97,7 @@ Addresses and method details (Ghidra, hardware breakpoints, memory captures) are
 - Only one build has been tested in game so far; others are patched if their code matches (see above).
 - Menu backgrounds are 512 units wide: black bars remain on the sides.
 - Free directions apply to an analog stick only. Some less frequent dribble touches and special moves keep the game's own directions.
-- Close dribbling: with players whose dribbling is weak (more irregular touches), the ball can occasionally end up under their feet.
-- Close dribbling applies to every player, the AI included: its dribblers keep the ball closer too, which makes defending harder and narrows the gap between good and weak dribblers. Switch it off with F1 if defending feels too hard.
+- Close dribbling applies to every player, the AI included: its good dribblers keep the ball closer too, which makes defending them harder. Switch it off with F1 if defending feels too hard.
 - With two players on the same PC, the free direction picks the pad whose stick matches the dribble touch; this case has not been tested.
 
 ## Translations
