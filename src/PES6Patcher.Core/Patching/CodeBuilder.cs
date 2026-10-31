@@ -29,9 +29,15 @@ internal sealed class CodeBuilder
     /// <summary><paramref name="prefix"/> followed by the absolute address of <paramref name="label"/> (e.g. push offset label).</summary>
     public CodeBuilder AddressOf(byte[] prefix, string label) { _items.Add(new AbsoluteLabel(prefix, label)); return this; }
 
+    /// <summary>Address of a label, once <see cref="Build"/> has run.</summary>
+    public int AddressOfLabel(string label) => _origin + _labels[label];
+
+    private readonly Dictionary<string, int> _labels = [];
+
     public byte[] Build()
     {
-        var labels = new Dictionary<string, int>();
+        var labels = _labels;
+        labels.Clear();
         int pos = 0;
         foreach (var item in _items)
         {

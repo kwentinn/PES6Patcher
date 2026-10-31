@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -34,6 +34,7 @@ internal sealed class MainForm : Form
         Minimum = PatchOptions.MinFreeKickWeight, Maximum = PatchOptions.MaxFreeKickWeight, Increment = 10,
         Value = PatchOptions.DefaultFreeKickWeight, Width = 60, Enabled = false,
     };
+    private readonly CheckBox _freeKickDebug = new() { Text = Loc.T("Gameplay.FreeKickDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
     private readonly CheckBox _physicsMod = new() { Text = Loc.T("Gameplay.PhysicsMod"), AutoSize = true };
     // shown visibly, as the physics mod's licence asks
     private readonly LinkLabel _physicsCredit = new() { Text = PhysicsMod.Credit, AutoSize = true, Margin = new Padding(22, 0, 3, 3) };
@@ -63,8 +64,8 @@ internal sealed class MainForm : Form
         _exe.SelectionChangeCommitted += (_, _) => RefreshState(log: true);
         _report.Click += (_, _) => CopyReport();
         _skipIntro.CheckedChanged += (_, _) => UpdateApply();
-        _freeKick.EnabledChanged += (_, _) => _freeKickWeight.Enabled = _freeKick.Enabled && _freeKick.Checked;
-        _freeKick.CheckedChanged += (_, _) => _freeKickWeight.Enabled = _freeKick.Enabled && _freeKick.Checked;
+        _freeKick.EnabledChanged += (_, _) => _freeKickWeight.Enabled = _freeKickDebug.Enabled = _freeKick.Enabled && _freeKick.Checked;
+        _freeKick.CheckedChanged += (_, _) => _freeKickWeight.Enabled = _freeKickDebug.Enabled = _freeKick.Enabled && _freeKick.Checked;
         _physicsCredit.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(PhysicsMod.Url) { UseShellExecute = true });
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
@@ -89,6 +90,7 @@ internal sealed class MainForm : Form
             _freeDirection,
             _closeDribble,
             Flow(_freeKick, _freeKickWeight, LabelText(Loc.T("Gameplay.FreeKickWeight"))),
+            _freeKickDebug,
             _physicsMod,
             _physicsCredit,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
@@ -130,6 +132,7 @@ internal sealed class MainForm : Form
             _closeDribble.Checked = previous.CloseDribble;
             _freeKick.Checked = previous.FreeKick;
             _freeKickWeight.Value = previous.FreeKickWeight;
+            _freeKickDebug.Checked = previous.FreeKickDebug;
             _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
@@ -155,7 +158,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -163,7 +166,8 @@ internal sealed class MainForm : Form
         new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value,
             Display: _display.Enabled && _display.Checked, Gameplay: _gameplay.Checked, CloseDribble: _closeDribble.Enabled && _closeDribble.Checked,
             SkipIntro: _skipIntro.Enabled && _skipIntro.Checked, PhysicsMod: _physicsMod.Enabled ? _physicsMod.Checked : null,
-            FreeKick: _freeKick.Enabled && _freeKick.Checked, FreeKickWeight: (int)_freeKickWeight.Value);
+            FreeKick: _freeKick.Enabled && _freeKick.Checked, FreeKickWeight: (int)_freeKickWeight.Value,
+            FreeKickDebug: _freeKickDebug.Checked);
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()

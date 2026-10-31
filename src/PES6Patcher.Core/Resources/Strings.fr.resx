@@ -99,6 +99,9 @@
   <data name="Overlay.CloseDribbleOff" xml:space="preserve">
     <value>DRIBBLE RESSERRÉ : DÉSACTIVÉ (F1)</value>
   </data>
+  <data name="Overlay.FreeKickWeight" xml:space="preserve">
+    <value>COUPS FRANCS : POIDS DU BALLON +{0} % (F2)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>Mod de physique de PityCharly (force des passes, poids du ballon)</value>
   </data>
@@ -138,6 +141,9 @@
   <data name="Gameplay.FreeKickWeight" xml:space="preserve">
     <value>% de poids en plus</value>
   </data>
+  <data name="Gameplay.FreeKickDebug" xml:space="preserve">
+    <value>Test : F2 en match le change (+10 %)</value>
+  </data>
   <data name="Hook.Dribble" xml:space="preserve">
     <value>touches de dribble</value>
   </data>
@@ -146,6 +152,9 @@
   </data>
   <data name="Log.FreeKick" xml:space="preserve">
     <value>Coups francs : poids du ballon + {0} % après un tir de coup franc, jusqu'à la touche suivante.</value>
+  </data>
+  <data name="Log.FreeKickDebug" xml:space="preserve">
+    <value>Touche de test des coups francs : F2 en match ajoute 10 % au poids du ballon (retour à 10 % après 200 %), affiché à l'écran.</value>
   </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe construit sans le correctif d'affichage (directions libres : {0}).</value>

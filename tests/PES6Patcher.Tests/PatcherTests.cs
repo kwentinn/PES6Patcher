@@ -188,15 +188,27 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(cave + 24, image.Rel32Target(0x478020));
         Assert.Equal(cave + 50, image.Rel32Target(0x475EEF));
         Assert.Equal(0x5B9130, image.Rel32Target(cave + 7));                 // the cave still calls the shot
-        Assert.Equal(94f, image.ReadFloat(cave + CodeCaves.FreeKickSize - 4));   // 188 * 50 %
-        var heavier = new PeImage(ExePatcher.Build(original, options with { FreeKick = true, FreeKickWeight = 100 }));
-        Assert.Equal(188f, heavier.ReadFloat(cave + CodeCaves.FreeKickSize - 4));
+        Assert.Equal(1.88f, image.ReadFloat(cave + FreeKickCaveSize - 4));   // 1 % of 188
+        Assert.Equal(50, PercentInCave(with, image, cave));
+        var heavier = ExePatcher.Build(original, options with { FreeKick = true, FreeKickWeight = 100 });
+        Assert.Equal(100, PercentInCave(heavier, new PeImage(heavier), cave));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { FreeKick = true, FreeKickWeight = 500 }));
 
         // only those 3 entries (5 + 7 + 6 bytes) and the cave change (.rdata is already writable for close dribbling)
         var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
         int[] entries = [.. Range(image, 0x58CC11, 5), .. Range(image, 0x478020, 7), .. Range(image, 0x475EEF, 6)];
-        Assert.DoesNotContain(changed.Except(entries), i => i < image.Offset(cave) || i >= image.Offset(cave) + CodeCaves.FreeKickSize);
+        Assert.DoesNotContain(changed.Except(entries), i => i < image.Offset(cave) || i >= image.Offset(cave) + FreeKickCaveSize);
+
+        // test key: the first kick sets up a Kitserver hook (F2, texts for 0 to 200 %)
+        var debug = ExePatcher.Build(original, options with { FreeKick = true, FreeKickDebug = true });
+        var debugImage = new PeImage(debug);
+        int debugCave = debugImage.Rel32Target(0x58CC11);   // after the texts cave
+        Assert.Equal(debugCave + 24, debugImage.Rel32Target(0x478020));
+        Assert.Equal(debugCave + 66, debugImage.Rel32Target(0x475EEF));
+        var text = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(debugCave), 400);
+        Assert.Contains("kload.dll\0KDrawText\0HookFunction\0", text);
+        var texts = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(debugImage.ReadInt32(debugCave + debug.AsSpan(debugImage.Offset(debugCave), 400).IndexOf(new byte[] { 0x69, 0xC0 }) + 7)), 1000);
+        Assert.Contains(ExePatcher.Ascii(Loc.T("Overlay.FreeKickWeight", 200)), texts);
 
         // alone, it makes .rdata writable and is detected as patched
         var alone = ExePatcher.Build(original, new PatchOptions(398, false, Display: false, FreeKick: true));
@@ -204,7 +216,17 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.True(ExePatcher.Analyze(ExePatcher.Build(original, new PatchOptions(398, false, Display: false, FreeKick: true))).AlreadyPatched);
 
         static IEnumerable<int> Range(PeImage image, int va, int length) => Enumerable.Range(image.Offset(va), length);
+
+        // "test eax,eax ; jne ; mov eax,percent" in the weight part
+        static int PercentInCave(byte[] exe, PeImage image, int cave)
+        {
+            int at = exe.AsSpan(image.Offset(cave), FreeKickCaveSize).IndexOf(new byte[] { 0x85, 0xC0, 0x75, 0x05, 0xB8 });
+            return BitConverter.ToInt32(exe, image.Offset(cave) + at + 5);
+        }
     }
+
+    /// <summary>Free kick cave without the test key: shot (24), kick (26), weight (51), 1 % of the weight (4).</summary>
+    private const int FreeKickCaveSize = 24 + 26 + 51 + 4;
 
     [Fact]
     public void Skip_intro_only_turns_the_three_skip_jumps_into_nops()

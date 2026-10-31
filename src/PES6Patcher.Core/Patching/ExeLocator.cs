@@ -40,10 +40,17 @@ internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTou
 /// <summary>
 /// Where the free kick fix applies: the set piece's "call shot" (<see cref="ShotCall"/>, to <see cref="Shot"/>),
 /// the ball kick function's entry, and the "fadd [weight]" of the ball flight (also used by the trajectory
-/// predictions). <see cref="State"/>: last 16 bytes of .rdata (made writable), +12 free kick shot under way,
-/// +13 the ball in flight comes from a free kick.
+/// predictions). <see cref="State"/>: the 32 bytes of .rdata before the close dribbling ones (zero padding, made
+/// writable), see <see cref="CodeCaves.FreeKick"/>.
 /// </summary>
-internal sealed record FreeKickSites(int ShotCall, int Shot, int KickEntry, int WeightAdd, int Weight, int State);
+internal sealed record FreeKickSites(int ShotCall, int Shot, int KickEntry, int WeightAdd, int Weight, int State)
+{
+    /// <summary>Import slots for the free kick weight test key (F2) and its Kitserver message.</summary>
+    public int KeyStateImport { get; init; }
+    public int ModuleHandleImport { get; init; }
+    public int ProcAddressImport { get; init; }
+    public int TickCountImport { get; init; }
+}
 
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
@@ -178,14 +185,23 @@ internal sealed class ExeLocator
         int kick = Unique(KickEntry, "Hook.FreeKick");
         int weight = Unique(BallWeight, "Hook.FreeKick");
         var rdata = _image.Named(".rdata");
-        int state = rdata != null && _image.Matches(rdata.End - 0x10, new byte[0x10]) ? rdata.End - 0x10 : 0;
-        if (shot == 0 || kick == 0 || weight == 0 || state == 0) { if (state == 0) Problem("Hook.FreeKick", 0); return null; }
+        int state = rdata != null && _image.Matches(rdata.End - 0x30, new byte[0x30]) ? rdata.End - 0x30 : 0;
+        int keyState = _image.ImportSlot("USER32.dll", "GetAsyncKeyState");
+        int moduleHandle = _image.ImportSlot("KERNEL32.dll", "GetModuleHandleA");
+        int procAddress = _image.ImportSlot("KERNEL32.dll", "GetProcAddress");
+        int tickCount = _image.ImportSlot("KERNEL32.dll", "GetTickCount");
+        bool imports = keyState != 0 && moduleHandle != 0 && procAddress != 0 && tickCount != 0;
+        if (state == 0 || !imports) Problem("Hook.FreeKick", 0);
+        if (shot == 0 || kick == 0 || weight == 0 || state == 0 || !imports) return null;
 
         // the ball weight constant is a positive float (188.0 in the reference build)
         int weightConstant = _image.ReadInt32(weight + BallWeightAdd + 2);
         if (!(_image.ReadFloat(weightConstant) is > 0f and < 10000f)) { Problem("Hook.FreeKick", weight); return null; }
         int call = shot + FreeKickShotCall;
-        return new FreeKickSites(call, _image.Rel32Target(call), kick, weight + BallWeightAdd, weightConstant, state);
+        return new FreeKickSites(call, _image.Rel32Target(call), kick, weight + BallWeightAdd, weightConstant, state)
+        {
+            KeyStateImport = keyState, ModuleHandleImport = moduleHandle, ProcAddressImport = procAddress, TickCountImport = tickCount,
+        };
     }
 
     private IntroSites? FindIntro()

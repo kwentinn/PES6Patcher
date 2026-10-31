@@ -10,8 +10,9 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="SkipIntro">Skip the opening movie and the logos (the game's own skip paths).</param>
 /// <param name="FreeKick">Easier free kicks: a heavier ball after a free kick shot, so it dips sooner after the wall.</param>
 /// <param name="FreeKickWeight">Weight added to that ball, in % of the game's ball weight.</param>
+/// <param name="FreeKickDebug">Test key: F2 in game changes <paramref name="FreeKickWeight"/> by 10 % and shows it (through Kitserver).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
-    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight)
+    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false)
 {
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -136,15 +137,25 @@ public static class ExePatcher
         if (options.SkipIntro)
             foreach (int jump in intro!.Jumps) plan.Add((jump, [0x90, 0x90]));
 
-        // free kicks: heavier ball after a free kick shot; its flags live in the last 16 bytes of .rdata
+        // free kicks: heavier ball after a free kick shot; its state lives in the end of .rdata
         if (options.FreeKick)
         {
             if (options.FreeKickWeight is < PatchOptions.MinFreeKickWeight or > PatchOptions.MaxFreeKickWeight)
                 throw new ArgumentOutOfRangeException(nameof(options), options.FreeKickWeight, null);
-            float extra = image.ReadFloat(freeKick!.Weight) * options.FreeKickWeight / 100f;
-            int at = Cave(CodeCaves.FreeKickSize);
-            var (cave, entries) = CodeCaves.FreeKick(at, freeKick, extra);
-            if (cave.Length != CodeCaves.FreeKickSize) throw new InvalidOperationException("Added code size does not match its reserved space.");
+            float unit = image.ReadFloat(freeKick!.Weight) / 100f;
+            (int, int)? texts = null;
+            if (options.FreeKickDebug)
+            {
+                // test key texts (0 to 200 %), in a cave of their own: too large to share one with the code
+                var (blob, stride) = CodeCaves.FreeKickTexts([.. Enumerable.Range(0, PatchOptions.MaxFreeKickWeight / CodeCaves.FreeKickWeightStep + 1)
+                    .Select(k => Ascii(Loc.T("Overlay.FreeKickWeight", k * CodeCaves.FreeKickWeightStep)))]);
+                int textsAt = Cave(blob.Length);
+                plan.Add((textsAt, blob));
+                texts = (textsAt, stride);
+            }
+            int size = CodeCaves.FreeKick(0, freeKick, unit, options.FreeKickWeight, texts).Cave.Length;
+            int at = Cave(size);
+            var (cave, entries) = CodeCaves.FreeKick(at, freeKick, unit, options.FreeKickWeight, texts);
             plan.Add((at, cave));
             plan.AddRange(entries);
             image.MakeWritable(image.SectionOf(freeKick.State)!);
