@@ -238,14 +238,19 @@ internal static class CodeCaves
             .JumpTo(sites.Relay + 6);                               // jmp back
     }
 
-/// <summary>Free kick weight test key (debug): F2 adds 10 % (wrapping from the maximum to the minimum).</summary>
+    /// <summary>Stick table direction bit for up (with up-left and up-right).</summary>
+    private const byte StickUp = 0x10;
+
+    /// <summary>Free kick weight test key (debug): F2 adds 10 % (wrapping from the maximum to the minimum).</summary>
     public const byte FreeKickWeightKey = 0x71;   // VK_F2
     public const int FreeKickWeightStep = 10;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
     /// <list type="bullet">
-    /// <item>the set piece's "call shot" becomes a jump here: the call is made with "free kick shot under way" set;</item>
+    /// <item>the set piece's "call shot" becomes a jump here: the call is made with "free kick shot under way" set
+    /// when a pad's left stick is pushed up at that moment (the game reads the stick for the shot's spin there too,
+    /// and leaves it alone during the flight);</item>
     /// <item>the ball kick function's entry records whether this kick is that shot (so any later touch clears it);</item>
     /// <item>the ball flight's "fadd [weight]" also adds percent * <paramref name="weightUnit"/> (1 % of the game's
     /// weight) while the ball comes from a free kick. The trajectory predictions (keeper, AI) use the same code, so
@@ -266,7 +271,21 @@ internal static class CodeCaves
 
         var code = new CodeBuilder(cave)
             .Mark("shot")
+            .Bytes(0x60)                                            // pushad                ; shot arguments stay below
+            .Bytes(0x33, 0xF6)                                      // xor esi,esi           ; pad index
+            .Mark("pad")
+            .Bytes([0x80, 0x3C, 0xB5, .. Addr(sites.StickTable + 2), 0x00])   // cmp byte [esi*4+magnitude],0
+            .Jump(0x74, "nextPad")                                  // je nextPad
+            .Bytes([0xF6, 0x04, 0xB5, .. Addr(sites.StickTable + 3), StickUp])   // test byte [esi*4+bits],up
+            .Jump(0x75, "stickUp")                                  // jne stickUp
+            .Mark("nextPad")
+            .Bytes(0x46, 0x83, 0xFE, 0x08)                          // inc esi ; cmp esi,8
+            .Jump(0x7C, "pad")                                      // jl pad
+            .Jump(0xEB, "padsDone")                                 // jmp padsDone          ; no stick up: the game's own shot
+            .Mark("stickUp")
             .Bytes([0xC6, 0x05, .. Addr(pending), 0x01])           // mov byte [pending],1
+            .Mark("padsDone")
+            .Bytes(0x61)                                            // popad
             .CallTo(sites.Shot)                                     // call shot
             .Bytes([0xC6, 0x05, .. Addr(pending), 0x00])           // mov byte [pending],0
             .JumpTo(sites.ShotCall + 5)                             // jmp back

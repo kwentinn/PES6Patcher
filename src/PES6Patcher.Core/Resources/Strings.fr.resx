@@ -136,7 +136,7 @@
     <value>Dribble resserré (touches plus courtes, le joueur suit le stick plus tôt)</value>
   </data>
   <data name="Gameplay.FreeKick" xml:space="preserve">
-    <value>Coups francs plus faciles (le ballon plonge plus tôt derrière le mur)</value>
+    <value>Coups francs plus faciles (stick en haut au tir : le ballon plonge plus tôt)</value>
   </data>
   <data name="Gameplay.FreeKickWeight" xml:space="preserve">
     <value>% de poids en plus</value>
@@ -151,7 +151,7 @@
     <value>Dribble resserré : touches jusqu'à x 0,875 en course, x 0,81 en sprint, selon la précision de dribble.</value>
   </data>
   <data name="Log.FreeKick" xml:space="preserve">
-    <value>Coups francs : poids du ballon + {0} % après un tir de coup franc, jusqu'à la touche suivante.</value>
+    <value>Coups francs : poids du ballon + {0} % après un tir de coup franc stick gauche en haut, jusqu'à la touche suivante.</value>
   </data>
   <data name="Log.FreeKickDebug" xml:space="preserve">
     <value>Touche de test des coups francs : F2 en match ajoute 10 % au poids du ballon (retour à 10 % après 200 %), affiché à l'écran.</value>

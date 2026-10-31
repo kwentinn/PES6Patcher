@@ -185,10 +185,12 @@ public class PatcherTests(ITestOutputHelper output)
         var image = new PeImage(with);
         Assert.Equal(0xE9, with[image.Offset(0x58CC11)]);
         int cave = image.Rel32Target(0x58CC11);
-        Assert.Equal(cave + 24, image.Rel32Target(0x478020));
-        Assert.Equal(cave + 50, image.Rel32Target(0x475EEF));
-        Assert.Equal(0x5B9130, image.Rel32Target(cave + 7));                 // the cave still calls the shot
+        Assert.Equal(cave + 56, image.Rel32Target(0x478020));
+        Assert.Equal(cave + 82, image.Rel32Target(0x475EEF));
+        Assert.Equal(0x5B9130, image.Rel32Target(cave + 39));                // the cave still calls the shot, after reading the sticks
         Assert.Equal(1.88f, image.ReadFloat(cave + FreeKickCaveSize - 4));   // 1 % of 188
+        Assert.Equal(0x1016680 + 2, image.ReadInt32(cave + 6));              // pad magnitudes of the stick table
+        Assert.Equal(0x10, with[image.Offset(cave + 20)]);                  // stick pushed up
         Assert.Equal(50, PercentInCave(with, image, cave));
         var heavier = ExePatcher.Build(original, options with { FreeKick = true, FreeKickWeight = 100 });
         Assert.Equal(100, PercentInCave(heavier, new PeImage(heavier), cave));
@@ -203,8 +205,8 @@ public class PatcherTests(ITestOutputHelper output)
         var debug = ExePatcher.Build(original, options with { FreeKick = true, FreeKickDebug = true });
         var debugImage = new PeImage(debug);
         int debugCave = debugImage.Rel32Target(0x58CC11);   // after the texts cave
-        Assert.Equal(debugCave + 24, debugImage.Rel32Target(0x478020));
-        Assert.Equal(debugCave + 66, debugImage.Rel32Target(0x475EEF));
+        Assert.Equal(debugCave + 56, debugImage.Rel32Target(0x478020));
+        Assert.Equal(debugCave + 98, debugImage.Rel32Target(0x475EEF));
         var text = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(debugCave), 400);
         Assert.Contains("kload.dll\0KDrawText\0HookFunction\0", text);
         var texts = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(debugImage.ReadInt32(debugCave + debug.AsSpan(debugImage.Offset(debugCave), 400).IndexOf(new byte[] { 0x69, 0xC0 }) + 7)), 1000);
@@ -225,8 +227,8 @@ public class PatcherTests(ITestOutputHelper output)
         }
     }
 
-    /// <summary>Free kick cave without the test key: shot (24), kick (26), weight (51), 1 % of the weight (4).</summary>
-    private const int FreeKickCaveSize = 24 + 26 + 51 + 4;
+    /// <summary>Free kick cave without the test key: shot (56), kick (26), weight (51), 1 % of the weight (4).</summary>
+    private const int FreeKickCaveSize = 56 + 26 + 51 + 4;
 
     [Fact]
     public void Skip_intro_only_turns_the_three_skip_jumps_into_nops()

@@ -136,7 +136,7 @@
     <value>Close dribbling (shorter touches, the player follows the stick sooner)</value>
   </data>
   <data name="Gameplay.FreeKick" xml:space="preserve">
-    <value>Easier free kicks (the ball dips sooner after the wall)</value>
+    <value>Easier free kicks (stick up when shooting: the ball dips sooner)</value>
   </data>
   <data name="Gameplay.FreeKickWeight" xml:space="preserve">
     <value>% heavier ball</value>
@@ -151,7 +151,7 @@
     <value>Close dribbling: dribble touches up to x 0.875 when running, x 0.81 when sprinting, depending on dribble accuracy.</value>
   </data>
   <data name="Log.FreeKick" xml:space="preserve">
-    <value>Free kicks: ball weight + {0} % after a free kick shot, until the next touch.</value>
+    <value>Free kicks: ball weight + {0} % after a free kick shot with the left stick up, until the next touch.</value>
   </data>
   <data name="Log.FreeKickDebug" xml:space="preserve">
     <value>Free kicks test key: F2 in a match adds 10 % to the ball weight (back to 10 % after 200 %), shown on screen.</value>

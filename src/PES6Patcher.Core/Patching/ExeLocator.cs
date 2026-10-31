@@ -50,6 +50,9 @@ internal sealed record FreeKickSites(int ShotCall, int Shot, int KickEntry, int 
     public int ModuleHandleImport { get; init; }
     public int ProcAddressImport { get; init; }
     public int TickCountImport { get; init; }
+
+    /// <summary>Analog stick table (as in <see cref="DirectionSites.StickTable"/>): the shot gets the extra weight when a stick is pushed up.</summary>
+    public int StickTable { get; init; }
 }
 
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
@@ -133,6 +136,9 @@ internal sealed class ExeLocator
     private const string FreeKickShot = "56 E8 ?? ?? ?? ?? 33 D2 66 8B 15 ?? ?? ?? ?? 6A 00 57 52 56 E8 ?? ?? ?? ?? 0F B6";
     private const int FreeKickShotCall = 20;
 
+    /// <summary>Analog stick table reader: mov ebp,<table + 2> ; mov ebx,<pad copy> ; movzx esi,byte [ebx-2] ; test esi,esi.</summary>
+    private const string StickTableReader = "BD ?? ?? ?? ?? BB ?? ?? ?? ?? 0F B6 73 FE 85 F6";
+
     /// <summary>Ball kick function (player, direction, speed, height, flag): push ebx/ebp/esi ; mov esi,[esp+0x10] ; ...</summary>
     private const string KickEntry = "53 55 56 8B 74 24 10 8A 06 33 DB 3A C3 74";
     private const string PatchedKickEntry = "E9 ?? ?? ?? ?? 90 90 8A 06 33 DB 3A C3 74";
@@ -192,7 +198,8 @@ internal sealed class ExeLocator
         int tickCount = _image.ImportSlot("KERNEL32.dll", "GetTickCount");
         bool imports = keyState != 0 && moduleHandle != 0 && procAddress != 0 && tickCount != 0;
         if (state == 0 || !imports) Problem("Hook.FreeKick", 0);
-        if (shot == 0 || kick == 0 || weight == 0 || state == 0 || !imports) return null;
+        int stick = Unique(StickTableReader, "Hook.FreeKick");
+        if (shot == 0 || kick == 0 || weight == 0 || state == 0 || !imports || stick == 0) return null;
 
         // the ball weight constant is a positive float (188.0 in the reference build)
         int weightConstant = _image.ReadInt32(weight + BallWeightAdd + 2);
@@ -201,6 +208,7 @@ internal sealed class ExeLocator
         return new FreeKickSites(call, _image.Rel32Target(call), kick, weight + BallWeightAdd, weightConstant, state)
         {
             KeyStateImport = keyState, ModuleHandleImport = moduleHandle, ProcAddressImport = procAddress, TickCountImport = tickCount,
+            StickTable = _image.ReadInt32(stick + 1) - 2,
         };
     }
 
@@ -296,7 +304,7 @@ internal sealed class ExeLocator
         }
 
         // analog stick table (angle, magnitude, bits per pad): mov ebp,<table+2> ; mov ebx,<pad copy>
-        int stick = Unique("BD ?? ?? ?? ?? BB ?? ?? ?? ?? 0F B6 73 FE 85 F6", "Hook.FreeDirection");
+        int stick = Unique(StickTableReader, "Hook.FreeDirection");
         int table = stick == 0 ? 0 : _image.ReadInt32(stick + 1) - 2;
 
         // running state: cmp si,0x20 (45 degrees) before starting a turn
