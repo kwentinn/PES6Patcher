@@ -9,7 +9,13 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="CloseDribble">Shorter dribble touches: the player can change direction sooner.</param>
 /// <param name="SkipIntro">Skip the opening movie and the logos (the game's own skip paths).</param>
 /// <param name="FreeKick">Easier free kicks: a heavier ball after a free kick shot, so it dips sooner after the wall.</param>
-public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false);
+/// <param name="FreeKickWeight">Weight added to that ball, in % of the game's ball weight.</param>
+public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
+    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight)
+{
+    /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
+    public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
+}
 
 /// <summary>What the patcher can do with a given PES6.exe.</summary>
 /// <param name="Sha256">Hash of the file.</param>
@@ -133,7 +139,9 @@ public static class ExePatcher
         // free kicks: heavier ball after a free kick shot; its flags live in the last 16 bytes of .rdata
         if (options.FreeKick)
         {
-            float extra = image.ReadFloat(freeKick!.Weight) * CodeCaves.FreeKickExtraWeight;
+            if (options.FreeKickWeight is < PatchOptions.MinFreeKickWeight or > PatchOptions.MaxFreeKickWeight)
+                throw new ArgumentOutOfRangeException(nameof(options), options.FreeKickWeight, null);
+            float extra = image.ReadFloat(freeKick!.Weight) * options.FreeKickWeight / 100f;
             int at = Cave(CodeCaves.FreeKickSize);
             var (cave, entries) = CodeCaves.FreeKick(at, freeKick, extra);
             if (cave.Length != CodeCaves.FreeKickSize) throw new InvalidOperationException("Added code size does not match its reserved space.");

@@ -14,8 +14,10 @@ namespace PES6Patcher.Core;
 /// <param name="CloseDribble">Shorter dribble touches.</param>
 /// <param name="SkipIntro">Skip the opening movie and the logos.</param>
 /// <param name="FreeKick">Heavier ball after a free kick shot.</param>
+/// <param name="FreeKickWeight">Weight added to that ball, in % of the game's ball weight.</param>
 /// <param name="PhysicsMod">Load PityCharly's physics mod DLL (kload.cfg); null = leave as it is.</param>
-public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null, bool FreeKick = false)
+public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null, bool FreeKick = false,
+    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -40,12 +42,12 @@ public static class Installer
         bool freeKick = settings.Gameplay && settings.FreeKick;
         // without any exe fix, the exe goes back to the original
         byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || settings.SkipIntro
-            ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro, freeKick))
+            ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro, freeKick, settings.FreeKickWeight))
             : original;
         string yesNo = Loc.T(freeDirection ? "Common.Yes" : "Common.No");
         log(settings.Display ? Loc.T("Log.ExeBuilt", settings.Half, yesNo) : Loc.T("Log.ExeBuiltNoDisplay", yesNo));
         if (closeDribble) log(Loc.T("Log.CloseDribble"));
-        if (freeKick) log(Loc.T("Log.FreeKick"));
+        if (freeKick) log(Loc.T("Log.FreeKick", settings.FreeKickWeight));
         if (settings.SkipIntro) log(Loc.T("Log.SkipIntro"));
 
         string kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii), kload = kloadBefore;

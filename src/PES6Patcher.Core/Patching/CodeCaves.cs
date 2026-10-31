@@ -238,9 +238,6 @@ internal static class CodeCaves
             .JumpTo(sites.Relay + 6);                               // jmp back
     }
 
-    /// <summary>Easier free kicks: weight added to the ball of a free kick shot, as a fraction of the game's weight.</summary>
-    public const float FreeKickExtraWeight = 0.5f;
-
     public const int FreeKickSize = 24 + 26 + 30;
 
     /// <summary>

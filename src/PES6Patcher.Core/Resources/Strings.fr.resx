@@ -135,6 +135,9 @@
   <data name="Gameplay.FreeKick" xml:space="preserve">
     <value>Coups francs plus faciles (le ballon plonge plus tôt derrière le mur)</value>
   </data>
+  <data name="Gameplay.FreeKickWeight" xml:space="preserve">
+    <value>% de poids en plus</value>
+  </data>
   <data name="Hook.Dribble" xml:space="preserve">
     <value>touches de dribble</value>
   </data>
@@ -142,7 +145,7 @@
     <value>Dribble resserré : touches jusqu'à x 0,875 en course, x 0,81 en sprint, selon la précision de dribble.</value>
   </data>
   <data name="Log.FreeKick" xml:space="preserve">
-    <value>Coups francs : poids du ballon + 50 % après un tir de coup franc, jusqu'à la touche suivante.</value>
+    <value>Coups francs : poids du ballon + {0} % après un tir de coup franc, jusqu'à la touche suivante.</value>
   </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe construit sans le correctif d'affichage (directions libres : {0}).</value>

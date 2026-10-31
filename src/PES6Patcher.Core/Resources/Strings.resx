@@ -135,6 +135,9 @@
   <data name="Gameplay.FreeKick" xml:space="preserve">
     <value>Easier free kicks (the ball dips sooner after the wall)</value>
   </data>
+  <data name="Gameplay.FreeKickWeight" xml:space="preserve">
+    <value>% heavier ball</value>
+  </data>
   <data name="Hook.Dribble" xml:space="preserve">
     <value>dribble touches</value>
   </data>
@@ -142,7 +145,7 @@
     <value>Close dribbling: dribble touches up to x 0.875 when running, x 0.81 when sprinting, depending on dribble accuracy.</value>
   </data>
   <data name="Log.FreeKick" xml:space="preserve">
-    <value>Free kicks: ball weight + 50 % after a free kick shot, until the next touch.</value>
+    <value>Free kicks: ball weight + {0} % after a free kick shot, until the next touch.</value>
   </data>
   <data name="Log.ExeBuiltNoDisplay" xml:space="preserve">
     <value>Exe built without the display fix (free directions: {0}).</value>

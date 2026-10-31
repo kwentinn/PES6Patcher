@@ -188,7 +188,10 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(cave + 24, image.Rel32Target(0x478020));
         Assert.Equal(cave + 50, image.Rel32Target(0x475EEF));
         Assert.Equal(0x5B9130, image.Rel32Target(cave + 7));                 // the cave still calls the shot
-        Assert.Equal(94f, image.ReadFloat(cave + CodeCaves.FreeKickSize - 4));   // 188 * 0.5
+        Assert.Equal(94f, image.ReadFloat(cave + CodeCaves.FreeKickSize - 4));   // 188 * 50 %
+        var heavier = new PeImage(ExePatcher.Build(original, options with { FreeKick = true, FreeKickWeight = 100 }));
+        Assert.Equal(188f, heavier.ReadFloat(cave + CodeCaves.FreeKickSize - 4));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { FreeKick = true, FreeKickWeight = 500 }));
 
         // only those 3 entries (5 + 7 + 6 bytes) and the cave change (.rdata is already writable for close dribbling)
         var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
