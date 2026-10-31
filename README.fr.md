@@ -15,7 +15,7 @@ Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirem
 
 **Gameplay**
 - **Directions libres au stick analogique** : le joueur suit l'angle précis du stick au lieu des seules 8 directions d'origine, en course comme en dribble (le ballon part dans l'angle du stick au lieu du multiple de 22,5° le plus proche). La croix directionnelle, le clavier et l'IA ne changent pas.
-- **Dribble resserré** (option) : en dribble, le joueur ne peut changer de direction qu'à sa touche de balle suivante. Cette option raccourcit les touches (× 0,875 en course, × 0,81 en sprint) : le ballon reste plus près et le joueur suit le stick plus tôt. Les passes et les tirs ne changent pas.
+- **Dribble resserré** (option) : en dribble, le joueur ne peut changer de direction qu'à sa touche de balle suivante. Cette option raccourcit les touches (× 0,875 en course, × 0,81 en sprint) : le ballon reste plus près et le joueur suit le stick plus tôt. Les passes et les tirs ne changent pas. En match, **F1** l'active et le désactive ; l'état s'affiche un instant à l'écran (via Kitserver), ainsi qu'au coup d'envoi.
 - **Vitesse du jeu** réglable (module Speeder de Kitserver).
 - **Mod de physique de PityCharly** (option, téléchargement séparé) : passes en une touche et passes courtes plus appuyées, poids du ballon ajusté en dribble. Voir [Mod de physique](#mod-de-physique).
 
@@ -98,6 +98,7 @@ Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt mat�
 - Les décors des menus font 512 unités de large : il reste des bandes noires sur les côtés.
 - Les directions libres ne concernent que le stick analogique. Quelques touches de dribble moins fréquentes et les gestes spéciaux gardent les directions du jeu.
 - Dribble resserré : avec des joueurs peu adroits en dribble (touches plus irrégulières), le ballon peut parfois se retrouver sous leurs pieds.
+- Le dribble resserré s'applique à tous les joueurs, IA comprise : ses dribbleurs gardent eux aussi le ballon plus près, ce qui rend la défense plus difficile et réduit l'écart entre bons et mauvais dribbleurs. Le désactiver avec F1 si défendre devient trop dur.
 - À deux joueurs sur le même PC, les directions libres choisissent la manette dont le stick correspond à la touche de dribble ; ce cas n'a pas été testé.
 
 ## Traductions

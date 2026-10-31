@@ -11,6 +11,7 @@ internal sealed class CodeBuilder
     private sealed record Label(string Name) : Item;
     private sealed record ShortJump(byte Opcode, string Target) : Item;
     private sealed record Call(int? Address, string? Target) : Item;
+    private sealed record AbsoluteLabel(byte[] Prefix, string Target) : Item;
 
     private readonly List<Item> _items = [];
     private readonly int _origin;
@@ -24,6 +25,9 @@ internal sealed class CodeBuilder
     public CodeBuilder CallTo(int address) { _items.Add(new Call(address, null)); return this; }
     public CodeBuilder CallTo(string label) { _items.Add(new Call(null, label)); return this; }
 
+    /// <summary><paramref name="prefix"/> followed by the absolute address of <paramref name="label"/> (e.g. push offset label).</summary>
+    public CodeBuilder AddressOf(byte[] prefix, string label) { _items.Add(new AbsoluteLabel(prefix, label)); return this; }
+
     public byte[] Build()
     {
         var labels = new Dictionary<string, int>();
@@ -36,6 +40,7 @@ internal sealed class CodeBuilder
                 case Label l: labels[l.Name] = pos; break;
                 case ShortJump: pos += 2; break;
                 case Call: pos += 5; break;
+                case AbsoluteLabel a: pos += a.Prefix.Length + 4; break;
             }
         }
 
@@ -57,6 +62,10 @@ internal sealed class CodeBuilder
                     int target = c.Address ?? _origin + labels[c.Target!];
                     code.Add(0xE8);
                     code.AddRange(BitConverter.GetBytes(target - (_origin + code.Count + 4)));
+                    break;
+                case AbsoluteLabel a:
+                    code.AddRange(a.Prefix);
+                    code.AddRange(BitConverter.GetBytes(_origin + labels[a.Target]));
                     break;
             }
         }

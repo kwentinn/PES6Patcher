@@ -16,7 +16,20 @@ internal sealed record DirectionSites(int Entry, byte[] OriginalBody, int Rotate
 /// the dribble touches (running and sprinting states). <see cref="SnappedTouch"/>, the most frequent
 /// one, gets its direction rounded to 22.5 degrees.
 /// </summary>
-internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTouches, int SnappedTouch);
+internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTouches, int SnappedTouch)
+{
+    /// <summary>Import slots for the in-game close dribbling switch (F1) and its Kitserver message.</summary>
+    public int KeyStateImport { get; init; }
+    public int ModuleHandleImport { get; init; }
+    public int ProcAddressImport { get; init; }
+    public int TickCountImport { get; init; }
+
+    /// <summary>
+    /// Last 16 bytes of .rdata (zero padding, made writable): +0 switched off, +1 set up, +2 message
+    /// hook installed, +4 KDrawText, +8 tick until which the message shows.
+    /// </summary>
+    public int SwitchState { get; init; }
+}
 
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
@@ -243,8 +256,23 @@ internal sealed class ExeLocator
 
         var run = Touches(RunTouchSignatures);
         var sprint = Touches(SprintTouchSignatures);
-        return run.Length == RunTouchSignatures.Length && sprint.Length == SprintTouchSignatures.Length
+
+        int keyState = _image.ImportSlot("USER32.dll", "GetAsyncKeyState");
+        int moduleHandle = _image.ImportSlot("KERNEL32.dll", "GetModuleHandleA");
+        int procAddress = _image.ImportSlot("KERNEL32.dll", "GetProcAddress");
+        int tickCount = _image.ImportSlot("KERNEL32.dll", "GetTickCount");
+        bool imports = keyState != 0 && moduleHandle != 0 && procAddress != 0 && tickCount != 0;
+        if (!imports) Problem("Hook.Dribble", 0);
+        var rdata = _image.Named(".rdata");
+        int state = rdata != null && _image.Matches(rdata.End - 0x10, new byte[0x10]) ? rdata.End - 0x10 : 0;
+        if (state == 0) Problem("Hook.Dribble", rdata?.End ?? 0);
+
+        return run.Length == RunTouchSignatures.Length && sprint.Length == SprintTouchSignatures.Length && imports && state != 0
             ? new DribbleSites(relay, run, sprint, run[SnappedTouchIndex])
+            {
+                KeyStateImport = keyState, ModuleHandleImport = moduleHandle, ProcAddressImport = procAddress,
+                TickCountImport = tickCount, SwitchState = state,
+            }
             : null;
     }
 

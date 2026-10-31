@@ -48,6 +48,10 @@ public static class ExePatcher
 
     public static string Sha256(byte[] exe) => Convert.ToHexString(SHA256.HashData(exe));
 
+    /// <summary>Text for Kitserver's font: accents removed, other non-ASCII characters dropped.</summary>
+    internal static string Ascii(string text) =>
+        new([.. text.Normalize(System.Text.NormalizationForm.FormD).Where(c => c < 128)]);
+
     public static ExeReport Analyze(byte[] exe)
     {
         string hash = Sha256(exe);
@@ -100,7 +104,18 @@ public static class ExePatcher
         if (dribbleDirection || options.CloseDribble)
         {
             int size = CodeCaves.KickRelaySize(dribbleDirection, options.CloseDribble);
-            var hook = CodeCaves.KickRelay(Cave(size), dribble!, dribbleDirection ? direction : null, options.CloseDribble);
+            int relayCave = Cave(size);
+            int switchSetUp = 0;
+            if (options.CloseDribble)
+            {
+                // F1 switch with a Kitserver message; its state lives in the last 16 bytes of .rdata
+                string on = Ascii(Loc.T("Overlay.CloseDribbleOn")), off = Ascii(Loc.T("Overlay.CloseDribbleOff"));
+                int messageSize = CodeCaves.SwitchMessage(0, dribble!, on, off).Length;
+                switchSetUp = Cave(messageSize);
+                plan.Add((switchSetUp, CodeCaves.SwitchMessage(switchSetUp, dribble!, on, off)));
+                image.MakeWritable(image.SectionOf(dribble!.SwitchState)!);
+            }
+            var hook = CodeCaves.KickRelay(relayCave, dribble!, dribbleDirection ? direction : null, options.CloseDribble, switchSetUp);
             if (hook.CaveBytes.Length != size) throw new InvalidOperationException("Added code size does not match its reserved space.");
             plan.Add((hook.Cave, hook.CaveBytes));
             plan.Add((hook.Entry, hook.EntryBytes));

@@ -93,6 +93,12 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat : format 3D {0:0.#####}.</value>
   </data>
+  <data name="Overlay.CloseDribbleOn" xml:space="preserve">
+    <value>DRIBBLE RESSERRÉ : ACTIVÉ (F1)</value>
+  </data>
+  <data name="Overlay.CloseDribbleOff" xml:space="preserve">
+    <value>DRIBBLE RESSERRÉ : DÉSACTIVÉ (F1)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>Mod de physique de PityCharly (force des passes, poids du ballon)</value>
   </data>

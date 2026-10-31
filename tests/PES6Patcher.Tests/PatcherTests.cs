@@ -49,8 +49,9 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// <paramref name="built"/> equals <paramref name="expected"/> except the kick relay entry (jmp cave ; nop)
-    /// and its cave of <paramref name="caveSize"/> bytes. Returns the cave's file offset.
+    /// <paramref name="built"/> equals <paramref name="expected"/> except the kick relay entry (jmp cave ; nop),
+    /// its cave of <paramref name="caveSize"/> bytes and, with close dribbling, the switch message cave
+    /// (in 0xCC padding) and the .rdata write permission (F1 switch). Returns the relay cave's file offset.
     /// </summary>
     private static int AssertSameExceptKickRelay(byte[] expected, byte[] built, int caveSize)
     {
@@ -59,11 +60,21 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(0xE9, built[relay]);
         Assert.Equal(0x90, built[relay + 5]);
         int cave = image.Offset(KickRelay + 5 + BitConverter.ToInt32(built, relay + 1));
+        int rdataWrite = RdataFlagsOffset(built) + 3;   // high byte of the characteristics
         var diff = Enumerable.Range(0, built.Length)
-            .Where(i => built[i] != expected[i] && !(i >= relay && i < relay + 6) && !(i >= cave && i < cave + caveSize))
+            .Where(i => built[i] != expected[i] && !(i >= relay && i < relay + 6) && !(i >= cave && i < cave + caveSize) && i != rdataWrite
+                && expected[i] != 0xCC)
             .Take(10).ToList();
         Assert.True(diff.Count == 0, "Octets différents aux offsets : " + string.Join(", ", diff.Select(i => $"0x{i:X}")));
         return cave;
+    }
+
+    /// <summary>File offset of the .rdata section header's characteristics.</summary>
+    private static int RdataFlagsOffset(byte[] exe)
+    {
+        int pe = BitConverter.ToInt32(exe, 0x3C), table = pe + 24 + BitConverter.ToUInt16(exe, pe + 20);
+        for (int s = table; ; s += 40)
+            if (System.Text.Encoding.ASCII.GetString(exe, s, 6) == ".rdata") return s + 36;
     }
 
     private const int KickRelay = 0x4781F0;
@@ -134,7 +145,7 @@ public class PatcherTests(ITestOutputHelper output)
         int[] touches = [.. RunTouches, .. SprintTouches];
         for (int k = 0; k < touches.Length; k++)
         {
-            int at = cave + CodeCaves.RelayDirectionSize + 3 + 7 * k;
+            int at = cave + CodeCaves.RelayDirectionSize + CloseDribbleSwitchSize + 3 + 7 * k;
             Assert.Equal(0x3D, built[at]);
             Assert.Equal(touches[k], BitConverter.ToInt32(built, at + 1));
         }
@@ -283,7 +294,47 @@ public class PatcherTests(ITestOutputHelper output)
         var close = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: false, Display: false, CloseDribble: true));
         var closeImage = new PeImage(close);
         int closeCave = closeImage.Offset(KickRelay + 5 + BitConverter.ToInt32(close, closeImage.Offset(KickRelay) + 1));
-        Assert.Equal(0x5AF6D3, BitConverter.ToInt32(close, closeCave + 4));
+        Assert.Equal(0x5AF6D3, BitConverter.ToInt32(close, closeCave + CloseDribbleSwitchSize + 4));
+    }
+
+    /// <summary>
+    /// F1 switch at the start of the close dribbling part: set-up call on the first touch, then (when the
+    /// Kitserver message is not installed) push ; call [GetAsyncKeyState] ; test ; je ; xor ; then cmp ; jne.
+    /// </summary>
+    private const int CloseDribbleSwitchSize = 51;
+
+    private const int SwitchState = 0xBC3FF0;   // last 16 bytes of .rdata
+
+    [Fact]
+    public void Close_dribble_can_be_switched_with_F1_through_a_flag_in_writable_rdata()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: false, Display: false, CloseDribble: true));
+        var image = new PeImage(built);
+        int relayCave = KickRelay + 5 + BitConverter.ToInt32(built, image.Offset(KickRelay) + 1);
+        int cave = image.Offset(relayCave);
+
+        Assert.Equal(SwitchState + 1, BitConverter.ToInt32(built, cave + 2));          // cmp byte [set up],0
+        int setUp = relayCave + 14 + BitConverter.ToInt32(built, cave + 10);          // call set-up
+        Assert.Equal(SwitchState + 2, BitConverter.ToInt32(built, cave + 16));         // cmp byte [message hook],0
+        Assert.Equal([0x6A, 0x70, 0xFF, 0x15], built.AsSpan(cave + 23, 4).ToArray());  // push VK_F1 ; call [...]
+        Assert.Equal(0xB7D2E0, BitConverter.ToInt32(built, cave + 27));               // user32!GetAsyncKeyState
+        Assert.Equal(SwitchState, BitConverter.ToInt32(built, cave + 37));             // xor byte [off],1
+        Assert.Equal(SwitchState, BitConverter.ToInt32(built, cave + 44));             // cmp byte [off],0
+        Assert.Equal(0x80000000u, BitConverter.ToUInt32(built, RdataFlagsOffset(built)) & 0x80000000u);
+
+        // the set-up cave asks kload.dll for HookFunction and KDrawText, and holds both messages
+        var text = System.Text.Encoding.ASCII.GetString(built, image.Offset(setUp), 400);
+        Assert.Contains("kload.dll\0KDrawText\0HookFunction\0", text);
+        Assert.Contains(ExePatcher.Ascii(Loc.T("Overlay.CloseDribbleOn")) + "\0", text);
+        Assert.Contains(ExePatcher.Ascii(Loc.T("Overlay.CloseDribbleOff")) + "\0", text);
+        Assert.Equal(0u, BitConverter.ToUInt32(original, RdataFlagsOffset(original)) & 0x80000000u);
+
+        // without close dribbling, .rdata stays read-only
+        var without = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true));
+        Assert.Equal(0u, BitConverter.ToUInt32(without, RdataFlagsOffset(without)) & 0x80000000u);
     }
 
     [Theory]

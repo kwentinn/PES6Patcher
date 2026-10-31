@@ -12,7 +12,10 @@ internal static class CodeCaves
     public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156;
 
     /// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
-    public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 84, RelayTailSize = 11;
+    public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 135, RelayTailSize = 11;
+
+    /// <summary>Key that switches close dribbling on and off in game.</summary>
+    public const byte CloseDribbleSwitchKey = 0x70;   // VK_F1
 
     public static int KickRelaySize(bool direction, bool closeDribble) =>
         (direction ? RelayDirectionSize : 0) + (closeDribble ? RelayCloseDribbleSize : 0) + RelayTailSize;
@@ -131,8 +134,11 @@ internal static class CodeCaves
     /// </list>
     /// Then it replays the 6 replaced bytes (mov ecx,[esp+0xC] ; mov eax,ecx). Passes and shots are left alone.
     /// </summary>
-    public static Hook KickRelay(int cave, DribbleSites sites, DirectionSites? direction, bool closeDribble)
+    public static Hook KickRelay(int cave, DribbleSites sites, DirectionSites? direction, bool closeDribble, int switchSetUp = 0)
     {
+        int state = sites.SwitchState;
+        byte[] StateByte(byte op, int offset, byte value) =>   // op byte [state+offset],value
+            [0x80, op, .. BitConverter.GetBytes(state + offset), value];
         var code = new CodeBuilder(cave);
         if (direction != null)
         {
@@ -166,7 +172,23 @@ internal static class CodeCaves
         }
         if (closeDribble)
         {
-            code.Bytes(0x8B, 0x04, 0x24);                           // mov eax,[esp]        ; return address
+            // first touch: set up the Kitserver message (F1 then read on every frame); without it,
+            // F1 pressed since the last touch switches here (eax, ecx, edx are free at the relay's entry)
+            code.Bytes(StateByte(0x3D, 1, 0))                      // cmp byte [set up],0
+                .Jump(0x75, "setUp")                                // jne setUp
+                .CallTo(switchSetUp)                                // call switch set-up
+                .Mark("setUp")
+                .Bytes(StateByte(0x3D, 2, 0))                      // cmp byte [message hook],0
+                .Jump(0x75, "switched")                             // jne switched          ; read on every frame
+                .Bytes(0x6A, CloseDribbleSwitchKey)                 // push VK_F1
+                .Bytes([0xFF, 0x15], sites.KeyStateImport)          // call [GetAsyncKeyState]
+                .Bytes(0xA8, 0x01)                                  // test al,1             ; pressed since last call
+                .Jump(0x74, "switched")                             // je switched
+                .Bytes(StateByte(0x35, 0, 1))                      // xor byte [off],1
+                .Mark("switched")
+                .Bytes(StateByte(0x3D, 0, 0))                      // cmp byte [off],0
+                .Jump(0x75, "original")                             // jne original          ; switched off
+                .Bytes(0x8B, 0x04, 0x24);                           // mov eax,[esp]        ; return address
             foreach (int touch in sites.RunTouches)
                 code.Bytes([0x3D], touch).Jump(0x74, "run");        // cmp eax,touch ; je run
             foreach (int touch in sites.SprintTouches)
@@ -193,5 +215,91 @@ internal static class CodeCaves
             0xC1, 0xF8, 0x04,                                       // sar eax,4
             0x89, 0x44, 0x24, 0x0C,                                 // mov [esp+0xC],eax
         ];
+    }
+
+    /// <summary>Close dribbling message: shown this long after a switch (and at the first touch of a match).</summary>
+    public const int SwitchMessageMs = 2000, FirstMessageMs = 2500;
+
+    /// <summary>
+    /// Close dribbling switch message, through Kitserver's kload.dll (HookFunction, KDrawText).
+    /// The cave starts with the set-up, called once from the kick relay: it registers a Present hook
+    /// (called on every frame) that reads F1, switches close dribbling, and draws <paramref name="on"/>
+    /// in green or <paramref name="off"/> in red for a moment. Without kload.dll, nothing is registered
+    /// and the relay keeps reading F1 itself. Texts are ASCII (Kitserver's font).
+    /// </summary>
+    public static byte[] SwitchMessage(int cave, DribbleSites sites, string on, string off)
+    {
+        int state = sites.SwitchState;
+        byte[] Ascii(string s) => [.. System.Text.Encoding.ASCII.GetBytes(s), 0];
+        byte[] Float(float f) => BitConverter.GetBytes(f);
+
+        return new CodeBuilder(cave)
+            // set-up (cdecl, no argument; eax, ecx, edx free)
+            .Bytes([0xC6, 0x05, .. BitConverter.GetBytes(state + 1), 0x01])   // mov byte [set up],1
+            .Bytes(0x53)                                            // push ebx
+            .AddressOf([0x68], "kload")                             // push "kload.dll"
+            .Bytes([0xFF, 0x15], sites.ModuleHandleImport)          // call [GetModuleHandleA]
+            .Bytes(0x85, 0xC0)                                      // test eax,eax
+            .Jump(0x74, "setUpDone")                                // je setUpDone          ; no Kitserver
+            .Bytes(0x8B, 0xD8)                                      // mov ebx,eax
+            .AddressOf([0x68], "drawText")                          // push "KDrawText"
+            .Bytes(0x53)                                            // push ebx
+            .Bytes([0xFF, 0x15], sites.ProcAddressImport)           // call [GetProcAddress]
+            .Bytes(0x85, 0xC0)                                      // test eax,eax
+            .Jump(0x74, "setUpDone")                                // je setUpDone
+            .Bytes([0xA3], state + 4)                               // mov [KDrawText],eax
+            .AddressOf([0x68], "hookFunction")                      // push "HookFunction"
+            .Bytes(0x53)                                            // push ebx
+            .Bytes([0xFF, 0x15], sites.ProcAddressImport)           // call [GetProcAddress]
+            .Bytes(0x85, 0xC0)                                      // test eax,eax
+            .Jump(0x74, "setUpDone")                                // je setUpDone
+            .AddressOf([0x68], "present")                           // push present
+            .Bytes(0x6A, 0x03)                                      // push 3                ; hk_D3D_Present
+            .Bytes(0xFF, 0xD0)                                      // call eax              ; HookFunction
+            .Bytes(0x83, 0xC4, 0x08)                                // add esp,8
+            .Bytes([0xC6, 0x05, .. BitConverter.GetBytes(state + 2), 0x01])   // mov byte [message hook],1
+            .Bytes([0xFF, 0x15], sites.TickCountImport)             // call [GetTickCount]
+            .Bytes([0x05], FirstMessageMs)                          // add eax,FirstMessageMs ; show the state at kick-off
+            .Bytes([0xA3], state + 8)                               // mov [until],eax
+            .Mark("setUpDone")
+            .Bytes(0x5B, 0xC3)                                      // pop ebx ; ret
+            // Present hook (stdcall, 5 arguments), on every frame
+            .Mark("present")
+            .Bytes(0x6A, CloseDribbleSwitchKey)                     // push VK_F1
+            .Bytes([0xFF, 0x15], sites.KeyStateImport)              // call [GetAsyncKeyState]
+            .Bytes(0xA8, 0x01)                                      // test al,1
+            .Jump(0x74, "show")                                     // je show
+            .Bytes([0x80, 0x35, .. BitConverter.GetBytes(state), 0x01])       // xor byte [off],1
+            .Bytes([0xFF, 0x15], sites.TickCountImport)             // call [GetTickCount]
+            .Bytes([0x05], SwitchMessageMs)                         // add eax,SwitchMessageMs
+            .Bytes([0xA3], state + 8)                               // mov [until],eax
+            .Mark("show")
+            .Bytes([0xFF, 0x15], sites.TickCountImport)             // call [GetTickCount]
+            .Bytes([0x3B, 0x05], state + 8)                         // cmp eax,[until]
+            .Jump(0x73, "presentDone")                              // jae presentDone
+            .Bytes(0x6A, 0x01)                                      // push 1                ; absolute (640 x 480)
+            .Bytes([0x80, 0x3D, .. BitConverter.GetBytes(state), 0x00])       // cmp byte [off],0
+            .Jump(0x75, "offText")                                  // jne offText
+            .AddressOf([0x68], "on")                                // push on               ; text
+            .Bytes([0xB8], unchecked((int)0xFF40FF40))              // mov eax,green
+            .Jump(0xEB, "draw")                                     // jmp draw
+            .Mark("offText")
+            .AddressOf([0x68], "off")                               // push off              ; text
+            .Bytes([0xB8], unchecked((int)0xFFFF4040))              // mov eax,red
+            .Mark("draw")
+            .Bytes(0x6A, 0x0C)                                      // push 12               ; font size
+            .Bytes(0x50)                                            // push eax              ; color
+            .Bytes([0x68], BitConverter.ToInt32(Float(48f)))        // push y
+            .Bytes([0x68], BitConverter.ToInt32(Float(10f)))        // push x
+            .Bytes([0xFF, 0x15], state + 4)                         // call [KDrawText]
+            .Bytes(0x83, 0xC4, 0x18)                                // add esp,24
+            .Mark("presentDone")
+            .Bytes(0xC2, 0x14, 0x00)                                // ret 0x14
+            .Mark("kload").Bytes(Ascii("kload.dll"))
+            .Mark("drawText").Bytes(Ascii("KDrawText"))
+            .Mark("hookFunction").Bytes(Ascii("HookFunction"))
+            .Mark("on").Bytes(Ascii(on))
+            .Mark("off").Bytes(Ascii(off))
+            .Build();
     }
 }

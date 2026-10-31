@@ -93,6 +93,12 @@
   <data name="Log.Lodmixer" xml:space="preserve">
     <value>lodmixer.dat: 3D aspect ratio {0:0.#####}.</value>
   </data>
+  <data name="Overlay.CloseDribbleOn" xml:space="preserve">
+    <value>CLOSE DRIBBLING: ON (F1)</value>
+  </data>
+  <data name="Overlay.CloseDribbleOff" xml:space="preserve">
+    <value>CLOSE DRIBBLING: OFF (F1)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>PityCharly's physics mod (pass power, ball weight)</value>
   </data>

@@ -16,6 +16,8 @@ internal sealed class PeImage
     public int ImageBase { get; }
     public IReadOnlyList<PeSection> Sections { get; }
 
+    private readonly int _pe, _sectionTable;
+
     public PeImage(byte[] bytes)
     {
         Bytes = bytes;
@@ -28,6 +30,8 @@ internal sealed class PeImage
         ImageBase = BitConverter.ToInt32(bytes, pe + 24 + 28);
 
         int table = pe + 24 + optionalSize;
+        _pe = pe;
+        _sectionTable = table;
         var raw = new List<(string Name, int Rva, int VirtualSize, int RawOffset, int RawSize, uint Flags)>();
         for (int i = 0; i < count; i++)
         {
@@ -77,4 +81,38 @@ internal sealed class PeImage
 
     /// <summary>Target of the rel32 call/jmp whose opcode is at <paramref name="va"/>.</summary>
     public int Rel32Target(int va) => va + 5 + ReadInt32(va + 1);
+
+    /// <summary>Address of the import address table slot of <paramref name="dll"/>!<paramref name="function"/>, or 0.</summary>
+    public int ImportSlot(string dll, string function)
+    {
+        int directory = BitConverter.ToInt32(Bytes, _pe + 24 + 104);   // data directory 1: imports
+        if (directory == 0 || SectionOf(ImageBase + directory) == null) return 0;
+        for (int d = ImageBase + directory; ReadInt32(d + 12) != 0; d += 20)
+        {
+            if (!string.Equals(ReadString(ImageBase + ReadInt32(d + 12)), dll, StringComparison.OrdinalIgnoreCase)) continue;
+            int names = ReadInt32(d) != 0 ? ReadInt32(d) : ReadInt32(d + 16), slots = ReadInt32(d + 16);
+            for (int k = 0; ; k++)
+            {
+                int thunk = ReadInt32(ImageBase + names + 4 * k);
+                if (thunk == 0) break;
+                if (thunk > 0 && ReadString(ImageBase + thunk + 2) == function) return ImageBase + slots + 4 * k;
+            }
+        }
+        return 0;
+    }
+
+    private string ReadString(int va)
+    {
+        int start = Offset(va), end = start;
+        while (end < Bytes.Length && Bytes[end] != 0) end++;
+        return System.Text.Encoding.ASCII.GetString(Bytes, start, end - start);
+    }
+
+    /// <summary>Adds the write permission to <paramref name="section"/> (section header, IMAGE_SCN_MEM_WRITE).</summary>
+    public void MakeWritable(PeSection section)
+    {
+        int index = Sections.ToList().IndexOf(section);
+        int flags = _sectionTable + 40 * index + 36;
+        BitConverter.GetBytes(BitConverter.ToUInt32(Bytes, flags) | 0x80000000u).CopyTo(Bytes, flags);
+    }
 }
