@@ -25,6 +25,10 @@ Les joueurs sont globalement trop rapprochés. Le jeu paraît daté, il est plus
 
 Fait pour la largeur : **Joueurs plus écartés en largeur** éloigne les joueurs qui se replacent du centre de leur équipe en largeur (20 à 30 % semblent justes en jeu). Écarter aussi en longueur faisait reculer les défenseurs trop près de leur gardien : ce n'est donc pas fait.
 
+## Barre de puissance des passes
+
+Suggestion de dansef sur Evo-Web : changer le remplissage de la barre de puissance pour les passes normales et les passes en profondeur. Ce n'est peut-être pas faisable : en étudiant la jauge de tir, la partie qui mesure la durée d'appui s'est révélée être dans le code protégé de l'exe.
+
 ## Joueurs humains : dribbler dans n'importe quelle direction
 
 La direction libre suit l'angle précis du stick, mais certaines touches de dribble et certains gestes gardent les directions du jeu. Un joueur peut-il vraiment aller n'importe où ?
