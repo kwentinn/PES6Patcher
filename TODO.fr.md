@@ -19,7 +19,9 @@ Un joueur rapide balle au pied ne parvient presque jamais à distancer un défen
 
 ## Position des joueurs
 
-Les joueurs sont globalement trop rapprochés. Le jeu paraît daté, il est plus difficile, et on ne peut pas vraiment construire ses actions. Il faudrait pouvoir les écarter un peu.
+Les joueurs sont globalement trop rapprochés. Le jeu paraît daté, il est plus difficile, et on ne peut pas vraiment construire ses actions.
+
+Fait pour la largeur : **Joueurs plus écartés en largeur** éloigne les joueurs qui se replacent du centre de leur équipe en largeur (20 à 30 % semblent justes en jeu). Écarter aussi en longueur faisait reculer les défenseurs trop près de leur gardien : ce n'est donc pas fait.
 
 ## Joueurs humains : dribbler dans n'importe quelle direction
 

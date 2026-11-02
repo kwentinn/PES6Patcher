@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -50,6 +50,13 @@ internal sealed class MainForm : Form
         Value = PatchOptions.DefaultShotAccuracy, Width = 60, Enabled = false,
     };
     private readonly CheckBox _shotAccuracyDebug = new() { Text = Loc.T("Gameplay.ShotAccuracyDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
+    private readonly CheckBox _spread = new() { Text = Loc.T("Gameplay.Spread"), AutoSize = true };
+    private readonly NumericUpDown _spreadPercent = new()
+    {
+        Minimum = PatchOptions.MinSpread, Maximum = PatchOptions.MaxSpread, Increment = 10,
+        Value = PatchOptions.DefaultSpread, Width = 60, Enabled = false,
+    };
+    private readonly CheckBox _spreadDebug = new() { Text = Loc.T("Gameplay.SpreadDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
     // shown visibly, as the physics mod's licence asks
     private readonly LinkLabel _physicsCredit = new() { Text = PhysicsMod.Credit, AutoSize = true, Margin = new Padding(22, 0, 3, 3) };
     private readonly CheckBox _skipIntro = new() { Text = Loc.T("Startup.SkipIntro"), AutoSize = true, Checked = true, Margin = new Padding(12, 3, 3, 3) };
@@ -84,6 +91,8 @@ internal sealed class MainForm : Form
         _shot.CheckedChanged += (_, _) => _shotPower.Enabled = _shotPowerDebug.Enabled = _shot.Enabled && _shot.Checked;
         _accuracy.EnabledChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _accuracy.Enabled && _accuracy.Checked;
         _accuracy.CheckedChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _accuracy.Enabled && _accuracy.Checked;
+        _spread.EnabledChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
+        _spread.CheckedChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
         _physicsCredit.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(PhysicsMod.Url) { UseShellExecute = true });
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
@@ -113,6 +122,8 @@ internal sealed class MainForm : Form
             _shotPowerDebug,
             Flow(_accuracy, _shotAccuracy, LabelText(Loc.T("Gameplay.ShotAccuracyPercent"))),
             _shotAccuracyDebug,
+            Flow(_spread, _spreadPercent, LabelText(Loc.T("Gameplay.SpreadPercent"))),
+            _spreadDebug,
             _physicsMod,
             _physicsCredit,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
@@ -161,6 +172,9 @@ internal sealed class MainForm : Form
             _accuracy.Checked = previous.Accuracy;
             _shotAccuracy.Value = previous.ShotAccuracy;
             _shotAccuracyDebug.Checked = previous.ShotAccuracyDebug;
+            _spread.Checked = previous.Spread;
+            _spreadPercent.Value = previous.SpreadPercent;
+            _spreadDebug.Checked = previous.SpreadDebug;
             _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
@@ -186,7 +200,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -197,7 +211,8 @@ internal sealed class MainForm : Form
             FreeKick: _freeKick.Enabled && _freeKick.Checked, FreeKickWeight: (int)_freeKickWeight.Value,
             FreeKickDebug: _freeKickDebug.Checked, ShotPower: _shot.Enabled && _shot.Checked ? (int)_shotPower.Value : 100,
             ShotPowerDebug: _shotPowerDebug.Checked, ShotAccuracy: _accuracy.Enabled && _accuracy.Checked ? (int)_shotAccuracy.Value : 100,
-            ShotAccuracyDebug: _shotAccuracyDebug.Checked);
+            ShotAccuracyDebug: _shotAccuracyDebug.Checked, Spread: _spread.Enabled && _spread.Checked ? (int)_spreadPercent.Value : 0,
+            SpreadDebug: _spreadDebug.Checked);
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()
@@ -281,6 +296,9 @@ internal sealed class MainForm : Form
         _shot.Text = Loc.T("Gameplay.Shot") + (shot || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
         _accuracy.Enabled = shot;
         _accuracy.Text = Loc.T("Gameplay.ShotAccuracy") + (shot || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        bool spread = report is { Spread: true };
+        _spread.Enabled = spread;
+        _spread.Text = Loc.T("Gameplay.Spread") + (spread || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
         bool skipIntro = report is { SkipIntro: true };
         _skipIntro.Enabled = skipIntro;
         _skipIntro.Text = Loc.T("Startup.SkipIntro") + (skipIntro || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));

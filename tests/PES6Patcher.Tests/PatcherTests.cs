@@ -258,6 +258,34 @@ public class PatcherTests(ITestOutputHelper output)
     private const int FreeKickCaveSize = 56 + 26 + 51 + 4;
 
     [Fact]
+    public void Spread_moves_the_targets_across_the_pitch_only()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).Spread);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { Spread = 20 });
+
+        // measured in game: the target setter (player, x, z) at 0x4C9DC0, players from 0x3BDC980 (0x240 each)
+        var image = new PeImage(with);
+        Assert.Equal(0xE9, with[image.Offset(0x4C9DC0)]);
+        int cave = image.Rel32Target(0x4C9DC0);
+        var code = with.AsSpan(image.Offset(cave), 200);
+        Assert.True(code.IndexOf((byte[])[0xBF, .. BitConverter.GetBytes(0x3BDC980 + 0x240)]) >= 0);   // mov edi,players+1
+        Assert.True(code.IndexOf((byte[])[0xB8, .. BitConverter.GetBytes(20)]) >= 0);                  // mov eax,20 %
+        Assert.True(code.IndexOf(new byte[] { 0xD9, 0x5C, 0x24, 0x30 }) >= 0);                              // fstp [esp+0x30] ; z
+        Assert.True(code.IndexOf(new byte[] { 0xD9, 0x5C, 0x24, 0x2C }) < 0);                               // x is left alone
+
+        // only the setter's first 5 bytes and the cave change
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i => Assert.True(i - image.Offset(0x4C9DC0) is >= 0 and < 5 || i - image.Offset(cave) is >= 0 and < 200));
+        Assert.True(ExePatcher.Analyze(ExePatcher.Build(original, new PatchOptions(398, false, Display: false, Spread: 20))).AnyFix);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { Spread = 50 }));
+    }
+
+    [Fact]
     public void Skip_intro_only_turns_the_three_skip_jumps_into_nops()
     {
         var original = Load("PES6.orig.exe");

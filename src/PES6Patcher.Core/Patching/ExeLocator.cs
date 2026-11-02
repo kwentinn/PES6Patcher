@@ -84,6 +84,9 @@ internal sealed record ShotSites(int Entry, int Float, int SetPieceReturn)
     public int KickCall { get; init; }
 }
 
+/// <summary>Team spread: the function setting where a player places himself (player, x, z), and the player array.</summary>
+internal sealed record SpreadSites(int Entry, int Players);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -276,6 +279,30 @@ internal sealed class ExeLocator
     /// The other team's active player: xor ecx,1 ; mov al,[ecx*2 + active players] (+6) ; ... ; add edx,players (+41).
     /// </summary>
     private const string ActivePlayerReader = "83 F1 01 8A 04 4D ?? ?? ?? ?? 3C FF 74 0E 0F B6 C0 99 8B 0D ?? ?? ?? ?? F7 F9 EB 05 BA 01 00 00 00 8D 14 D2 C1 E2 06 81 C2 ?? ?? ?? ??";
+
+    /// <summary>Player target setter (player, x, z): push esi ; mov esi,[esp+8] ; cmp byte [esi+0x16],7 ; jne ; jmp [...].</summary>
+    private const string TargetSetter = "56 8B 74 24 08 80 7E 16 07 0F 85 ?? ?? ?? ?? FF 25";
+
+    /// <summary>Player array: imul reg,reg,0x240 ; add reg,players (the most frequent base).</summary>
+    public static SpreadSites? LocateSpread(byte[] exe)
+    {
+        var locator = new ExeLocator(new PeImage(exe));
+        int entry = locator.Unique(TargetSetter, "Hook.Spread");
+        var bases = new Dictionary<int, int>();
+        foreach (int hit in locator.Hits("69 ?? 40 02 00 00"))
+        {
+            // add eax,imm32 or add reg,imm32 within the next 3 bytes
+            var next = locator._image.Read(hit + 6, 9);
+            for (int k = 0; k < 3; k++)
+            {
+                int va = next[k] == 0x05 ? BitConverter.ToInt32(next, k + 1)
+                    : next[k] == 0x81 && (next[k + 1] & 0xF8) == 0xC0 ? BitConverter.ToInt32(next, k + 2) : 0;
+                if (va > locator._image.ImageBase && va < locator._image.ImageBase + 0x10000000) { bases[va] = bases.GetValueOrDefault(va) + 1; break; }
+            }
+        }
+        int players = bases.Count > 0 ? bases.MaxBy(kv => kv.Value).Key : 0;
+        return entry != 0 && players != 0 ? new SpreadSites(entry, players) : null;
+    }
 
     private IntroSites? FindIntro()
     {

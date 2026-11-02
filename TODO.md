@@ -19,7 +19,9 @@ A fast player with the ball almost never gets past a chasing defender, so beatin
 
 ## Player positions
 
-Players stand too close to each other overall. The game feels dated, harder, and it is difficult to really build moves. They should be able to spread out a bit more.
+Players stand too close to each other overall. The game feels dated, harder, and it is difficult to really build moves.
+
+Done for the width: **Players spread wider** moves the players placing themselves away from their team's centre across the pitch (20 to 30 % feel right in game). Spreading the length too made the defenders drop too close to their keeper, so it was left out.
 
 ## Human players: dribbling in any direction
 

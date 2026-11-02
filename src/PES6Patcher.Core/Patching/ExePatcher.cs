@@ -15,9 +15,11 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="ShotPowerDebug">Test key: F3 in game changes <paramref name="ShotPower"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="ShotAccuracy">Human shots: share of the game's aim error (direction and height) kept, in % (100 = unchanged).</param>
 /// <param name="ShotAccuracyDebug">Test key: F4 in game changes <paramref name="ShotAccuracy"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
+/// <param name="SpreadDebug">Test key: F5 in game changes <paramref name="Spread"/> by 10 % and shows it (through Kitserver).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
-    int ShotAccuracy = 100, bool ShotAccuracyDebug = false)
+    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false)
 {
     /// <summary>Shot aim error kept: default when the option is checked, and limits (100 = the game's).</summary>
     public const int DefaultShotAccuracy = 50, MinShotAccuracy = 10, MaxShotAccuracy = 100;
@@ -27,6 +29,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
     /// <summary>Shot power: default when the option is checked, and limits (100 = the game's).</summary>
     public const int DefaultShotPower = 80, MinShotPower = 50, MaxShotPower = 100;
+
+    /// <summary>Team spread across the pitch, in % away from the centre of the team: default and limits (tuned in game).</summary>
+    public const int DefaultSpread = 20, MinSpread = 10, MaxSpread = 40;
 }
 
 /// <summary>What the patcher can do with a given PES6.exe.</summary>
@@ -50,7 +55,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The shot power can be reduced and the shot accuracy raised.</summary>
     public bool ShotPower { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower;
+    /// <summary>The players can be spread across the pitch.</summary>
+    public bool Spread { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -86,6 +94,7 @@ public static class ExePatcher
             return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems)
             {
                 CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
+                Spread = ExeLocator.LocateSpread(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -162,8 +171,8 @@ public static class ExePatcher
         // test keys (F2: free kick weight, F3: shot power, F4: shot aim error), shown through Kitserver; their texts sit
         // in caves of their own (too large to share one with the code), their state with the free kick one
         bool freeKickKey = options.FreeKick && options.FreeKickDebug, shotKey = options.ShotPower < 100 && options.ShotPowerDebug,
-            accuracyKey = options.ShotAccuracy < 100 && options.ShotAccuracyDebug;
-        if ((freeKickKey || shotKey || accuracyKey) && freeKick == null) throw new PatchException(problems);
+            accuracyKey = options.ShotAccuracy < 100 && options.ShotAccuracyDebug, spreadKey = options.Spread > 0 && options.SpreadDebug;
+        if ((freeKickKey || shotKey || accuracyKey || spreadKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key)
         {
@@ -187,6 +196,11 @@ public static class ExePatcher
         {
             var (texts, stride) = KeyTexts(PatchOptions.MaxShotAccuracy, "Overlay.ShotAccuracy");
             keys.Add(CodeCaves.ShotAccuracyTestKey(options.ShotAccuracy, texts, stride));
+        }
+        if (spreadKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxSpread, "Overlay.Spread");
+            keys.Add(CodeCaves.SpreadTestKey(options.Spread, texts, stride));
         }
         int testKeysSetUp = 0;
         if (keys.Count > 0)
@@ -243,6 +257,18 @@ public static class ExePatcher
             accuracy = CodeCaves.ShotAccuracy(Cave(accuracy.CaveBytes.Length), shot!, options.ShotAccuracy, testKeys);
             plan.Add((accuracy.Cave, accuracy.CaveBytes));
             plan.Add((accuracy.Entry, accuracy.EntryBytes));
+        }
+
+        // team spread: targets of the players placing themselves moved away from their team's centre, across the pitch
+        if (options.Spread > 0)
+        {
+            if (options.Spread is < PatchOptions.MinSpread or > PatchOptions.MaxSpread) throw new ArgumentOutOfRangeException(nameof(options), options.Spread, null);
+            var sites = ExeLocator.LocateSpread(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.Spread"), 0)]);
+            var testKeys = spreadKey ? freeKick : null;
+            var spread = CodeCaves.Spread(0, sites, options.Spread, testKeys);
+            spread = CodeCaves.Spread(Cave(spread.CaveBytes.Length), sites, options.Spread, testKeys);
+            plan.Add((spread.Cave, spread.CaveBytes));
+            plan.Add((spread.Entry, spread.EntryBytes));
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);

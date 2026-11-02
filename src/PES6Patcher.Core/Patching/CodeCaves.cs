@@ -242,7 +242,7 @@ internal static class CodeCaves
     private const byte StickUp = 0x10;
 
     /// <summary>Test keys (debug): F2 changes the free kick weight, F3 the shot power, F4 the shot aim error, by 10 % (wrapping from the maximum to the minimum).</summary>
-    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73;   // VK_F2, VK_F3, VK_F4
+    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74;   // VK_F2 to VK_F5
     public const int TestKeyStep = 10;
 
     /// <summary>
@@ -250,10 +250,10 @@ internal static class CodeCaves
     /// padding of .rdata made writable): +0 free kick shot under way, +1 ball from a free kick, +2 test keys set up,
     /// +4 free kick weight percent (word, 0 = the patcher's), +8 tick until which a test key value shows,
     /// +12 KDrawText, +16 shot power percent (word, 0 = the patcher's), +18 test key shown, +20 shot aim error
-    /// percent (word, 0 = the patcher's).
+    /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's).
     /// </summary>
     private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-        ShotAccuracyState = 20;
+        ShotAccuracyState = 20, SpreadState = 22;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
@@ -419,6 +419,83 @@ internal static class CodeCaves
 
     public static TestKey FreeKickWeightTestKey(int percent, int texts, int stride) =>
         new(FreeKickWeightKey, FreeKickWeightState, percent, PatchOptions.MinFreeKickWeight, PatchOptions.MaxFreeKickWeight, texts, stride);
+
+    public static TestKey SpreadTestKey(int percent, int texts, int stride) =>
+        new(SpreadKey, SpreadState, percent, PatchOptions.MinSpread, PatchOptions.MaxSpread, texts, stride);
+
+    /// <summary>
+    /// Team spread: the function setting where a player places himself (player, x, z) gets, for the
+    /// players placing themselves (state 7) other than the keepers, a target moved away from the centre of their
+    /// team's targets across the pitch (width only) by <paramref name="percent"/> % (or the F5 value). The 5 replaced bytes are replayed.
+    /// </summary>
+    public static Hook Spread(int cave, SpreadSites sites, int percent, FreeKickSites? testKeys = null)
+    {
+        // the early exits jump back to a copy of the tail at the top (a short jump cannot reach the end)
+        var code = new CodeBuilder(cave)
+            .Jump(0xEB, "start")                                    // jmp start
+            .Mark("done")
+            .Bytes(0x61)                                            // popad
+            .Bytes(0x56, 0x8B, 0x74, 0x24, 0x08)                    // original: push esi ; mov esi,[esp+8]
+            .JumpTo(sites.Entry + 5)                                // jmp back
+            .Mark("start")
+            .Bytes(0x60)                                            // pushad
+            .Bytes(0x8B, 0x74, 0x24, 0x24)                          // mov esi,[esp+0x24]   ; player
+            .Bytes(0x80, 0x7E, 0x11, 0x00)                          // cmp byte [esi+0x11],0 ; keeper
+            .Jump(0x74, "done")                                     // je done
+            .Bytes(0x80, 0x7E, 0x16, 0x07)                          // cmp byte [esi+0x16],7 ; placing himself
+            .Jump(0x75, "done")                                     // jne done
+            .Bytes(0x0F, 0xB6, 0x5E, 0x12);                         // movzx ebx,byte [esi+0x12] ; team
+        if (testKeys != null)
+            code.Bytes([0x0F, 0xB7, 0x05], testKeys.State + SpreadState)      // movzx eax,word [percent]
+                .Bytes(0x85, 0xC0)                                  // test eax,eax
+                .Jump(0x75, "percentSet")                           // jne percentSet
+                .Bytes([0xB8], percent)                             // mov eax,percent
+                .Mark("percentSet");
+        else
+            code.Bytes([0xB8], percent);                            // mov eax,percent
+        var bytes = code
+            .Bytes([0x3D], 0xFFFF)                                  // cmp eax,0xFFFF       ; set to 0 by F5
+            .Jump(0x74, "done")                                     // je done
+            .Bytes(0x50)                                            // push eax
+            .Bytes(0xD9, 0xEE, 0xD9, 0xEE)                          // fldz ; fldz          ; sum x, sum z
+            .Bytes(0x33, 0xC9)                                      // xor ecx,ecx          ; count
+            .Bytes([0xBF], sites.Players + 0x240)                   // mov edi,players+1
+            .Bytes(0x6A, 22, 0x5A)                                  // push 22 ; pop edx
+            .Mark("player")
+            .Bytes(0x38, 0x5F, 0x12)                                // cmp [edi+0x12],bl    ; same team
+            .Jump(0x75, "next")                                     // jne next
+            .Bytes(0x80, 0x7F, 0x11, 0x00)                          // cmp byte [edi+0x11],0 ; not the keeper
+            .Jump(0x74, "next")                                     // je next
+            .Bytes(0xD9, 0x47, 0x6C, 0xDE, 0xC2)                    // fld [edi+0x6C] ; faddp st(2)
+            .Bytes(0xD9, 0x47, 0x70, 0xDE, 0xC1)                    // fld [edi+0x70] ; faddp st(1)
+            .Bytes(0x41)                                            // inc ecx
+            .Mark("next")
+            .Bytes([0x81, 0xC7], 0x240)                             // add edi,0x240
+            .Bytes(0x4A)                                            // dec edx
+            .Jump(0x75, "player")                                   // jnz player
+            .Bytes(0x85, 0xC9)                                      // test ecx,ecx
+            .Jump(0x74, "empty")                                    // je empty
+            .Bytes(0x51, 0xDB, 0x04, 0x24, 0x59)                    // push ecx ; fild [esp] ; pop ecx
+            .Bytes(0xDC, 0xFA, 0xDE, 0xF9)                          // fdiv st(2),st ; fdivp st(1),st  ; st0 = centre z, st1 = centre x
+            .Bytes(0xDB, 0x04, 0x24)                                // fild dword [esp]     ; percent
+            .AddressOf([0xD8, 0x0D], "hundredth")                   // fmul dword [0.01]
+            .Bytes(0xD9, 0xE8, 0xDE, 0xC1)                          // fld1 ; faddp         ; st0 = 1 + percent / 100
+            // the length (x) is kept: lines stay at their height, only the width spreads
+            .Bytes(0xD9, 0x44, 0x24, 0x30)                          // fld dword [esp+0x30] ; z
+            .Bytes(0xD8, 0xE2, 0xD8, 0xC9, 0xD8, 0xC2)              // fsub st,st(2) ; fmul st,st(1) ; fadd st,st(2)
+            .Bytes(0xD9, 0x5C, 0x24, 0x30)                          // fstp dword [esp+0x30]
+            .Bytes(0xDD, 0xD8)                                      // fstp st(0)           ; factor
+            .Mark("empty")
+            .Bytes(0xDD, 0xD8, 0xDD, 0xD8)                          // fstp st(0) x 2       ; centre or sums
+            .Bytes(0x58)                                            // pop eax
+            .Bytes(0x61)                                            // popad
+            .Bytes(0x56, 0x8B, 0x74, 0x24, 0x08)                    // original: push esi ; mov esi,[esp+8]
+            .JumpTo(sites.Entry + 5)                                // jmp back
+            .Mark("hundredth")
+            .Bytes(BitConverter.GetBytes(0.01f))
+            .Build();
+        return new Hook("Hook.Spread", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 5), cave, bytes);
+    }
 
     public static TestKey ShotPowerTestKey(int percent, int texts, int stride) =>
         new(ShotPowerKey, ShotPowerState, percent, PatchOptions.MinShotPower, PatchOptions.MaxShotPower, texts, stride);

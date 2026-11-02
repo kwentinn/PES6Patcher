@@ -105,6 +105,9 @@
   <data name="Overlay.ShotPower" xml:space="preserve">
     <value>PUISSANCE DES TIRS : {0} % (F3)</value>
   </data>
+  <data name="Overlay.Spread" xml:space="preserve">
+    <value>ECARTEMENT DES EQUIPES : +{0} % (F5)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>Mod de physique de PityCharly (force des passes, poids du ballon)</value>
   </data>
@@ -134,6 +137,9 @@
   </data>
   <data name="Hook.ShotPower" xml:space="preserve">
     <value>tirs</value>
+  </data>
+  <data name="Hook.Spread" xml:space="preserve">
+    <value>écartement des équipes</value>
   </data>
   <data name="Log.SkipIntro" xml:space="preserve">
     <value>Intro : vidéo d'ouverture et logos sautés.</value>
@@ -180,11 +186,26 @@
   <data name="Gameplay.ShotAccuracyDebug" xml:space="preserve">
     <value>Test : F4 en match le change (+10 %)</value>
   </data>
+  <data name="Gameplay.Spread" xml:space="preserve">
+    <value>Joueurs plus écartés en largeur</value>
+  </data>
+  <data name="Gameplay.SpreadPercent" xml:space="preserve">
+    <value>% plus large (en largeur seulement)</value>
+  </data>
+  <data name="Gameplay.SpreadDebug" xml:space="preserve">
+    <value>Test : F5 en match le change (+10 %)</value>
+  </data>
   <data name="Log.ShotAccuracy" xml:space="preserve">
     <value>Précision des tirs : écart de visée (direction et hauteur) des joueurs humains ramené à {0} % ; les tirs de l'IA ne changent pas.</value>
   </data>
   <data name="Log.ShotAccuracyDebug" xml:space="preserve">
     <value>Touche de test de la précision : F4 en match ajoute 10 % à l'écart de visée gardé (retour à 10 % après 100 %), affiché à l'écran.</value>
+  </data>
+  <data name="Log.Spread" xml:space="preserve">
+    <value>Écartement : joueurs qui se replacent {0} % plus loin du centre de leur équipe en largeur (les deux équipes, gardiens exceptés).</value>
+  </data>
+  <data name="Log.SpreadDebug" xml:space="preserve">
+    <value>Touche de test de l'écartement : F5 en match ajoute 10 % (retour à 10 % après 40 %), affiché à l'écran.</value>
   </data>
   <data name="Overlay.ShotAccuracy" xml:space="preserve">
     <value>ECART DE VISEE : {0} % (F4)</value>

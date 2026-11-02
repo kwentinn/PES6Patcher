@@ -105,6 +105,9 @@
   <data name="Overlay.ShotPower" xml:space="preserve">
     <value>SHOT POWER: {0} % (F3)</value>
   </data>
+  <data name="Overlay.Spread" xml:space="preserve">
+    <value>TEAM SPREAD: +{0} % (F5)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>PityCharly's physics mod (pass power, ball weight)</value>
   </data>
@@ -134,6 +137,9 @@
   </data>
   <data name="Hook.ShotPower" xml:space="preserve">
     <value>shots</value>
+  </data>
+  <data name="Hook.Spread" xml:space="preserve">
+    <value>team spread</value>
   </data>
   <data name="Log.SkipIntro" xml:space="preserve">
     <value>Intro: opening movie and logos skipped.</value>
@@ -180,11 +186,26 @@
   <data name="Gameplay.ShotAccuracyDebug" xml:space="preserve">
     <value>Test: F4 in a match changes it (+10 %)</value>
   </data>
+  <data name="Gameplay.Spread" xml:space="preserve">
+    <value>Players spread wider</value>
+  </data>
+  <data name="Gameplay.SpreadPercent" xml:space="preserve">
+    <value>% wider (across the pitch only)</value>
+  </data>
+  <data name="Gameplay.SpreadDebug" xml:space="preserve">
+    <value>Test: F5 in a match changes it (+10 %)</value>
+  </data>
   <data name="Log.ShotAccuracy" xml:space="preserve">
     <value>Shot accuracy: human players' aim error (direction and height) brought down to {0} %; the AI's shots are unchanged.</value>
   </data>
   <data name="Log.ShotAccuracyDebug" xml:space="preserve">
     <value>Accuracy test key: F4 in a match adds 10 % to the aim error kept (back to 10 % after 100 %), shown on screen.</value>
+  </data>
+  <data name="Log.Spread" xml:space="preserve">
+    <value>Spread: players placing themselves {0} % further from their team's centre across the pitch (both teams, keepers excepted).</value>
+  </data>
+  <data name="Log.SpreadDebug" xml:space="preserve">
+    <value>Spread test key: F5 in a match adds 10 % (back to 10 % after 40 %), shown on screen.</value>
   </data>
   <data name="Overlay.ShotAccuracy" xml:space="preserve">
     <value>SHOT AIM ERROR: {0} % (F4)</value>
