@@ -108,6 +108,9 @@
   <data name="Overlay.Spread" xml:space="preserve">
     <value>TEAM SPREAD: +{0} % (F5)</value>
   </data>
+  <data name="Overlay.SpeedGap" xml:space="preserve">
+    <value>SPEED GAP: {0} % (F6)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>PityCharly's physics mod (pass power, ball weight)</value>
   </data>
@@ -204,6 +207,9 @@
   <data name="Gameplay.SpeedGapPercent" xml:space="preserve">
     <value>% of the game's gap</value>
   </data>
+  <data name="Gameplay.SpeedGapDebug" xml:space="preserve">
+    <value>Test: F6 in a match changes it (+25 %)</value>
+  </data>
   <data name="Log.ShotAccuracy" xml:space="preserve">
     <value>Shot accuracy: human players' aim error (direction and height) brought down to {0} %; the AI's shots are unchanged.</value>
   </data>
@@ -218,6 +224,9 @@
   </data>
   <data name="Log.SpeedGap" xml:space="preserve">
     <value>Speed gap: the top speed stat weighs {0} % of the game's on the maximum running speed (a player at 75 keeps his speed).</value>
+  </data>
+  <data name="Log.SpeedGapDebug" xml:space="preserve">
+    <value>Speed gap test key: F6 in a match adds 25 % (back to 100 % after 400 %), shown on screen.</value>
   </data>
   <data name="Overlay.ShotAccuracy" xml:space="preserve">
     <value>SHOT AIM ERROR: {0} % (F4)</value>

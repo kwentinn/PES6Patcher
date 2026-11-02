@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -63,6 +63,7 @@ internal sealed class MainForm : Form
         Minimum = PatchOptions.MinSpeedGap, Maximum = PatchOptions.MaxSpeedGap, Increment = 25,
         Value = PatchOptions.DefaultSpeedGap, Width = 60, Enabled = false,
     };
+    private readonly CheckBox _speedGapDebug = new() { Text = Loc.T("Gameplay.SpeedGapDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
     // shown visibly, as the physics mod's licence asks
     private readonly LinkLabel _physicsCredit = new() { Text = PhysicsMod.Credit, AutoSize = true, Margin = new Padding(22, 0, 3, 3) };
     private readonly CheckBox _skipIntro = new() { Text = Loc.T("Startup.SkipIntro"), AutoSize = true, Checked = true, Margin = new Padding(12, 3, 3, 3) };
@@ -99,8 +100,8 @@ internal sealed class MainForm : Form
         _accuracy.CheckedChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _accuracy.Enabled && _accuracy.Checked;
         _spread.EnabledChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
         _spread.CheckedChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
-        _speedGap.EnabledChanged += (_, _) => _speedGapPercent.Enabled = _speedGap.Enabled && _speedGap.Checked;
-        _speedGap.CheckedChanged += (_, _) => _speedGapPercent.Enabled = _speedGap.Enabled && _speedGap.Checked;
+        _speedGap.EnabledChanged += (_, _) => _speedGapPercent.Enabled = _speedGapDebug.Enabled = _speedGap.Enabled && _speedGap.Checked;
+        _speedGap.CheckedChanged += (_, _) => _speedGapPercent.Enabled = _speedGapDebug.Enabled = _speedGap.Enabled && _speedGap.Checked;
         _physicsCredit.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(PhysicsMod.Url) { UseShellExecute = true });
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
@@ -133,6 +134,7 @@ internal sealed class MainForm : Form
             Flow(_spread, _spreadPercent, LabelText(Loc.T("Gameplay.SpreadPercent"))),
             _spreadDebug,
             Flow(_speedGap, _speedGapPercent, LabelText(Loc.T("Gameplay.SpeedGapPercent"))),
+            _speedGapDebug,
             _physicsMod,
             _physicsCredit,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
@@ -187,6 +189,7 @@ internal sealed class MainForm : Form
             _spreadDebug.Checked = previous.SpreadDebug;
             _speedGap.Checked = previous.SpeedGap;
             _speedGapPercent.Value = previous.SpeedGapPercent;
+            _speedGapDebug.Checked = previous.SpeedGapDebug;
             _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
@@ -212,7 +215,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -224,7 +227,8 @@ internal sealed class MainForm : Form
             FreeKickDebug: _freeKickDebug.Checked, ShotPower: _shot.Enabled && _shot.Checked ? (int)_shotPower.Value : 100,
             ShotPowerDebug: _shotPowerDebug.Checked, ShotAccuracy: _accuracy.Enabled && _accuracy.Checked ? (int)_shotAccuracy.Value : 100,
             ShotAccuracyDebug: _shotAccuracyDebug.Checked, Spread: _spread.Enabled && _spread.Checked ? (int)_spreadPercent.Value : 0,
-            SpreadDebug: _spreadDebug.Checked, SpeedGap: _speedGap.Enabled && _speedGap.Checked ? (int)_speedGapPercent.Value : 100);
+            SpreadDebug: _spreadDebug.Checked, SpeedGap: _speedGap.Enabled && _speedGap.Checked ? (int)_speedGapPercent.Value : 100,
+            SpeedGapDebug: _speedGapDebug.Checked);
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()

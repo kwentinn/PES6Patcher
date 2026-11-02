@@ -25,6 +25,7 @@ internal sealed class CodeBuilder
     public CodeBuilder CallTo(int address) { _items.Add(new Call(address, null)); return this; }
     public CodeBuilder CallTo(string label) { _items.Add(new Call(null, label)); return this; }
     public CodeBuilder JumpTo(int address) { _items.Add(new Call(address, null, 0xE9)); return this; }   // jmp rel32
+    public CodeBuilder JumpTo(string label) { _items.Add(new Call(null, label, 0xE9)); return this; }   // jmp rel32 to a label
 
     /// <summary><paramref name="prefix"/> followed by the absolute address of <paramref name="label"/> (e.g. push offset label).</summary>
     public CodeBuilder AddressOf(byte[] prefix, string label) { _items.Add(new AbsoluteLabel(prefix, label)); return this; }

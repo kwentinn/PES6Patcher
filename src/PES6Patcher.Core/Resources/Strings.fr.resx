@@ -108,6 +108,9 @@
   <data name="Overlay.Spread" xml:space="preserve">
     <value>ECARTEMENT DES EQUIPES : +{0} % (F5)</value>
   </data>
+  <data name="Overlay.SpeedGap" xml:space="preserve">
+    <value>ECART DE VITESSE : {0} % (F6)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>Mod de physique de PityCharly (force des passes, poids du ballon)</value>
   </data>
@@ -204,6 +207,9 @@
   <data name="Gameplay.SpeedGapPercent" xml:space="preserve">
     <value>% de l'écart du jeu</value>
   </data>
+  <data name="Gameplay.SpeedGapDebug" xml:space="preserve">
+    <value>Test : F6 en match le change (+25 %)</value>
+  </data>
   <data name="Log.ShotAccuracy" xml:space="preserve">
     <value>Précision des tirs : écart de visée (direction et hauteur) des joueurs humains ramené à {0} % ; les tirs de l'IA ne changent pas.</value>
   </data>
@@ -218,6 +224,9 @@
   </data>
   <data name="Log.SpeedGap" xml:space="preserve">
     <value>Écart de vitesse : la stat de vitesse de pointe pèse {0} % de son poids d'origine sur la vitesse maximale (un joueur à 75 garde sa vitesse).</value>
+  </data>
+  <data name="Log.SpeedGapDebug" xml:space="preserve">
+    <value>Touche de test de l'écart de vitesse : F6 en match ajoute 25 % (retour à 100 % après 400 %), affiché à l'écran.</value>
   </data>
   <data name="Overlay.ShotAccuracy" xml:space="preserve">
     <value>ECART DE VISEE : {0} % (F4)</value>

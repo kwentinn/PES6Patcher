@@ -242,7 +242,7 @@ internal static class CodeCaves
     private const byte StickUp = 0x10;
 
     /// <summary>Test keys (debug): F2 changes the free kick weight, F3 the shot power, F4 the shot aim error, by 10 % (wrapping from the maximum to the minimum).</summary>
-    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74;   // VK_F2 to VK_F5
+    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75;   // VK_F2 to VK_F6
     public const int TestKeyStep = 10;
 
     /// <summary>
@@ -250,10 +250,10 @@ internal static class CodeCaves
     /// padding of .rdata made writable): +0 free kick shot under way, +1 ball from a free kick, +2 test keys set up,
     /// +4 free kick weight percent (word, 0 = the patcher's), +8 tick until which a test key value shows,
     /// +12 KDrawText, +16 shot power percent (word, 0 = the patcher's), +18 test key shown, +20 shot aim error
-    /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's).
+    /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's), +24 speed gap percent (word, 0 = the patcher's).
     /// </summary>
     private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-        ShotAccuracyState = 20, SpreadState = 22;
+        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
@@ -415,7 +415,7 @@ internal static class CodeCaves
     /// (starting from <see cref="Default"/>, back to <see cref="Min"/> after <see cref="Max"/>), whose text is
     /// at <see cref="Texts"/> + percent / step * <see cref="Stride"/> (see <see cref="TestKeyTexts"/>).
     /// </summary>
-    public sealed record TestKey(byte Key, int State, int Default, int Min, int Max, int Texts, int Stride);
+    public sealed record TestKey(byte Key, int State, int Default, int Min, int Max, int Texts, int Stride, int Step = TestKeyStep);
 
     public static TestKey FreeKickWeightTestKey(int percent, int texts, int stride) =>
         new(FreeKickWeightKey, FreeKickWeightState, percent, PatchOptions.MinFreeKickWeight, PatchOptions.MaxFreeKickWeight, texts, stride);
@@ -505,14 +505,28 @@ internal static class CodeCaves
     /// gets 12 * stat% scaled by <paramref name="percent"/> %, around <see cref="SpeedPivot"/> (a player at 75 keeps his
     /// speed): fast players get faster, slow ones slower. The 7 replaced bytes (lea ; movzx) are rebuilt.
     /// </summary>
-    public static Hook Speed(int cave, SpeedSites sites, int percent)
+    public static Hook Speed(int cave, SpeedSites sites, int percent, FreeKickSites? testKeys = null)
     {
         int offset = 0x1D76 + 12 * SpeedPivot * (100 - percent) / 100;
-        var bytes = new CodeBuilder(cave)
-            .Bytes([0x69, 0xC0], 12 * percent)                      // imul eax,eax,12*percent   ; stat% * 12 * percent
-            .Bytes(0x99)                                            // cdq
-            .AddressOf([0xF7, 0x3D], "hundred")                     // idiv dword [100]
-            .Bytes([0x05], offset)                                  // add eax,offset
+        var code = new CodeBuilder(cave);
+        if (testKeys != null)
+            // with F6: 7542 + 12 * pivot + 12 * (stat% - pivot) * percent / 100, the percent read at run time
+            code.Bytes([0x2D], SpeedPivot)                          // sub eax,pivot
+                .Bytes([0x0F, 0xB7, 0x0D], testKeys.State + SpeedGapState)   // movzx ecx,word [percent]
+                .Bytes(0x85, 0xC9)                                  // test ecx,ecx
+                .Jump(0x75, "percentSet")                           // jne percentSet
+                .Bytes([0xB9], percent)                             // mov ecx,percent      ; from the patcher
+                .Mark("percentSet")
+                .Bytes(0x0F, 0xAF, 0xC1, 0x6B, 0xC0, 0x0C)          // imul eax,ecx ; imul eax,eax,12
+                .Bytes(0x99)                                        // cdq
+                .AddressOf([0xF7, 0x3D], "hundred")                 // idiv dword [100]
+                .Bytes([0x05], 0x1D76 + 12 * SpeedPivot);           // add eax,7542+12*pivot
+        else
+            code.Bytes([0x69, 0xC0], 12 * percent)                  // imul eax,eax,12*percent   ; stat% * 12 * percent
+                .Bytes(0x99)                                        // cdq
+                .AddressOf([0xF7, 0x3D], "hundred")                 // idiv dword [100]
+                .Bytes([0x05], offset);                             // add eax,offset
+        var bytes = code
             .Bytes(0x0F, 0xB6, 0x56, 0x4A, 0xC1, 0xE2, 0x04)        // movzx edx,byte [esi+0x4A] ; shl edx,4
             .Bytes(0x2B, 0xC2, 0x8B, 0xD0)                          // sub eax,edx ; mov edx,eax
             .JumpTo(sites.Store)                                    // jmp back to mov [esi+0x46],edx
@@ -521,6 +535,12 @@ internal static class CodeCaves
             .Build();
         return new Hook("Hook.Speed", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 7), cave, bytes);
     }
+
+    public static TestKey SpeedGapTestKey(int percent, int texts, int stride) =>
+        new(SpeedGapKey, SpeedGapState, percent, PatchOptions.MinSpeedGap, PatchOptions.MaxSpeedGap, texts, stride, SpeedGapStep);
+
+    /// <summary>F6 changes the speed gap by 25 % (texts for 0 to 400 % in steps of 10 would not fit a cave).</summary>
+    public const int SpeedGapStep = 25;
 
     public static TestKey ShotPowerTestKey(int percent, int texts, int stride) =>
         new(ShotPowerKey, ShotPowerState, percent, PatchOptions.MinShotPower, PatchOptions.MaxShotPower, texts, stride);
@@ -579,7 +599,7 @@ internal static class CodeCaves
                 .Jump(0x75, $"step{k}")                             // jne step
                 .Bytes([0xB8], key.Default)                         // mov eax,default
                 .Mark($"step{k}")
-                .Bytes(0x83, 0xC0, TestKeyStep)                     // add eax,step
+                .Bytes(0x83, 0xC0, (byte)key.Step)                  // add eax,step
                 .Bytes([0x3D], key.Max)                             // cmp eax,max
                 .Jump(0x7E, $"stored{k}")                           // jle stored
                 .Bytes([0xB8], key.Min)                             // mov eax,min
@@ -603,11 +623,11 @@ internal static class CodeCaves
             code.Bytes(0x83, 0xF9, (byte)k)                         // cmp ecx,k
                 .Jump(0x75, $"notShown{k}")                         // jne notShown
                 .Bytes([0x0F, 0xB7, 0x05], state + key.State)       // movzx eax,word [percent]
-                .Bytes(0x6A, TestKeyStep, 0x59)                     // push step ; pop ecx
+                .Bytes(0x6A, (byte)key.Step, 0x59)                  // push step ; pop ecx
                 .Bytes(0x33, 0xD2, 0xF7, 0xF1)                      // xor edx,edx ; div ecx  ; percent / step
                 .Bytes([0x69, 0xC0], key.Stride)                    // imul eax,eax,stride
                 .Bytes([0x05], key.Texts)                           // add eax,texts         ; texts[0] = 0 %
-                .Jump(0xEB, "draw")                                 // jmp draw
+                .JumpTo("draw")                                     // jmp draw              ; near: more keys than a short jump spans
                 .Mark($"notShown{k}");
         }
         return code.Jump(0xEB, "presentDone")                       // jmp presentDone
