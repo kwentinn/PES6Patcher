@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -57,6 +57,12 @@ internal sealed class MainForm : Form
         Value = PatchOptions.DefaultSpread, Width = 60, Enabled = false,
     };
     private readonly CheckBox _spreadDebug = new() { Text = Loc.T("Gameplay.SpreadDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
+    private readonly CheckBox _speedGap = new() { Text = Loc.T("Gameplay.SpeedGap"), AutoSize = true };
+    private readonly NumericUpDown _speedGapPercent = new()
+    {
+        Minimum = PatchOptions.MinSpeedGap, Maximum = PatchOptions.MaxSpeedGap, Increment = 25,
+        Value = PatchOptions.DefaultSpeedGap, Width = 60, Enabled = false,
+    };
     // shown visibly, as the physics mod's licence asks
     private readonly LinkLabel _physicsCredit = new() { Text = PhysicsMod.Credit, AutoSize = true, Margin = new Padding(22, 0, 3, 3) };
     private readonly CheckBox _skipIntro = new() { Text = Loc.T("Startup.SkipIntro"), AutoSize = true, Checked = true, Margin = new Padding(12, 3, 3, 3) };
@@ -72,7 +78,7 @@ internal sealed class MainForm : Form
         Font = new Font("Segoe UI", 9.5f);
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(760, 690);
+        ClientSize = new Size(800, 860);
         MinimumSize = new Size(640, 560);
 
         var browse = new Button { Text = Loc.T("Folder.Browse"), AutoSize = true };
@@ -93,6 +99,8 @@ internal sealed class MainForm : Form
         _accuracy.CheckedChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _accuracy.Enabled && _accuracy.Checked;
         _spread.EnabledChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
         _spread.CheckedChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
+        _speedGap.EnabledChanged += (_, _) => _speedGapPercent.Enabled = _speedGap.Enabled && _speedGap.Checked;
+        _speedGap.CheckedChanged += (_, _) => _speedGapPercent.Enabled = _speedGap.Enabled && _speedGap.Checked;
         _physicsCredit.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(PhysicsMod.Url) { UseShellExecute = true });
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
@@ -124,11 +132,13 @@ internal sealed class MainForm : Form
             _shotAccuracyDebug,
             Flow(_spread, _spreadPercent, LabelText(Loc.T("Gameplay.SpreadPercent"))),
             _spreadDebug,
+            Flow(_speedGap, _speedGapPercent, LabelText(Loc.T("Gameplay.SpeedGapPercent"))),
             _physicsMod,
             _physicsCredit,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
 
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(10) };
+        // scrolls when the window is shorter than the options (the log keeps a fixed height)
+        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(10), AutoScroll = true };
         layout.Controls.Add(header);
         layout.Controls.Add(folderRow);
         layout.Controls.Add(exeRow);
@@ -139,7 +149,7 @@ internal sealed class MainForm : Form
         layout.Controls.Add(Flow(_apply, _restore));
         layout.Controls.Add(_log);
         for (int i = 0; i < layout.Controls.Count - 1; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));
         Controls.Add(layout);
 
         FillLanguages();
@@ -175,6 +185,8 @@ internal sealed class MainForm : Form
             _spread.Checked = previous.Spread;
             _spreadPercent.Value = previous.SpreadPercent;
             _spreadDebug.Checked = previous.SpreadDebug;
+            _speedGap.Checked = previous.SpeedGap;
+            _speedGapPercent.Value = previous.SpeedGapPercent;
             _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
@@ -200,7 +212,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -212,7 +224,7 @@ internal sealed class MainForm : Form
             FreeKickDebug: _freeKickDebug.Checked, ShotPower: _shot.Enabled && _shot.Checked ? (int)_shotPower.Value : 100,
             ShotPowerDebug: _shotPowerDebug.Checked, ShotAccuracy: _accuracy.Enabled && _accuracy.Checked ? (int)_shotAccuracy.Value : 100,
             ShotAccuracyDebug: _shotAccuracyDebug.Checked, Spread: _spread.Enabled && _spread.Checked ? (int)_spreadPercent.Value : 0,
-            SpreadDebug: _spreadDebug.Checked);
+            SpreadDebug: _spreadDebug.Checked, SpeedGap: _speedGap.Enabled && _speedGap.Checked ? (int)_speedGapPercent.Value : 100);
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()
@@ -299,6 +311,9 @@ internal sealed class MainForm : Form
         bool spread = report is { Spread: true };
         _spread.Enabled = spread;
         _spread.Text = Loc.T("Gameplay.Spread") + (spread || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        bool speedGap = report is { SpeedGap: true };
+        _speedGap.Enabled = speedGap;
+        _speedGap.Text = Loc.T("Gameplay.SpeedGap") + (speedGap || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
         bool skipIntro = report is { SkipIntro: true };
         _skipIntro.Enabled = skipIntro;
         _skipIntro.Text = Loc.T("Startup.SkipIntro") + (skipIntro || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));

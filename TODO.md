@@ -17,6 +17,8 @@ A first try (November 2026) was shelved, because no change was visible in play. 
 
 A fast player with the ball almost never gets past a chasing defender, so beating a defender on the wing is nearly impossible. Speed with the ball should reward pace more.
 
+Done: **Bigger speed gap between fast and slow players** makes the top speed stat weigh up to 4 times more on the maximum running speed (300 % feels right in game). The acceleration (stat at `0x3BCF5B0`) and the dribble touches are left as they are.
+
 ## Player positions
 
 Players stand too close to each other overall. The game feels dated, harder, and it is difficult to really build moves.

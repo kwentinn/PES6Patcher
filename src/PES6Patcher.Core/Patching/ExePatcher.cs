@@ -17,9 +17,10 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="ShotAccuracyDebug">Test key: F4 in game changes <paramref name="ShotAccuracy"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
 /// <param name="SpreadDebug">Test key: F5 in game changes <paramref name="Spread"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="SpeedGap">Top speed gap between players: effect of the top speed stat on the maximum running speed, in % of the game's (100 = unchanged).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
-    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false)
+    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100)
 {
     /// <summary>Shot aim error kept: default when the option is checked, and limits (100 = the game's).</summary>
     public const int DefaultShotAccuracy = 50, MinShotAccuracy = 10, MaxShotAccuracy = 100;
@@ -32,6 +33,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
     /// <summary>Team spread across the pitch, in % away from the centre of the team: default and limits (tuned in game).</summary>
     public const int DefaultSpread = 20, MinSpread = 10, MaxSpread = 40;
+
+    /// <summary>Top speed gap between players, in % of the game's (100 = unchanged): default (tuned in game) and limits.</summary>
+    public const int DefaultSpeedGap = 300, MinSpeedGap = 100, MaxSpeedGap = 400;
 }
 
 /// <summary>What the patcher can do with a given PES6.exe.</summary>
@@ -58,7 +62,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The players can be spread across the pitch.</summary>
     public bool Spread { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread;
+    /// <summary>The top speed gap between players can be widened.</summary>
+    public bool SpeedGap { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -94,7 +101,7 @@ public static class ExePatcher
             return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems)
             {
                 CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
-                Spread = ExeLocator.LocateSpread(exe) != null,
+                Spread = ExeLocator.LocateSpread(exe) != null, SpeedGap = ExeLocator.LocateSpeed(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -269,6 +276,17 @@ public static class ExePatcher
             spread = CodeCaves.Spread(Cave(spread.CaveBytes.Length), sites, options.Spread, testKeys);
             plan.Add((spread.Cave, spread.CaveBytes));
             plan.Add((spread.Entry, spread.EntryBytes));
+        }
+
+        // top speed gap: each player's maximum running speed follows the top speed stat more
+        if (options.SpeedGap != 100)
+        {
+            if (options.SpeedGap is < PatchOptions.MinSpeedGap or > PatchOptions.MaxSpeedGap) throw new ArgumentOutOfRangeException(nameof(options), options.SpeedGap, null);
+            var sites = ExeLocator.LocateSpeed(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.Speed"), 0)]);
+            var speed = CodeCaves.Speed(0, sites, options.SpeedGap);
+            speed = CodeCaves.Speed(Cave(speed.CaveBytes.Length), sites, options.SpeedGap);
+            plan.Add((speed.Cave, speed.CaveBytes));
+            plan.Add((speed.Entry, speed.EntryBytes));
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);

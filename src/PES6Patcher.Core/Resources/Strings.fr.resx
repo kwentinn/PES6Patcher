@@ -141,6 +141,9 @@
   <data name="Hook.Spread" xml:space="preserve">
     <value>écartement des équipes</value>
   </data>
+  <data name="Hook.Speed" xml:space="preserve">
+    <value>vitesse de pointe</value>
+  </data>
   <data name="Log.SkipIntro" xml:space="preserve">
     <value>Intro : vidéo d'ouverture et logos sautés.</value>
   </data>
@@ -195,6 +198,12 @@
   <data name="Gameplay.SpreadDebug" xml:space="preserve">
     <value>Test : F5 en match le change (+10 %)</value>
   </data>
+  <data name="Gameplay.SpeedGap" xml:space="preserve">
+    <value>Écart de vitesse plus marqué entre joueurs rapides et lents</value>
+  </data>
+  <data name="Gameplay.SpeedGapPercent" xml:space="preserve">
+    <value>% de l'écart du jeu</value>
+  </data>
   <data name="Log.ShotAccuracy" xml:space="preserve">
     <value>Précision des tirs : écart de visée (direction et hauteur) des joueurs humains ramené à {0} % ; les tirs de l'IA ne changent pas.</value>
   </data>
@@ -206,6 +215,9 @@
   </data>
   <data name="Log.SpreadDebug" xml:space="preserve">
     <value>Touche de test de l'écartement : F5 en match ajoute 10 % (retour à 10 % après 40 %), affiché à l'écran.</value>
+  </data>
+  <data name="Log.SpeedGap" xml:space="preserve">
+    <value>Écart de vitesse : la stat de vitesse de pointe pèse {0} % de son poids d'origine sur la vitesse maximale (un joueur à 75 garde sa vitesse).</value>
   </data>
   <data name="Overlay.ShotAccuracy" xml:space="preserve">
     <value>ECART DE VISEE : {0} % (F4)</value>

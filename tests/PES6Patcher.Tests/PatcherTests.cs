@@ -286,6 +286,35 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Speed_gap_rebuilds_the_maximum_running_speed_around_a_player_at_75()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).SpeedGap);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { SpeedGap = 300 });
+
+        // measured in game: the maximum speed formula at 0x447BF52 (protection section), stored at 0x447BF67
+        var image = new PeImage(with);
+        Assert.Equal(0xE9, with[image.Offset(0x447BF52)]);
+        int cave = image.Rel32Target(0x447BF52);
+        Assert.Equal(12 * 300, image.ReadInt32(cave + 2));                          // imul eax,eax,12*300
+        Assert.Equal(0x1D76 + 12 * CodeCaves.SpeedPivot * (100 - 300) / 100, image.ReadInt32(cave + 14));   // add eax,offset
+        Assert.Equal(0x447BF67, image.Rel32Target(cave + 29));                      // back to mov [esi+0x46],edx
+
+        // a player at 75 keeps his speed: 7542 + 12 * 58 either way
+        int stat = CodeCaves.SpeedPivot;
+        Assert.Equal(0x1D76 + 12 * stat, 12 * 300 * stat / 100 + 0x1D76 + 12 * stat * (100 - 300) / 100);
+
+        // only the formula's first 7 bytes and the cave change
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i => Assert.True(i - image.Offset(0x447BF52) is >= 0 and < 7 || i - image.Offset(cave) is >= 0 and < 40));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SpeedGap = 500 }));
+    }
+
+    [Fact]
     public void Skip_intro_only_turns_the_three_skip_jumps_into_nops()
     {
         var original = Load("PES6.orig.exe");

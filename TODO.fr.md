@@ -17,6 +17,8 @@ Un premier essai (novembre 2026) a été mis de côté, faute de changement visi
 
 Un joueur rapide balle au pied ne parvient presque jamais à distancer un défenseur qui le poursuit : les débordements sur les ailes sont quasi impossibles. La vitesse balle au pied devrait davantage récompenser les joueurs rapides.
 
+Fait : **Écart de vitesse plus marqué entre joueurs rapides et lents** donne jusqu'à 4 fois plus de poids à la stat de vitesse de pointe sur la vitesse maximale (300 % semble juste en jeu). L'accélération (stat en `0x3BCF5B0`) et les touches de dribble ne changent pas.
+
 ## Position des joueurs
 
 Les joueurs sont globalement trop rapprochés. Le jeu paraît daté, il est plus difficile, et on ne peut pas vraiment construire ses actions.

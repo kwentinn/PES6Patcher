@@ -141,6 +141,9 @@
   <data name="Hook.Spread" xml:space="preserve">
     <value>team spread</value>
   </data>
+  <data name="Hook.Speed" xml:space="preserve">
+    <value>top speed</value>
+  </data>
   <data name="Log.SkipIntro" xml:space="preserve">
     <value>Intro: opening movie and logos skipped.</value>
   </data>
@@ -195,6 +198,12 @@
   <data name="Gameplay.SpreadDebug" xml:space="preserve">
     <value>Test: F5 in a match changes it (+10 %)</value>
   </data>
+  <data name="Gameplay.SpeedGap" xml:space="preserve">
+    <value>Bigger speed gap between fast and slow players</value>
+  </data>
+  <data name="Gameplay.SpeedGapPercent" xml:space="preserve">
+    <value>% of the game's gap</value>
+  </data>
   <data name="Log.ShotAccuracy" xml:space="preserve">
     <value>Shot accuracy: human players' aim error (direction and height) brought down to {0} %; the AI's shots are unchanged.</value>
   </data>
@@ -206,6 +215,9 @@
   </data>
   <data name="Log.SpreadDebug" xml:space="preserve">
     <value>Spread test key: F5 in a match adds 10 % (back to 10 % after 40 %), shown on screen.</value>
+  </data>
+  <data name="Log.SpeedGap" xml:space="preserve">
+    <value>Speed gap: the top speed stat weighs {0} % of the game's on the maximum running speed (a player at 75 keeps his speed).</value>
   </data>
   <data name="Overlay.ShotAccuracy" xml:space="preserve">
     <value>SHOT AIM ERROR: {0} % (F4)</value>

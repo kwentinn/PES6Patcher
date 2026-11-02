@@ -90,6 +90,13 @@ internal sealed record ShotSites(int Entry, int Float, int SetPieceReturn)
 /// <summary>Team spread: the function setting where a player places himself (player, x, z), and the player array.</summary>
 internal sealed record SpreadSites(int Entry, int Players);
 
+/// <summary>
+/// Top speed: where each player's maximum running speed (player+0x58) is computed from the top speed stat, in an
+/// executable section of the protection: <see cref="Entry"/> = lea edx,[eax+eax*2] (eax = stat above 40, in %),
+/// <see cref="Store"/> = mov [esi+0x46],edx (esi = player+0x12).
+/// </summary>
+internal sealed record SpeedSites(int Entry, int Store);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -293,6 +300,19 @@ internal sealed class ExeLocator
 
     /// <summary>Player target setter (player, x, z): push esi ; mov esi,[esp+8] ; cmp byte [esi+0x16],7 ; jne ; jmp [...].</summary>
     private const string TargetSetter = "56 8B 74 24 08 80 7E 16 07 0F 85 ?? ?? ?? ?? FF 25";
+
+    /// <summary>
+    /// Maximum running speed: lea edx,[eax+eax*2] ; movzx eax,[esi+0x4A] ; shl edx,2 ; shl eax,4 ; sub edx,eax ;
+    /// add edx,0x1D76 ; mov [esi+0x46],edx (at +23). 7542 + 12 * (stat - 40) * 100 / 60 - 16 * player[0x5C].
+    /// </summary>
+    private const string MaxSpeed = "8D 14 40 0F B6 46 4A C1 E2 02 C1 E0 04 2B D0 81 C2 76 1D 00 00 89 56 46";
+
+    public static SpeedSites? LocateSpeed(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(MaxSpeed).FindAll(image, s)).ToList();
+        return hits.Count == 1 ? new SpeedSites(hits[0], hits[0] + 21) : null;
+    }
 
     /// <summary>Player array: imul reg,reg,0x240 ; add reg,players (the most frequent base).</summary>
     public static SpreadSites? LocateSpread(byte[] exe)

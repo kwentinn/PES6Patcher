@@ -497,6 +497,31 @@ internal static class CodeCaves
         return new Hook("Hook.Spread", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 5), cave, bytes);
     }
 
+    /// <summary>Top speed: the stat (above 40, in %) for which the maximum running speed is left as it is (75 / 100).</summary>
+    public const int SpeedPivot = (75 - 40) * 100 / 60;
+
+    /// <summary>
+    /// Top speed gap: the maximum running speed computed from the top speed stat (7542 + 12 * stat% - 16 * player[0x5C])
+    /// gets 12 * stat% scaled by <paramref name="percent"/> %, around <see cref="SpeedPivot"/> (a player at 75 keeps his
+    /// speed): fast players get faster, slow ones slower. The 7 replaced bytes (lea ; movzx) are rebuilt.
+    /// </summary>
+    public static Hook Speed(int cave, SpeedSites sites, int percent)
+    {
+        int offset = 0x1D76 + 12 * SpeedPivot * (100 - percent) / 100;
+        var bytes = new CodeBuilder(cave)
+            .Bytes([0x69, 0xC0], 12 * percent)                      // imul eax,eax,12*percent   ; stat% * 12 * percent
+            .Bytes(0x99)                                            // cdq
+            .AddressOf([0xF7, 0x3D], "hundred")                     // idiv dword [100]
+            .Bytes([0x05], offset)                                  // add eax,offset
+            .Bytes(0x0F, 0xB6, 0x56, 0x4A, 0xC1, 0xE2, 0x04)        // movzx edx,byte [esi+0x4A] ; shl edx,4
+            .Bytes(0x2B, 0xC2, 0x8B, 0xD0)                          // sub eax,edx ; mov edx,eax
+            .JumpTo(sites.Store)                                    // jmp back to mov [esi+0x46],edx
+            .Mark("hundred")
+            .Bytes(BitConverter.GetBytes(100))
+            .Build();
+        return new Hook("Hook.Speed", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 7), cave, bytes);
+    }
+
     public static TestKey ShotPowerTestKey(int percent, int texts, int stride) =>
         new(ShotPowerKey, ShotPowerState, percent, PatchOptions.MinShotPower, PatchOptions.MaxShotPower, texts, stride);
 
