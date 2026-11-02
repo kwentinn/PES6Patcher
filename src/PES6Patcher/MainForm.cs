@@ -79,7 +79,7 @@ internal sealed class MainForm : Form
         Font = new Font("Segoe UI", 9.5f);
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(800, 860);
+        ClientSize = new Size(800, 900);
         MinimumSize = new Size(640, 560);
 
         var browse = new Button { Text = Loc.T("Folder.Browse"), AutoSize = true };
