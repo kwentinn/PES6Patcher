@@ -22,7 +22,7 @@ public static class WinInfo {
 [void][WinInfo]::SetProcessDpiAwarenessContext([IntPtr]-4)   # per-monitor v2: read physical pixels
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 $found = New-Object System.Collections.ArrayList
 $cb = [WinInfo+EnumProc]{ param($h, $x) $wp = 0; [void][WinInfo]::GetWindowThreadProcessId($h, [ref]$wp); if ($wp -eq $p.Id -and [WinInfo]::IsWindowVisible($h)) { [void]$found.Add($h) }; $true }
 [void][WinInfo]::EnumWindows($cb, [IntPtr]::Zero)

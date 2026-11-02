@@ -15,7 +15,7 @@ public static class HeadMem {
 '@
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 $h = [HeadMem]::OpenProcess(0x10, $false, $p.Id)
 function U16([int]$a) { $b = New-Object byte[] 2; $n = 0; [void][HeadMem]::ReadProcessMemory($h, [IntPtr]$a, $b, 2, [ref]$n); [BitConverter]::ToUInt16($b, 0) }
 function Deg([int]$v) { [math]::Round($v * 360.0 / 65536, 1) }
@@ -33,13 +33,13 @@ while ((Get-Date) -lt $end) {
 [void][HeadMem]::Beep(600, 700)
 
 $moving = $samples | Where-Object { $_.mag -gt 0 }
-"{0} relevés, {1} avec le stick poussé" -f $samples.Count, $moving.Count
+"{0} samples, {1} with the stick pushed" -f $samples.Count, $moving.Count
 "stick: " + (($moving | ForEach-Object { Deg $_.stick } | Group-Object | Sort-Object Count -Descending | Select-Object -First 6 | ForEach-Object { "$($_.Name)° x$($_.Count)" }) -join ', ')
 foreach ($pl in $Players) {
     $k = '0x{0:X}' -f $pl
     $vals = $moving | ForEach-Object { $_.$k }
     $distinct = $vals | Sort-Object -Unique
     $off45 = @($vals | Where-Object { ($_ % 0x2000) -ne 0 }).Count
-    "{0}: {1} caps différents, {2}/{3} hors multiples de 45° ; plus fréquents: {4}" -f $k, @($distinct).Count, $off45, @($vals).Count,
+    "{0}: {1} different headings, {2}/{3} off multiples of 45°; most frequent: {4}" -f $k, @($distinct).Count, $off45, @($vals).Count,
         (($vals | Group-Object | Sort-Object Count -Descending | Select-Object -First 5 | ForEach-Object { "$(Deg $_.Name)° x$($_.Count)" }) -join ', ')
 }

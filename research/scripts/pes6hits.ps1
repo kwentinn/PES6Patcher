@@ -54,7 +54,7 @@ public static class HitCount {
         var callers = new Dictionary<uint, int>();
         var threads = new HashSet<int>();
         IntPtr proc = OpenProcess(0x0410, false, pid);
-        if (!DebugActiveProcess(pid)) throw new Exception("attach impossible");
+        if (!DebugActiveProcess(pid)) throw new Exception("cannot attach to the game");
         DebugSetProcessKillOnExit(false);
         byte[] ev = new byte[176];
         DateTime end = DateTime.Now.AddSeconds(seconds);
@@ -99,15 +99,15 @@ public static class HitCount {
             CloseHandle(proc);
         }
         var res = new List<string>();
-        for (int i = 0; i < addrs.Length; i++) res.Add(string.Format("0x{0:X}: {1} fois", addrs[i], counts[i]));
-        foreach (var kv in callers) res.Add(string.Format("  appelant 0x{0:X}: {1} fois", kv.Key, kv.Value));
-        foreach (var kv in Edi) res.Add(string.Format("  EDI 0x{0:X}: {1} fois", kv.Key, kv.Value));
-        foreach (var kv in Arg1) res.Add(string.Format("  arg1 0x{0:X}: {1} fois", kv.Key, kv.Value));
+        for (int i = 0; i < addrs.Length; i++) res.Add(string.Format("0x{0:X}: {1} times", addrs[i], counts[i]));
+        foreach (var kv in callers) res.Add(string.Format("  caller 0x{0:X}: {1} times", kv.Key, kv.Value));
+        foreach (var kv in Edi) res.Add(string.Format("  EDI 0x{0:X}: {1} times", kv.Key, kv.Value));
+        foreach (var kv in Arg1) res.Add(string.Format("  arg1 0x{0:X}: {1} times", kv.Key, kv.Value));
         return res;
     }
 }
 '@
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 [HitCount]::Run($p.Id, [uint32[]]$Addresses, $Seconds)

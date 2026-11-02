@@ -1,0 +1,190 @@
+# PES6 — notes de recherche
+
+*[English](NOTES.md) | Français*
+
+Comment les correctifs de PES6 Patcher ont été trouvés et ce qu'ils modifient. La « v6 » est la première version de `PES6.exe` validée en jeu (écran large et directions libres), en 16:9 et en 32:9, que l'application reproduit toujours octet pour octet. Les options de gameplay ajoutées depuis sont décrites dans la section 3.
+
+Les adresses sont celles de la version de référence (`PES6.exe` « No-DVD », SHA-256 `3FE13850…`). L'application retrouve chaque emplacement par signature : les autres versions qui contiennent le même code sont patchées aussi (section 5).
+
+---
+
+## 1. Réglages modifiés (hors exe), pendant la recherche en 16:9
+
+| Fichier | Réglage | Valeur |
+|---|---|---|
+| `kitserver\kload.cfg` | `dx.fullscreen.width/height`, `internal.resolution.width/height` | 2560 × 1440 |
+| `kitserver\speeder.cfg` | `count.factor` | 1.0 (vitesse d'origine) |
+| `kitserver\lodmixer.dat` | format d'image manuel (octets 41–44) | 1.77778 (16:9) |
+| `dgVoodoo.conf` | `ScalingMode` | `stretched_ar` (image centrée, bandes noires) |
+
+---
+
+## 2. Modifications de `PES6.exe` (v6)
+
+L'original est conservé dans **`PES6.exe.orig`**, à côté du jeu.
+
+Le repère 2D des menus de PES6 est hérité de la PS2 : 512 × 448, centré. Le jeu l'étirait sur toute la largeur de l'écran. Le patch élargit ce repère à **796 × 448** (16:9). La 3D et le gameplay continuent d'utiliser les valeurs d'origine.
+
+| Adresse | Modification | Rôle |
+|---|---|---|
+| `0xBC3F00` / `0xBC3F04` | nouvelles constantes 398 et 1/796 (bourrage de `.rdata`) | demi-largeur et échelle du nouveau repère 2D |
+| 12 instructions (`0x78ED90` … `0x941B98`) et `0x87AEE4` | lisent 398 et 1/796 au lieu de 256 et 1/512 | conversion repère 2D → pixels |
+| `0x8744F0` | `return 796` au lieu de `return 512` | largeur 2D (mise en page, découpage, curseur) |
+| `0x661123`, `0xB3F939` | `call 0x8744F0` → `mov eax, 0x200` | la projection 3D garde 512 (sinon les joueurs « glissent ») |
+| `0xBEE2D4`, `0xBEE2E4` | rectangles de vue 2D initiaux élargis | cohérence du repère 2D |
+| `0x40D740` → code ajouté en `0x403500` (60 octets) | rééchelonne x par 512/796 | découpage des listes (`SetViewport`) |
+| `0x40CE95` → code ajouté en `0x403540` (19 octets), constante `0xBC3F08` | échelle x × 1,5547 | position du curseur bleu au-dessus du joueur |
+| `0x4B27E0` → code ajouté en `0x404338` (156 octets) | ajoute l'écart réel du stick au secteur de 45° | directions libres au stick analogique |
+| `0x5AF3CF` | seuil de virage `0x20` → `0x0C` (45° → environ 17°) | virage déclenché par les petites corrections |
+
+Points importants :
+
+- Les instructions qui écrivent dans les données du match (`0x656xxx`, `0x657A2E`, `0x6D1AE9`, `0x8DBA70`, `0x8DD430`) ne sont **pas** redirigées : elles faisaient glisser les joueurs.
+- Les « tables de projection » `0xD4FB98…` ne sont **pas** modifiées pour la même raison.
+- Les directions libres ne concernent que le joueur humain au stick analogique. La croix directionnelle, le clavier et l'IA ne changent pas.
+
+---
+
+## 3. Options de gameplay (après la v6)
+
+Chaque option est un détournement : quelques octets du jeu remplacés par un saut vers du code ajouté dans le bourrage `CC`, qui rejoue les instructions remplacées. Elles ont été trouvées avec des points d'arrêt matériels et des relevés mémoire dans le jeu en cours d'exécution (section 5), puis vérifiées en jeu.
+
+### Frappe et touches de dribble
+
+- Chaque touche, passe et tir passe par la **fonction de frappe** `0x478020` (joueur, direction, vitesse, hauteur, drapeau). Les touches de dribble passent par un **relais** `0x4781F0` (joueur, direction, vitesse, hauteur).
+- Les touches de dribble sont reconnues à leur adresse de retour : en course `0x5AF6D3`, `0x5AF0CF`, `0x5ADEC6`, `0x5B0D65`, `0x5B07A5` ; en sprint `0x5AFB40`, `0x5AFE6D`. Les signatures ont été allongées, car le même code existe dans d'autres états.
+- **Dribble à 360°** (directions libres) : la touche en `0x5ADEC6` reçoit l'angle du stick arrondi à 22,5° par du code virtualisé. À l'entrée du relais, pour la manette dont le stick donne cette direction arrondie (ou son opposée : côté d'attaque), l'arrondi est ajouté de nouveau. L'IA ne correspond à aucune manette et n'est pas touchée.
+- **Dribble resserré** : à l'entrée du relais, la vitesse des 7 touches de dribble est réduite (× 14/16 en course, × 13/16 en sprint), en proportion de la précision de dribble du joueur (stat `0x3BCF5C0`, celle que le jeu lit pour l'imprécision de direction des touches) : rien jusqu'à 65, la réduction complète à partir de 95.
+- **F1** active et désactive le dribble resserré. Le message passe par Kitserver : `kload.dll` exporte `HookFunction` (3 = `Present` de Direct3D, rappel stdcall à 5 arguments) et `KDrawText` (x, y, couleur, taille, texte, absolu ; base 640 × 480). L'état est dans les 16 derniers octets de `.rdata` (`0xBC3FF0`), rendue inscriptible.
+
+### Intro
+
+- Vidéo d'ouverture : la fonction de la vidéo `0x88E350` sait déjà s'arrêter quand on le lui demande ; son `je` en `0x88E361` est neutralisé.
+- Logos : un logo marqué comme passable se termine dès qu'on appuie sur une touche ; les deux tests (`0x9AFAD5` drapeau, `0x9AFAE4` touche) sont neutralisés. Le chargement fait pendant les logos (fichier d'options, etc.) a toujours lieu.
+- Fausses pistes : sauter l'état de démarrage 1 supprimait l'écran de langue, sauter l'étape de chargement 1 sautait le fichier d'options (plantage), et forcer la minuterie des logos bloquait le jeu.
+
+### Coups francs
+
+- Un tir de coup franc direct est l'appel de la **fonction de tir** par les coups de pied arrêtés, en `0x58CC11` (→ `0x5B9130`). Les tirs du jeu courant appellent la même fonction depuis 18 autres endroits.
+- Le vol du ballon `0x475810` (utilisé aussi par les prédictions de trajectoire du gardien et de l'IA) ajoute le poids du ballon avec `fadd [0xB8AE70]` en `0x475EEF` (188,0). Le mod de physique de PityCharly réécrit cette constante pendant le jeu : le poids en plus est donc ajouté par-dessus.
+- L'appel des coups de pied arrêtés lit les sticks gauches (table `0x1016680` : angle, amplitude, bits de direction, 4 octets par manette) : stick en haut → le ballon de ce tir reçoit le poids en plus jusqu'à la frappe suivante (l'entrée de la fonction de frappe l'efface). Le jeu lit le stick au même moment pour l'effet du tir, et plus du tout pendant le vol (champs du ballon `+0x6A`, `+0x6C`, `+0x74`).
+
+### Tirs
+
+- **Tirs plus doux** : à l'entrée de la fonction de tir, l'argument de puissance au-delà de 0xC0 (la plus petite base des types de tir) est réduit. Les coups de pied arrêtés gardent la puissance du jeu.
+- **Tirs plus précis** : l'appel de la fonction de frappe par le tir (`0x5BBC9A`) rapproche la direction et la hauteur finales de la direction demandée, gardée à l'entrée. Un tir du mauvais pied garde le carré de la part réglée : le jeu compare le pied de l'animation (`[joueur+4]+0x2D`) au pied fort (stat `0x3BCF5A8`, bit 0) en `0x544270`, et donne à ce tir moins de puissance et un écart plus grand, toujours du même côté.
+- **Équipes humaines** : à chaque frappe, pour chaque manette dont le stick est poussé, le joueur actif de chaque équipe gagne +1 si sa direction demandée est celle du stick (ou l'opposée), −2 sinon. Une équipe à 32 ou plus (sur 64) est humaine. Les tirs de l'IA ne sont pas touchés.
+- Fausse piste : la jauge de tir. La puissance est décidée par le type de tir et des formules (par exemple `0x108 + [joueur+0xA4] × 24 / (8142 − 16 × [joueur+0x5C])`), pas par un compteur visible. La saisie humaine est recopiée dans le joueur (`+0xB0`, bit `0x800` = tir) par du code protégé (vers `0x448A73D`) ; l'IA appuie sur le même bit. `[joueur+4]+0x34` est l'image de l'animation, pas un compteur d'appui.
+
+### Joueurs plus écartés
+
+- L'endroit où un joueur se place passe par la **fonction de cible** `0x4C9DC0` (joueur, x, z), appelée par 45 morceaux de l'IA de placement ; son corps continue dans du code protégé. Seuls les joueurs qui se replacent (état `+0x16` = 7) l'utilisent.
+- Le code ajouté éloigne la cible du centre des cibles de l'équipe (`+0x6C` / `+0x70` de ses joueurs de champ), en largeur seulement (z). Écarter aussi en longueur (x) faisait reculer les défenseurs près de leur gardien.
+
+### Écart de vitesse
+
+- La vitesse de course est `[joueur+0x1C]`. À chaque image, `0x48FEF0` la rapproche d'une vitesse visée donnée par l'appelant (sprint balle au pied : `0x4C20F9`), avec un temps d'accélération tiré de la stat `0x3BCF5B0`.
+- La **vitesse maximale** `[joueur+0x58]` est calculée, et recalculée pendant le match, en `0x447BF52` (section `.rld` de la protection, code en clair) : 7542 + 12 × (vitesse de pointe − 40) × 100 / 60 − 16 × `[joueur+0x5C]`. La stat de vitesse de pointe est l'octet `0x3BCF5AE` (corrélation de 1,00 avec `+0x58` sur 22 joueurs). Un point de stat ne vaut que 20 unités : 68 → 8094, 97 → 8682.
+- Le code ajouté multiplie la part de la stat autour d'un joueur à 75. Comme la valeur est recalculée pendant le match, F6 s'applique tout de suite.
+
+### Touches de test
+
+F2 à F6 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 % (les textes de chaque palier sont dans des zones libres à part).
+
+---
+
+## 4. Carte mémoire (version de référence)
+
+| Donnée | Adresse / champ |
+|---|---|
+| Joueurs | `0x3BDC980` + id × `0x240` (id 1 à 22 sur le terrain) |
+| Joueur : équipe, poste (0 = gardien) | `+0x12`, `+0x11` |
+| Joueur : état, minuterie | `+0x16`, `+0x18` |
+| Joueur : vitesse de course, vitesse maximale | `+0x1C`, `+0x58` |
+| Joueur : cap, direction demandée | `+0x2C`, `+0x2E` |
+| Joueur : cible, position | `+0x6C` / `+0x70`, `+0xE0` / `+0xE8` |
+| Joueur : animation | `[+4]` (`+0x2D` pied, `+0x30` animation, `+0x34` image) |
+| Joueur : touches tenues, appuyées | `+0xB0`, `+0xB4` |
+| Id du porteur du ballon | `0x3BE09CC` |
+| Ballon | `[0xBCCE94]` : position `+0x10/+0x14/+0x18`, vitesse verticale `+0x30`, vitesse `+0x50`, direction `+0x58`, effet `+0x6A/+0x6C/+0x74` |
+| Stats | `0x3BCF5A8` + (équipe × 32 + poste) × `0x348`, 7 bits par stat : `+0x0` bit 0 pied fort, `+0x6` vitesse de pointe, `+0x8` (lue pour l'accélération), `+0x18` précision de dribble |
+| Sticks analogiques | `0x1016680` + manette × 4 : angle (mot), amplitude, bits de direction |
+
+---
+
+## 5. Outils de recherche
+
+Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'application n'en a pas besoin : le patch lui-même est dans `src/PES6Patcher.Core`.
+
+| Script | Rôle |
+|---|---|
+| `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | scripts Ghidra (mode headless) : décompiler une fonction, lister les références à une adresse, désassembler une plage, trouver les appels d'une méthode du périphérique Direct3D 8 |
+| `pes6code.ps1`, `pes6dump.ps1` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
+| `pes6watch.ps1` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
+| `pes6hits.ps1` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |
+| `pes6viewport.ps1` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |
+| `pes6stick.ps1` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
+| `pes6heading.ps1` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
+| `pes6window.ps1`, `capture-window.ps1` | géométrie et capture de la fenêtre du jeu ou de l'application |
+| `make-signatures.ps1` | construit la signature d'un emplacement : les octets qui l'entourent, adresses absolues et cibles d'appel masquées, allongés jusqu'à n'apparaître qu'une fois dans le code |
+| `StringRefs.java` | script Ghidra : décompile les fonctions qui utilisent une chaîne (par exemple les noms de versions de Kitserver dans `kload.dll`) |
+| `set-resx.ps1` | ajoute, modifie ou supprime des textes dans les ressources anglaises et françaises |
+
+Les options de gameplay ont surtout été trouvées avec des variantes de `pes6watch.ps1` et `pes6hits.ps1` (plusieurs adresses à la fois, registres et pile relevés à chaque passage), et avec des relevés mémoire des joueurs, du ballon et des stats pendant le jeu, ensuite comparés.
+
+### Plusieurs versions de l'exe
+
+Kitserver distingue trois versions du jeu : « PES6 PC » (1.00), « PES6 PC 1.10 » et « WE-PES 2007 PC ». Les patchs communautaires fournissent aussi leurs propres exe. Plutôt qu'une table d'adresses par version, qui demanderait de posséder chaque exe, l'application retrouve les emplacements par signature (`src/PES6Patcher.Core/Patching/ExeLocator.cs`) :
+
+- les signatures sont celles de `make-signatures.ps1`, construites vers l'avant à partir de chaque emplacement ;
+- les adresses utilisées par le code ajouté (constantes, fonctions, tables, stats, tableau des joueurs…) sont lues dans le code trouvé, puis vérifiées ;
+- les deux appels qui transmettent la largeur à la 3D sont reconnus par le contenu de la fonction appelée, car un troisième appel identique alimente le découpage 2D ;
+- les zones libres sont les plages de `CC` d'au moins 80 octets du code, et l'état va dans la fin de `.rdata`, chargée par Windows même au-delà des données du fichier ;
+- la formule de la vitesse maximale est cherchée dans toutes les sections exécutables, car elle se trouve dans la section `.rld` de la protection.
+
+Sur l'exe de référence, ce moteur produit octet pour octet la v6 validée en jeu (tests `Build_matches_the_exe_validated_in_game`).
+
+Le décompilateur de Ghidra ne se lance pas depuis un chemin de plus de 260 caractères : installer Ghidra dans un dossier court.
+
+---
+
+## 6. Points techniques de la configuration écran large
+
+- **Fenêtre sans bordure.** `kload.cfg` impose la fenêtre avec `dx.window.x/y/width/height` et `dx.window.style = 0x96000000`. Elle couvre exactement l'écran. Il faut rester en mode fenêtré dans le jeu.
+- **Résolution du jeu.** `settings.exe` ne propose pas plus de 1920 × 1080. Elle est donc écrite directement dans `Documents\KONAMI\Pro Evolution Soccer 6\settings.dat` :
+  - largeur aux octets 4-5 ;
+  - hauteur aux octets 6-7 ;
+  - aux octets 2-3, une somme de contrôle : la somme sur 16 bits des octets à partir du 4ᵉ.
+
+  Ne pas rouvrir `settings.exe` après coup : il remettrait 1920 × 1080.
+- **Mise à l'échelle Windows.** Avec un affichage à 125 %, le jeu reçoit bien la résolution physique. Le décalage observé au début venait de la fenêtre de 1920 × 1080 et de la résolution du jeu, pas de la mise à l'échelle.
+- **Format 32:9.** Les menus n'occupent qu'environ un tiers de la largeur, au centre.
+
+Profils validés en jeu :
+
+| Profil | Demi-largeur 2D | Rendu (kload) | Fenêtre | Résolution du jeu | Format 3D (lodmixer) |
+|---|---|---|---|---|---|
+| 16:9 | 398 | 2560 × 1440 | normale | 1920 × 1080 | 1.77778 |
+| 32:9 | 796 | 5120 × 1440 | sans bordure, 5120 × 1440 en (0, 0) | 5120 × 1440 | 3.55556 |
+
+---
+
+## 7. Installer et revenir en arrière
+
+L'application PES6 Patcher installe ces réglages pour n'importe quelle résolution. Son bouton **Restaurer l'original** remet tous les fichiers tels qu'ils étaient avant sa première utilisation.
+
+---
+
+## 8. Autres fausses pistes
+
+- **Police des menus plus lisse** : passer le filtrage de la texture de la police en linéaire n'a rien changé de visible.
+- **Dribble à 360° de l'IA** : les directions de dribble de l'IA sont déjà arrondies (surtout à 45°) au moment où elle les décide. `+0x2C` contient très probablement la direction qu'elle vise ; l'utiliser ne changeait chaque touche que de 2 à 13°, sans gain visible.
+
+---
+
+## 9. Limites connues
+
+- Les décors des menus ne font que 512 de large : bandes noires sur les côtés.
+- Dans le menu principal, une seconde copie de l'image du joueur apparaît dans la bande droite.
+- Les directions libres suivent l'angle précis du stick en course et pour la touche de dribble la plus fréquente ; quelques touches moins fréquentes et les gestes spéciaux gardent les directions du jeu.
+- Seule la version de référence a été testée en jeu ; les autres sont patchées quand leur code correspond.

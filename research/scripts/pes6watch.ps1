@@ -58,7 +58,7 @@ public static class HwWatch {
     public static Dictionary<uint, int> Run(int pid, uint addr, int seconds) {
         var hits = new Dictionary<uint, int>();
         var threads = new HashSet<int>();
-        if (!DebugActiveProcess(pid)) throw new Exception("attach impossible (" + Marshal.GetLastWin32Error() + ")");
+        if (!DebugActiveProcess(pid)) throw new Exception("cannot attach to the game (" + Marshal.GetLastWin32Error() + ")");
         DebugSetProcessKillOnExit(false);
         byte[] ev = new byte[176];
         DateTime end = DateTime.Now.AddSeconds(seconds);
@@ -89,8 +89,8 @@ public static class HwWatch {
 '@
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 if ($Read) { [HwWatch]::Dr7 = 0x000F0001 }   # RW0 = 11 (read/write), LEN0 = 11 (4 bytes)
 $hits = [HwWatch]::Run($p.Id, [uint32]$Address, $Seconds)
-if ($hits.Count -eq 0) { "aucune ecriture detectee" }
-foreach ($k in $hits.Keys) { "ecriture juste avant EIP 0x{0:X} ({1} fois)" -f $k, $hits[$k] }
+if ($hits.Count -eq 0) { "no write detected" }
+foreach ($k in $hits.Keys) { "write just before EIP 0x{0:X} ({1} times)" -f $k, $hits[$k] }

@@ -56,7 +56,7 @@ public static class StickScan {
 '@
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 $r = [StickScan]::Run($p.Id, $StartDelay, $Hold)
 "{0} emplacements suivent le stick" -f $r.Count
 if ($Out) { $r | Set-Content $Out } else { $r | Select-Object -First 80 }

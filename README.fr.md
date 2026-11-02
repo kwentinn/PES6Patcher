@@ -99,7 +99,7 @@ Versions testées en jeu :
 |---|---|
 | `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | `PES6.exe` « No-DVD » : écran large (16:9, 32:9), directions libres (course et dribble), dribble resserré, coups francs, tirs plus doux et plus précis, et saut de l'intro testés |
 
-Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt matériels et des relevés mémoire, est dans [`research/NOTES.md`](research/NOTES.md). Les scripts utilisés pendant la recherche sont dans [`research/scripts`](research/scripts).
+Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt matériels et des relevés mémoire, est dans [`research/NOTES.fr.md`](research/NOTES.fr.md). Les scripts utilisés pendant la recherche sont dans [`research/scripts`](research/scripts).
 
 ## Limites
 

@@ -99,7 +99,7 @@ Builds tested in game:
 |---|---|
 | `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | no-DVD `PES6.exe`: widescreen (16:9, 32:9), free direction (running and dribbling), close dribbling, free kicks, gentler and more accurate shots and intro skip tested |
 
-Addresses and method details (Ghidra, hardware breakpoints, memory captures) are in [`research/NOTES.md`](research/NOTES.md), in French. The scripts used during the research are in [`research/scripts`](research/scripts).
+Addresses and method details (Ghidra, hardware breakpoints, memory captures) are in [`research/NOTES.md`](research/NOTES.md). The scripts used during the research are in [`research/scripts`](research/scripts).
 
 ## Limitations
 

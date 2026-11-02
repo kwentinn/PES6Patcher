@@ -54,7 +54,7 @@ public static class VpWatch {
         uint dev = ReadU32(0x00F83E68);
         uint vtbl = ReadU32(dev);
         uint setViewport = ReadU32(vtbl + 0xA0);
-        if (!DebugActiveProcess(pid)) throw new Exception("attach impossible");
+        if (!DebugActiveProcess(pid)) throw new Exception("cannot attach to the game");
         DebugSetProcessKillOnExit(false);
         byte[] ev = new byte[176];
         DateTime end = DateTime.Now.AddSeconds(seconds);
@@ -73,7 +73,7 @@ public static class VpWatch {
                         Wow64GetThreadContext(h, c);
                         uint esp = BitConverter.ToUInt32(c, OFF_ESP);
                         uint ret = ReadU32(esp), vp = ReadU32(esp + 8);
-                        string key = string.Format("appelant 0x{0:X}  viewport x={1} y={2} w={3} h={4}",
+                        string key = string.Format("caller 0x{0:X}  viewport x={1} y={2} w={3} h={4}",
                             ret, ReadU32(vp), ReadU32(vp + 4), ReadU32(vp + 8), ReadU32(vp + 12));
                         int n; log.TryGetValue(key, out n); log[key] = n + 1;
                         // resume flag so the breakpoint does not fire again on the same instruction
@@ -95,12 +95,12 @@ public static class VpWatch {
         }
         var result = new List<string>();
         result.Add(string.Format("SetViewport = 0x{0:X}", setViewport));
-        foreach (var kv in log) result.Add(kv.Key + "  (" + kv.Value + " fois)");
+        foreach (var kv in log) result.Add(kv.Key + "  (" + kv.Value + " times)");
         return result;
     }
 }
 '@
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 [VpWatch]::Run($p.Id, $Seconds)

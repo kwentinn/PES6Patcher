@@ -15,7 +15,7 @@ public static class MemCode {
 '@
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 $h = [MemCode]::OpenProcess(0x0438, $false, $p.Id)
 
 if ($Hex) {
@@ -24,7 +24,7 @@ if ($Hex) {
     [void][MemCode]::VirtualProtectEx($h, [IntPtr]$Address, [UIntPtr]$bytes.Length, 0x40, [ref]$old)
     $ok = [MemCode]::WriteProcessMemory($h, [IntPtr]$Address, $bytes, $bytes.Length, [ref]$n)
     [void][MemCode]::VirtualProtectEx($h, [IntPtr]$Address, [UIntPtr]$bytes.Length, $old, [ref]$old)
-    if (-not $ok) { Write-Error "ecriture impossible"; exit 1 }
+    if (-not $ok) { Write-Error "cannot write the memory"; exit 1 }
     $Length = [Math]::Max($Length, $bytes.Length)
 }
 $buf = New-Object byte[] $Length; $n = 0

@@ -12,10 +12,10 @@ public static class MemDump {
 '@
 
 $p = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
-if (-not $p) { Write-Error "PES6 n'est pas lance."; exit 1 }
+if (-not $p) { Write-Error "PES6 is not running."; exit 1 }
 $h = [MemDump]::OpenProcess(0x10, $false, $p.Id)
 $buf = New-Object byte[] $Length; $n = 0
-if (-not [MemDump]::ReadProcessMemory($h, [IntPtr]$Address, $buf, $Length, [ref]$n)) { Write-Error "lecture impossible"; exit 1 }
+if (-not [MemDump]::ReadProcessMemory($h, [IntPtr]$Address, $buf, $Length, [ref]$n)) { Write-Error "cannot read the memory"; exit 1 }
 for ($o = 0; $o -lt $Length; $o += 4) {
     "0x{0:X8}: i16={1,6} {2,6}  i32={3,11}  f={4}" -f ($Address + $o),
         [BitConverter]::ToInt16($buf, $o), [BitConverter]::ToInt16($buf, $o + 2),
