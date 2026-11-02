@@ -669,8 +669,9 @@ internal static class CodeCaves
     /// Shot accuracy: the shot function's "call kick" goes through here. For a team controlled by a human (see
     /// <see cref="EmitHumanTeams"/>), the gap between the direction asked (saved by <see cref="ShotPower"/>) and the
     /// direction after the game's random penalties is scaled to <paramref name="percent"/>, and so is the height
-    /// above <see cref="ShotHeightPivot"/>. Then the kick function is called as before. With the test key, F4's
-    /// percent is used once set.
+    /// above <see cref="ShotHeightPivot"/>. A shot from the weak foot (the game gives it a larger gap, always to the
+    /// same side) keeps percent² / 100 instead: 25 % at 50 %. Then the kick function is called as before. With the
+    /// test key, F4's percent is used once set.
     /// </summary>
     public static Hook ShotAccuracy(int cave, ShotSites sites, int percent, FreeKickSites? testKeys = null)
     {
@@ -678,7 +679,9 @@ internal static class CodeCaves
             .Bytes(0x8B, 0x54, 0x24, 0x04)                          // mov edx,[esp+4]      ; player
             .Bytes(0x0F, 0xB6, 0x4A, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [edx+0x12] ; and ecx,1 ; team
             .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(sites.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
-            .Jump(0x72, "kick");                                    // jb kick              ; AI: the game's shot
+            .Jump(0x73, "human")                                    // jae human
+            .JumpTo(sites.KickEntry)                                // jmp kick function    ; AI: the game's shot
+            .Mark("human");
         // the percent stays on the stack: the arguments move 4 bytes up
         if (testKeys != null)
             code.Bytes([0x0F, 0xB7, 0x0D], testKeys.State + ShotAccuracyState)   // movzx ecx,word [percent]
@@ -690,6 +693,19 @@ internal static class CodeCaves
         else
             code.Bytes(0x6A, (byte)percent);                        // push percent
         var bytes = code
+            // weak foot (the animation's foot is not the favoured one): percent = percent * percent / 100
+            .Bytes(0x8B, 0x54, 0x24, 0x08)                          // mov edx,[esp+8]      ; player
+            .Bytes(0x8B, 0x4A, 0x04, 0x0F, 0xB6, 0x49, 0x2D)        // mov ecx,[edx+4] ; movzx ecx,byte [ecx+0x2D] ; foot
+            .Bytes(0x0F, 0xB6, 0x42, 0x12, 0xC1, 0xE0, 0x05)        // movzx eax,byte [edx+0x12] ; shl eax,5
+            .Bytes(0x0F, 0xB6, 0x52, 0x11, 0x03, 0xC2)              // movzx edx,byte [edx+0x11] ; add eax,edx
+            .Bytes([0x69, 0xC0], 0x348)                             // imul eax,eax,0x348
+            .Bytes([0x8B, 0x80], sites.FavouredFoot)                // mov eax,[eax+favoured foot]
+            .Bytes(0x83, 0xE0, 0x01, 0x3B, 0xC1)                    // and eax,1 ; cmp eax,ecx
+            .Jump(0x74, "favouredFoot")                             // je favouredFoot
+            .Bytes(0x8B, 0x04, 0x24, 0x0F, 0xAF, 0xC0)              // mov eax,[esp] ; imul eax,eax
+            .Bytes(0x6A, 0x64, 0x59, 0x99, 0xF7, 0xF9)              // push 100 ; pop ecx ; cdq ; idiv ecx
+            .Bytes(0x89, 0x04, 0x24)                                // mov [esp],eax
+            .Mark("favouredFoot")
             // direction: asked + (direction - asked) * percent / 100, on 16 bits
             .Bytes([0x0F, 0xB7, 0x0D], sites.HumanScores + 2)       // movzx ecx,word [asked]
             .Bytes(0x8B, 0x44, 0x24, 0x0C)                          // mov eax,[esp+0xC]    ; direction

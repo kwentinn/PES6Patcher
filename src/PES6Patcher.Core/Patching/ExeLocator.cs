@@ -82,6 +82,9 @@ internal sealed record ShotSites(int Entry, int Float, int SetPieceReturn)
 
     /// <summary>The shot function's "call kick" (player, direction, speed, height, 0), after its random penalties.</summary>
     public int KickCall { get; init; }
+
+    /// <summary>Favoured foot of the players in the match: bit 0 of the dword at this address + (player[0x12] * 32 + player[0x11]) * 0x348.</summary>
+    public int FavouredFoot { get; init; }
 }
 
 /// <summary>Team spread: the function setting where a player places himself (player, x, z), and the player array.</summary>
@@ -263,14 +266,22 @@ internal sealed class ExeLocator
         var rdata = _image.Named(".rdata");
         int scores = rdata != null && _image.Matches(rdata.End - 0x40, new byte[0x10]) ? rdata.End - 0x40 : 0;
         int kickCall = Unique(ShotKickCall, "Hook.ShotPower");
+        int foot = Unique(FootReader, "Hook.ShotPower");
         if (kickCall != 0 && _image.Rel32Target(kickCall + 10) != kick) kickCall = 0;
-        if (active == 0 || stick == 0 || kick == 0 || scores == 0 || kickCall == 0) { Problem("Hook.ShotPower", 0); return null; }
+        if (active == 0 || stick == 0 || kick == 0 || scores == 0 || kickCall == 0 || foot == 0) { Problem("Hook.ShotPower", 0); return null; }
         return new ShotSites(entry, _image.ReadInt32(entry + 5), call + 5)
         {
             ActivePlayers = _image.ReadInt32(active + 6), Players = _image.ReadInt32(active + 41),
             StickTable = _image.ReadInt32(stick + 1) - 2, KickEntry = kick, HumanScores = scores, KickCall = kickCall + 10,
+            FavouredFoot = _image.ReadInt32(foot + 29),
         };
     }
+
+    /// <summary>
+    /// The game's own foot check: foot of the animation ([[player+4]+0x2D]) against the favoured foot (stat, bit 0,
+    /// address at +29): movzx eax,[esi+0x11] ; mov ecx,[esi+4] ; movzx edx,[ecx+0x2D] ; ... ; and eax,1 ; cmp edx,eax.
+    /// </summary>
+    private const string FootReader = "0F B6 46 11 8B 4E 04 0F B6 51 2D 57 0F B6 7E 12 C1 E7 05 03 F8 69 FF 48 03 00 00 8B 87 ?? ?? ?? ?? 83 E0 01 3B D0";
 
     /// <summary>The shot's kick: push 0 ; push edi ; push ebx ; push ebp ; push esi ; mov [esp+0x4C],eax ; call kick (+10).</summary>
     private const string ShotKickCall = "6A 00 57 53 55 56 89 44 24 4C E8 ?? ?? ?? ?? 56 E8";
