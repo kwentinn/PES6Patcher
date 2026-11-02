@@ -11,11 +11,22 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="FreeKick">Easier free kicks: a heavier ball after a free kick shot, so it dips sooner after the wall.</param>
 /// <param name="FreeKickWeight">Weight added to that ball, in % of the game's ball weight.</param>
 /// <param name="FreeKickDebug">Test key: F2 in game changes <paramref name="FreeKickWeight"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="ShotPower">Shot power above the lowest one, in % of the game's (100 = unchanged): a short press sends the ball less high.</param>
+/// <param name="ShotPowerDebug">Test key: F3 in game changes <paramref name="ShotPower"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="ShotAccuracy">Human shots: share of the game's aim error (direction and height) kept, in % (100 = unchanged).</param>
+/// <param name="ShotAccuracyDebug">Test key: F4 in game changes <paramref name="ShotAccuracy"/> by 10 % and shows it (through Kitserver).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
-    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false)
+    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
+    int ShotAccuracy = 100, bool ShotAccuracyDebug = false)
 {
+    /// <summary>Shot aim error kept: default when the option is checked, and limits (100 = the game's).</summary>
+    public const int DefaultShotAccuracy = 50, MinShotAccuracy = 10, MaxShotAccuracy = 100;
+
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
+
+    /// <summary>Shot power: default when the option is checked, and limits (100 = the game's).</summary>
+    public const int DefaultShotPower = 80, MinShotPower = 50, MaxShotPower = 100;
 }
 
 /// <summary>What the patcher can do with a given PES6.exe.</summary>
@@ -36,7 +47,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The free kick fix can be applied.</summary>
     public bool FreeKick { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick;
+    /// <summary>The shot power can be reduced and the shot accuracy raised.</summary>
+    public bool ShotPower { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -68,8 +82,11 @@ public static class ExePatcher
         string hash = Sha256(exe);
         try
         {
-            var (display, direction, dribble, intro, freeKick, patched, problems) = ExeLocator.Locate(exe);
-            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems) { CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null };
+            var (display, direction, dribble, intro, freeKick, shot, patched, problems) = ExeLocator.Locate(exe);
+            return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems)
+            {
+                CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
+            };
         }
         catch (InvalidDataException ex)
         {
@@ -86,13 +103,18 @@ public static class ExePatcher
         if (options.Half is < 256 or > 2048) throw new ArgumentOutOfRangeException(nameof(options), Loc.T("Error.HalfOutOfRange"));
 
         var image = new PeImage((byte[])original.Clone());
-        var (display, direction, dribble, intro, freeKick, patched, problems) = ExeLocator.Locate(original);
+        var (display, direction, dribble, intro, freeKick, shot, patched, problems) = ExeLocator.Locate(original);
         if (patched) throw new InvalidOperationException(Loc.T("Error.AlreadyPatched"));
         if (options.Display && display == null) throw new PatchException(problems);
         if (options.FreeDirection && direction == null) throw new PatchException(problems);
         if (options.CloseDribble && dribble == null) throw new PatchException(problems);
         if (options.SkipIntro && intro == null) throw new PatchException(problems);
         if (options.FreeKick && freeKick == null) throw new PatchException(problems);
+        if ((options.ShotPower < 100 || options.ShotAccuracy < 100) && shot == null) throw new PatchException(problems);
+        if (options.ShotPower is < PatchOptions.MinShotPower or > PatchOptions.MaxShotPower)
+            throw new ArgumentOutOfRangeException(nameof(options), options.ShotPower, null);
+        if (options.ShotAccuracy is < PatchOptions.MinShotAccuracy or > PatchOptions.MaxShotAccuracy)
+            throw new ArgumentOutOfRangeException(nameof(options), options.ShotAccuracy, null);
 
         var plan = new List<(int Va, byte[] Bytes)>();
         var caves = new CaveAllocator(image);
@@ -137,28 +159,90 @@ public static class ExePatcher
         if (options.SkipIntro)
             foreach (int jump in intro!.Jumps) plan.Add((jump, [0x90, 0x90]));
 
+        // test keys (F2: free kick weight, F3: shot power, F4: shot aim error), shown through Kitserver; their texts sit
+        // in caves of their own (too large to share one with the code), their state with the free kick one
+        bool freeKickKey = options.FreeKick && options.FreeKickDebug, shotKey = options.ShotPower < 100 && options.ShotPowerDebug,
+            accuracyKey = options.ShotAccuracy < 100 && options.ShotAccuracyDebug;
+        if ((freeKickKey || shotKey || accuracyKey) && freeKick == null) throw new PatchException(problems);
+        var keys = new List<CodeCaves.TestKey>();
+        (int Texts, int Stride) KeyTexts(int max, string key)
+        {
+            var (blob, stride) = CodeCaves.TestKeyTexts([.. Enumerable.Range(0, max / CodeCaves.TestKeyStep + 1)
+                .Select(k => Ascii(Loc.T(key, k * CodeCaves.TestKeyStep)))]);
+            int at = Cave(blob.Length);
+            plan.Add((at, blob));
+            return (at, stride);
+        }
+        if (freeKickKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxFreeKickWeight, "Overlay.FreeKickWeight");
+            keys.Add(CodeCaves.FreeKickWeightTestKey(options.FreeKickWeight, texts, stride));
+        }
+        if (shotKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxShotPower, "Overlay.ShotPower");
+            keys.Add(CodeCaves.ShotPowerTestKey(options.ShotPower, texts, stride));
+        }
+        if (accuracyKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxShotAccuracy, "Overlay.ShotAccuracy");
+            keys.Add(CodeCaves.ShotAccuracyTestKey(options.ShotAccuracy, texts, stride));
+        }
+        int testKeysSetUp = 0;
+        if (keys.Count > 0)
+        {
+            testKeysSetUp = Cave(CodeCaves.TestKeys(0, freeKick!, keys).Length);
+            plan.Add((testKeysSetUp, CodeCaves.TestKeys(testKeysSetUp, freeKick!, keys)));
+            image.MakeWritable(image.SectionOf(freeKick!.State)!);
+        }
+
         // free kicks: heavier ball after a free kick shot; its state lives in the end of .rdata
+        bool shots = options.ShotPower < 100 || options.ShotAccuracy < 100;
+        var humans = shots ? shot : null;   // human teams learnt at the kick function's entry
+        int freeKickShotReturn = 0;
         if (options.FreeKick)
         {
             if (options.FreeKickWeight is < PatchOptions.MinFreeKickWeight or > PatchOptions.MaxFreeKickWeight)
                 throw new ArgumentOutOfRangeException(nameof(options), options.FreeKickWeight, null);
             float unit = image.ReadFloat(freeKick!.Weight) / 100f;
-            (int, int)? texts = null;
-            if (options.FreeKickDebug)
-            {
-                // test key texts (0 to 200 %), in a cave of their own: too large to share one with the code
-                var (blob, stride) = CodeCaves.FreeKickTexts([.. Enumerable.Range(0, PatchOptions.MaxFreeKickWeight / CodeCaves.FreeKickWeightStep + 1)
-                    .Select(k => Ascii(Loc.T("Overlay.FreeKickWeight", k * CodeCaves.FreeKickWeightStep)))]);
-                int textsAt = Cave(blob.Length);
-                plan.Add((textsAt, blob));
-                texts = (textsAt, stride);
-            }
-            int size = CodeCaves.FreeKick(0, freeKick, unit, options.FreeKickWeight, texts).Cave.Length;
+            int size = CodeCaves.FreeKick(0, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans).Cave.Length;
             int at = Cave(size);
-            var (cave, entries) = CodeCaves.FreeKick(at, freeKick, unit, options.FreeKickWeight, texts);
+            var (cave, entries, shotReturn) = CodeCaves.FreeKick(at, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans);
             plan.Add((at, cave));
             plan.AddRange(entries);
             image.MakeWritable(image.SectionOf(freeKick.State)!);
+            freeKickShotReturn = shotReturn;
+        }
+        else if (keys.Count > 0 || humans != null)
+        {
+            // without the free kick hook at the kick function's entry, the test keys and human teams get one of their own
+            int kickEntry = humans?.KickEntry ?? freeKick!.KickEntry;
+            var testKeys = keys.Count > 0 ? freeKick : null;
+            var hook = CodeCaves.KickEntryExtras(0, kickEntry, testKeys, testKeysSetUp, humans);
+            hook = CodeCaves.KickEntryExtras(Cave(hook.CaveBytes.Length), kickEntry, testKeys, testKeysSetUp, humans);
+            plan.Add((hook.Cave, hook.CaveBytes));
+            plan.Add((hook.Entry, hook.EntryBytes));
+        }
+
+        // shot power: scaled at the shot function's entry, free kicks excepted (the entry also keeps the direction
+        // asked, for the accuracy)
+        if (shots)
+        {
+            var testKeys = shotKey ? freeKick : null;
+            int size = CodeCaves.ShotPower(0, shot!, options.ShotPower, freeKickShotReturn, testKeys).CaveBytes.Length;
+            var hook = CodeCaves.ShotPower(Cave(size), shot!, options.ShotPower, freeKickShotReturn, testKeys);
+            plan.Add((hook.Cave, hook.CaveBytes));
+            plan.Add((hook.Entry, hook.EntryBytes));
+            image.MakeWritable(image.SectionOf(shot!.HumanScores)!);
+        }
+        // shot accuracy: the random gap in direction and height reduced, for human teams
+        if (options.ShotAccuracy < 100)
+        {
+            var testKeys = accuracyKey ? freeKick : null;
+            var accuracy = CodeCaves.ShotAccuracy(0, shot!, options.ShotAccuracy, testKeys);
+            accuracy = CodeCaves.ShotAccuracy(Cave(accuracy.CaveBytes.Length), shot!, options.ShotAccuracy, testKeys);
+            plan.Add((accuracy.Cave, accuracy.CaveBytes));
+            plan.Add((accuracy.Entry, accuracy.EntryBytes));
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);

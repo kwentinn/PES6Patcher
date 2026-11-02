@@ -201,16 +201,43 @@ public class PatcherTests(ITestOutputHelper output)
         int[] entries = [.. Range(image, 0x58CC11, 5), .. Range(image, 0x478020, 7), .. Range(image, 0x475EEF, 6)];
         Assert.DoesNotContain(changed.Except(entries), i => i < image.Offset(cave) || i >= image.Offset(cave) + FreeKickCaveSize);
 
-        // test key: the first kick sets up a Kitserver hook (F2, texts for 0 to 200 %)
-        var debug = ExePatcher.Build(original, options with { FreeKick = true, FreeKickDebug = true });
+        // test keys: the first kick sets up a Kitserver hook (F2: texts for 0 to 200 %, F3 and F4: 0 to 100 %)
+        var debug = ExePatcher.Build(original, options with
+        {
+            FreeKick = true, FreeKickDebug = true, ShotPower = 80, ShotPowerDebug = true, ShotAccuracy = 50, ShotAccuracyDebug = true,
+        });
         var debugImage = new PeImage(debug);
-        int debugCave = debugImage.Rel32Target(0x58CC11);   // after the texts cave
+        int debugCave = debugImage.Rel32Target(0x58CC11);   // after the texts and test keys caves
         Assert.Equal(debugCave + 56, debugImage.Rel32Target(0x478020));
-        Assert.Equal(debugCave + 98, debugImage.Rel32Target(0x475EEF));
-        var text = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(debugCave), 400);
+        Assert.Equal(debugCave + 228, debugImage.Rel32Target(0x475EEF));   // the kick part also learns the human teams
+        int setUp = debugImage.Rel32Target(debugCave + 56 + 10);
+        var text = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(setUp), 600);
         Assert.Contains("kload.dll\0KDrawText\0HookFunction\0", text);
-        var texts = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(debugImage.ReadInt32(debugCave + debug.AsSpan(debugImage.Offset(debugCave), 400).IndexOf(new byte[] { 0x69, 0xC0 }) + 7)), 1000);
-        Assert.Contains(ExePatcher.Ascii(Loc.T("Overlay.FreeKickWeight", 200)), texts);
+        var keysCode = debug.AsSpan(debugImage.Offset(setUp), 600);
+        int firstTexts = keysCode.IndexOf(new byte[] { 0x69, 0xC0 }), secondTexts = firstTexts + 6 + keysCode[(firstTexts + 6)..].IndexOf(new byte[] { 0x69, 0xC0 });
+        string Texts(int imul) => System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(debugImage.ReadInt32(setUp + imul + 7)), 1000);
+        Assert.Contains(ExePatcher.Ascii(Loc.T("Overlay.FreeKickWeight", 200)), Texts(firstTexts));
+        Assert.Contains(ExePatcher.Ascii(Loc.T("Overlay.ShotPower", 100)), Texts(secondTexts));
+        int thirdTexts = secondTexts + 6 + keysCode[(secondTexts + 6)..].IndexOf(new byte[] { 0x69, 0xC0 });
+        Assert.Contains(ExePatcher.Ascii(Loc.T("Overlay.ShotAccuracy", 100)), Texts(thirdTexts));
+
+        // shot power: the shot function's entry jumps to code that scales the power, F3's percent first
+        int shotCave = debugImage.Rel32Target(0x5B9130);
+        Assert.Equal(0x58CC16, debugImage.ReadInt32(shotCave + 14));         // set piece shots keep their power (after saving the direction asked)
+        Assert.Equal(debugCave + 44, debugImage.ReadInt32(shotCave + 21));   // and those through the free kick cave
+        // aim: the shot's kick call goes through code that brings the direction and height closer to the ones asked
+        int kickCall = debugImage.Rel32Target(0x5BBC9A);
+        Assert.NotEqual(0x478020, kickCall);
+        Assert.Equal(0xE9, debug[debugImage.Offset(0x478020)]);              // still reaches the kick function's hook
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { ShotPower = 40 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { ShotAccuracy = 0 }));
+
+        // each one alone: power without the aim hook, accuracy with the entry (it keeps the direction asked)
+        var power = new PeImage(ExePatcher.Build(original, options with { ShotPower = 80 }));
+        Assert.Equal(0x478020, power.Rel32Target(0x5BBC9A));
+        var accuracy = new PeImage(ExePatcher.Build(original, options with { ShotAccuracy = 50 }));
+        Assert.NotEqual(0x478020, accuracy.Rel32Target(0x5BBC9A));
+        Assert.Equal(0x58CC16, accuracy.ReadInt32(accuracy.Rel32Target(0x5B9130) + 14));
 
         // alone, it makes .rdata writable and is detected as patched
         var alone = ExePatcher.Build(original, new PatchOptions(398, false, Display: false, FreeKick: true));

@@ -241,9 +241,19 @@ internal static class CodeCaves
     /// <summary>Stick table direction bit for up (with up-left and up-right).</summary>
     private const byte StickUp = 0x10;
 
-    /// <summary>Free kick weight test key (debug): F2 adds 10 % (wrapping from the maximum to the minimum).</summary>
-    public const byte FreeKickWeightKey = 0x71;   // VK_F2
-    public const int FreeKickWeightStep = 10;
+    /// <summary>Test keys (debug): F2 changes the free kick weight, F3 the shot power, F4 the shot aim error, by 10 % (wrapping from the maximum to the minimum).</summary>
+    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73;   // VK_F2, VK_F3, VK_F4
+    public const int TestKeyStep = 10;
+
+    /// <summary>
+    /// Shared state of the free kick fix, the shot power and the test keys (<see cref="FreeKickSites.State"/>, zero
+    /// padding of .rdata made writable): +0 free kick shot under way, +1 ball from a free kick, +2 test keys set up,
+    /// +4 free kick weight percent (word, 0 = the patcher's), +8 tick until which a test key value shows,
+    /// +12 KDrawText, +16 shot power percent (word, 0 = the patcher's), +18 test key shown, +20 shot aim error
+    /// percent (word, 0 = the patcher's).
+    /// </summary>
+    private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
+        ShotAccuracyState = 20;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
@@ -251,23 +261,19 @@ internal static class CodeCaves
     /// <item>the set piece's "call shot" becomes a jump here: the call is made with "free kick shot under way" set
     /// when a pad's left stick is pushed up at that moment (the game reads the stick for the shot's spin there too,
     /// and leaves it alone during the flight);</item>
-    /// <item>the ball kick function's entry records whether this kick is that shot (so any later touch clears it);</item>
+    /// <item>the ball kick function's entry records whether this kick is that shot (so any later touch clears it),
+    /// and calls <paramref name="testKeysSetUp"/> (see <see cref="TestKeys"/>) until it is done;</item>
     /// <item>the ball flight's "fadd [weight]" also adds percent * <paramref name="weightUnit"/> (1 % of the game's
     /// weight) while the ball comes from a free kick. The trajectory predictions (keeper, AI) use the same code, so
-    /// they see the same dip. The percent is [state+4] once set by F2, else <paramref name="percent"/>.</item>
-    /// <item>with <paramref name="debugTexts"/> (<see cref="FreeKickTexts"/>, placed apart): the first kick registers a
-    /// Kitserver Present hook (as the close dribbling switch does) where F2 changes the percent and shows it.</item>
+    /// they see the same dip. The percent is the one set by F2, else <paramref name="percent"/>.</item>
     /// </list>
     /// The game's weight stays where it is (PityCharly's physics mod rewrites it while the game runs).
-    /// State (<see cref="FreeKickSites.State"/>): +0 shot under way, +1 ball from a free kick, +2 set up,
-    /// +4 percent (word, 0 = not changed), +8 tick until which the percent shows, +12 KDrawText.
     /// </summary>
-    public static (byte[] Cave, (int Va, byte[] Bytes)[] Entries) FreeKick(int cave, FreeKickSites sites, float weightUnit, int percent,
-        (int Address, int Stride)? debugTexts = null)
+    public static (byte[] Cave, (int Va, byte[] Bytes)[] Entries, int ShotReturn) FreeKick(int cave, FreeKickSites sites, float weightUnit, int percent,
+        int testKeysSetUp = 0, ShotSites? humans = null)
     {
-        int state = sites.State, pending = state, heavy = state + 1, setUp = state + 2, current = state + 4, until = state + 8, drawText = state + 12;
+        int state = sites.State, pending = state, heavy = state + 1, current = state + FreeKickWeightState;
         byte[] Addr(int a) => BitConverter.GetBytes(a);
-        bool debug = debugTexts != null;
 
         var code = new CodeBuilder(cave)
             .Mark("shot")
@@ -287,19 +293,15 @@ internal static class CodeCaves
             .Mark("padsDone")
             .Bytes(0x61)                                            // popad
             .CallTo(sites.Shot)                                     // call shot
+            .Mark("shotReturn")
             .Bytes([0xC6, 0x05, .. Addr(pending), 0x00])           // mov byte [pending],0
             .JumpTo(sites.ShotCall + 5)                             // jmp back
             .Mark("kick");
-        if (debug)
-            code.Bytes([0x80, 0x3D, .. Addr(setUp), 0x00])         // cmp byte [set up],0
-                .Jump(0x75, "kickFlags")                            // jne kickFlags
-                .Bytes(0x60)                                        // pushad
-                .CallTo("setUp")                                    // call set-up
-                .Bytes(0x61)                                        // popad
-                .Mark("kickFlags");
+        if (testKeysSetUp != 0) TestKeysSetUpCall(code, sites, testKeysSetUp);
+        if (humans != null) EmitHumanTeams(code, humans);
         code.Bytes([0x80, 0x3D, .. Addr(pending), 0x00])           // cmp byte [pending],0
             .Bytes([0x0F, 0x95, 0x05], heavy)                       // setne byte [heavy]
-            .Bytes(0x53, 0x55, 0x56, 0x8B, 0x74, 0x24, 0x10)        // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
+            .Bytes(KickEntryBytes)                                  // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
             .JumpTo(sites.KickEntry + 7)                            // jmp back
             .Mark("weight")
             .Bytes([0xD8, 0x05], sites.Weight)                      // original: fadd dword [weight]
@@ -321,78 +323,6 @@ internal static class CodeCaves
             .Mark("unit")
             .Bytes(BitConverter.GetBytes(weightUnit));
 
-        if (debug)
-        {
-            static byte[] Ascii(string s) => [.. System.Text.Encoding.ASCII.GetBytes(s), 0];
-            code.Mark("setUp")                                      // set-up (cdecl, no argument)
-                .Bytes([0xC6, 0x05, .. Addr(setUp), 0x01])         // mov byte [set up],1
-                .Bytes(0x53)                                        // push ebx
-                .AddressOf([0x68], "kload")                         // push "kload.dll"
-                .Bytes([0xFF, 0x15], sites.ModuleHandleImport)      // call [GetModuleHandleA]
-                .Bytes(0x85, 0xC0)                                  // test eax,eax
-                .Jump(0x74, "setUpDone")                            // je setUpDone          ; no Kitserver
-                .Bytes(0x8B, 0xD8)                                  // mov ebx,eax
-                .AddressOf([0x68], "drawTextName")                  // push "KDrawText"
-                .Bytes(0x53)                                        // push ebx
-                .Bytes([0xFF, 0x15], sites.ProcAddressImport)       // call [GetProcAddress]
-                .Bytes(0x85, 0xC0)                                  // test eax,eax
-                .Jump(0x74, "setUpDone")                            // je setUpDone
-                .Bytes([0xA3], drawText)                            // mov [KDrawText],eax
-                .AddressOf([0x68], "hookFunction")                  // push "HookFunction"
-                .Bytes(0x53)                                        // push ebx
-                .Bytes([0xFF, 0x15], sites.ProcAddressImport)       // call [GetProcAddress]
-                .Bytes(0x85, 0xC0)                                  // test eax,eax
-                .Jump(0x74, "setUpDone")                            // je setUpDone
-                .AddressOf([0x68], "present")                       // push present
-                .Bytes(0x6A, 0x03)                                  // push 3                ; hk_D3D_Present
-                .Bytes(0xFF, 0xD0)                                  // call eax              ; HookFunction
-                .Bytes(0x83, 0xC4, 0x08)                            // add esp,8
-                .Mark("setUpDone")
-                .Bytes(0x5B, 0xC3)                                  // pop ebx ; ret
-                // Present hook (stdcall, 5 arguments), on every frame
-                .Mark("present")
-                .Bytes(0x6A, FreeKickWeightKey)                     // push VK_F2
-                .Bytes([0xFF, 0x15], sites.KeyStateImport)          // call [GetAsyncKeyState]
-                .Bytes(0xA8, 0x01)                                  // test al,1             ; pressed since last call
-                .Jump(0x74, "show")                                 // je show
-                .Bytes([0x0F, 0xB7, 0x05], current)                 // movzx eax,word [percent]
-                .Bytes(0x85, 0xC0)                                  // test eax,eax
-                .Jump(0x75, "step")                                 // jne step
-                .Bytes([0xB8], percent)                             // mov eax,percent
-                .Mark("step")
-                .Bytes(0x83, 0xC0, FreeKickWeightStep)              // add eax,step
-                .Bytes([0x3D], PatchOptions.MaxFreeKickWeight)      // cmp eax,max
-                .Jump(0x7E, "stored")                               // jle stored
-                .Bytes([0xB8], PatchOptions.MinFreeKickWeight)      // mov eax,min
-                .Mark("stored")
-                .Bytes([0x66, 0xA3], current)                       // mov [percent],ax
-                .Bytes([0xFF, 0x15], sites.TickCountImport)         // call [GetTickCount]
-                .Bytes([0x05], SwitchMessageMs)                     // add eax,SwitchMessageMs
-                .Bytes([0xA3], until)                               // mov [until],eax
-                .Mark("show")
-                .Bytes([0xFF, 0x15], sites.TickCountImport)         // call [GetTickCount]
-                .Bytes([0x3B, 0x05], until)                         // cmp eax,[until]
-                .Jump(0x73, "presentDone")                          // jae presentDone
-                .Bytes(0x6A, 0x01)                                  // push 1                ; absolute (640 x 480)
-                .Bytes([0x0F, 0xB7, 0x05], current)                 // movzx eax,word [percent]
-                .Bytes(0x6A, FreeKickWeightStep, 0x59)              // push step ; pop ecx
-                .Bytes(0x33, 0xD2, 0xF7, 0xF1)                      // xor edx,edx ; div ecx  ; percent / step
-                .Bytes([0x69, 0xC0], debugTexts!.Value.Stride)      // imul eax,eax,stride
-                .Bytes([0x05], debugTexts.Value.Address)            // add eax,texts         ; texts[0] = 0 %
-                .Bytes(0x50)                                        // push eax              ; text
-                .Bytes(0x6A, 0x0C)                                  // push 12               ; font size
-                .Bytes([0x68], unchecked((int)0xFFFFE040))          // push yellow
-                .Bytes([0x68], BitConverter.ToInt32(BitConverter.GetBytes(64f)))   // push y
-                .Bytes([0x68], BitConverter.ToInt32(BitConverter.GetBytes(10f)))   // push x
-                .Bytes([0xFF, 0x15], drawText)                      // call [KDrawText]
-                .Bytes(0x83, 0xC4, 0x18)                            // add esp,24
-                .Mark("presentDone")
-                .Bytes(0xC2, 0x14, 0x00)                            // ret 0x14
-                .Mark("kload").Bytes(Ascii("kload.dll"))
-                .Mark("drawTextName").Bytes(Ascii("KDrawText"))
-                .Mark("hookFunction").Bytes(Ascii("HookFunction"));
-        }
-
         var bytes = code.Build();
         var entries = new (int, byte[])[]
         {
@@ -400,14 +330,311 @@ internal static class CodeCaves
             (sites.KickEntry, CodeBuilder.JumpPatch(sites.KickEntry, code.AddressOfLabel("kick"), 7)),
             (sites.WeightAdd, CodeBuilder.JumpPatch(sites.WeightAdd, code.AddressOfLabel("weight"), 6)),
         };
-        return (bytes, entries);
+        return (bytes, entries, code.AddressOfLabel("shotReturn"));
     }
 
-    /// <summary>Free kick test key texts: one per percent step from 0 %, each padded to the same length (stride).</summary>
-    public static (byte[] Bytes, int Stride) FreeKickTexts(IReadOnlyList<string> texts)
+    /// <summary>The ball kick function's first 7 bytes: push ebx/ebp/esi ; mov esi,[esp+0x10].</summary>
+    private static readonly byte[] KickEntryBytes = [0x53, 0x55, 0x56, 0x8B, 0x74, 0x24, 0x10];
+
+    /// <summary>cmp byte [set up],0 ; jne ; pushad ; call set-up ; popad (the kick function's registers are kept).</summary>
+    private static void TestKeysSetUpCall(CodeBuilder code, FreeKickSites sites, int setUp) =>
+        code.Bytes([0x80, 0x3D, .. BitConverter.GetBytes(sites.State + SetUpState), 0x00])   // cmp byte [set up],0
+            .Jump(0x75, "testKeysReady")                            // jne testKeysReady
+            .Bytes(0x60)                                            // pushad
+            .CallTo(setUp)                                          // call set-up
+            .Bytes(0x61)                                            // popad
+            .Mark("testKeysReady");
+
+    /// <summary>
+    /// Without the free kick fix, the test keys set-up and the human teams are done from a hook of their own at
+    /// the kick function's entry.
+    /// </summary>
+    public static Hook KickEntryExtras(int cave, int kickEntry, FreeKickSites? testKeys, int setUp, ShotSites? humans)
+    {
+        var code = new CodeBuilder(cave);
+        if (testKeys != null && setUp != 0) TestKeysSetUpCall(code, testKeys, setUp);
+        if (humans != null) EmitHumanTeams(code, humans);
+        var bytes = code.Bytes(KickEntryBytes)                      // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
+            .JumpTo(kickEntry + 7)                                  // jmp back
+            .Build();
+        return new Hook("Hook.ShotPower", kickEntry, CodeBuilder.JumpPatch(kickEntry, cave, 7), cave, bytes);
+    }
+
+    /// <summary>A team is controlled by a human once its score reaches this (out of <see cref="MaxHumanScore"/>).</summary>
+    public const byte HumanScore = 32, MaxHumanScore = 64;
+
+    /// <summary>
+    /// Human teams, learnt at every kick: for each pad whose stick is pushed, each team's active player gets +1 when
+    /// its input direction is the stick's (or the opposite one: attacking side), -2 otherwise (an AI defender often runs A human-controlled
+    /// along or against the human's stick while chasing the ball). A human-controlled team follows its stick nearly always.
+    /// </summary>
+    private static void EmitHumanTeams(CodeBuilder code, ShotSites sites)
+    {
+        byte[] Addr(int a) => BitConverter.GetBytes(a);
+        code.Bytes(0x60)                                            // pushad
+            .Bytes(0x33, 0xF6)                                      // xor esi,esi           ; pad
+            .Mark("humanPad")
+            .Bytes([0x80, 0x3C, 0xB5, .. Addr(sites.StickTable + 2), 0x00])   // cmp byte [esi*4+magnitude],0
+            .Jump(0x74, "humanNextPad")                             // je humanNextPad
+            .Bytes([0x0F, 0xB6, 0x1C, 0xB5], sites.StickTable + 3)  // movzx ebx,byte [esi*4+bits]
+            .Bytes(0x81, 0xE3, 0xF0, 0x00, 0x00, 0x00)              // and ebx,0xF0
+            .Bytes(0x8B, 0xD3, 0x8B, 0xCB)                          // mov edx,ebx ; mov ecx,ebx
+            .Bytes(0xC1, 0xE2, 0x02, 0xC1, 0xE9, 0x02, 0x0B, 0xD1)  // shl edx,2 ; shr ecx,2 ; or edx,ecx
+            .Bytes(0x81, 0xE2, 0xF0, 0x00, 0x00, 0x00)              // and edx,0xF0          ; opposite direction
+            .Bytes(0x33, 0xFF)                                      // xor edi,edi           ; team
+            .Mark("humanTeam")
+            .Bytes([0x0F, 0xB6, 0x04, 0x7D], sites.ActivePlayers)   // movzx eax,byte [edi*2+active]
+            .Bytes(0x83, 0xF8, 0x20)                                // cmp eax,32
+            .Jump(0x73, "humanNextTeam")                            // jae humanNextTeam     ; none
+            .Bytes([0x69, 0xC0], 0x240)                             // imul eax,eax,0x240
+            .Bytes([0x0F, 0xB6, 0x88], sites.Players + 0xB0)        // movzx ecx,byte [eax+players+0xB0]
+            .Bytes(0x80, 0xE1, 0xF0)                                // and cl,0xF0
+            .Bytes(0x3B, 0xCB)                                      // cmp ecx,ebx
+            .Jump(0x74, "humanMatch")                               // je humanMatch
+            .Bytes(0x3B, 0xCA)                                      // cmp ecx,edx
+            .Jump(0x74, "humanMatch")                               // je humanMatch
+            .Bytes([0x80, 0xAF, .. Addr(sites.HumanScores), 0x02])  // sub byte [edi+scores],2 ; a miss costs 2
+            .Jump(0x73, "humanNextTeam")                            // jae humanNextTeam
+            .Bytes([0xC6, 0x87, .. Addr(sites.HumanScores), 0x00])  // mov byte [edi+scores],0 ; not below 0
+            .Jump(0xEB, "humanNextTeam")                            // jmp humanNextTeam
+            .Mark("humanMatch")
+            .Bytes([0x80, 0xBF, .. Addr(sites.HumanScores), MaxHumanScore])   // cmp byte [edi+scores],max
+            .Jump(0x73, "humanNextTeam")                            // jae humanNextTeam
+            .Bytes([0xFE, 0x87], sites.HumanScores)                 // inc byte [edi+scores]
+            .Mark("humanNextTeam")
+            .Bytes(0x47, 0x83, 0xFF, 0x02)                          // inc edi ; cmp edi,2
+            .Jump(0x7C, "humanTeam")                                // jl humanTeam
+            .Mark("humanNextPad")
+            .Bytes(0x46, 0x83, 0xFE, 0x08)                          // inc esi ; cmp esi,8
+            .Jump(0x7C, "humanPad")                                 // jl humanPad
+            .Bytes(0x61);                                           // popad
+    }
+
+    /// <summary>
+    /// A test key: <see cref="Key"/> adds <see cref="TestKeyStep"/> to the percent at state + <see cref="State"/>
+    /// (starting from <see cref="Default"/>, back to <see cref="Min"/> after <see cref="Max"/>), whose text is
+    /// at <see cref="Texts"/> + percent / step * <see cref="Stride"/> (see <see cref="TestKeyTexts"/>).
+    /// </summary>
+    public sealed record TestKey(byte Key, int State, int Default, int Min, int Max, int Texts, int Stride);
+
+    public static TestKey FreeKickWeightTestKey(int percent, int texts, int stride) =>
+        new(FreeKickWeightKey, FreeKickWeightState, percent, PatchOptions.MinFreeKickWeight, PatchOptions.MaxFreeKickWeight, texts, stride);
+
+    public static TestKey ShotPowerTestKey(int percent, int texts, int stride) =>
+        new(ShotPowerKey, ShotPowerState, percent, PatchOptions.MinShotPower, PatchOptions.MaxShotPower, texts, stride);
+
+    public static TestKey ShotAccuracyTestKey(int percent, int texts, int stride) =>
+        new(ShotAccuracyKey, ShotAccuracyState, percent, PatchOptions.MinShotAccuracy, PatchOptions.MaxShotAccuracy, texts, stride);
+
+    /// <summary>
+    /// Test keys, through Kitserver's kload.dll as the close dribbling switch: the cave starts with the set-up (called
+    /// from the kick function's entry until done), which registers a Present hook. On every frame, each key pressed
+    /// changes its percent; the last one changed shows for a moment, in yellow under the close dribbling message.
+    /// </summary>
+    public static byte[] TestKeys(int cave, FreeKickSites sites, IReadOnlyList<TestKey> keys)
+    {
+        int state = sites.State, until = state + UntilState, drawText = state + DrawTextState, shown = state + ShownState;
+        byte[] Addr(int a) => BitConverter.GetBytes(a);
+        static byte[] Ascii(string s) => [.. System.Text.Encoding.ASCII.GetBytes(s), 0];
+
+        var code = new CodeBuilder(cave)
+            // set-up (cdecl, no argument)
+            .Bytes([0xC6, 0x05, .. Addr(state + SetUpState), 0x01])    // mov byte [set up],1
+            .Bytes(0x53)                                            // push ebx
+            .AddressOf([0x68], "kload")                             // push "kload.dll"
+            .Bytes([0xFF, 0x15], sites.ModuleHandleImport)          // call [GetModuleHandleA]
+            .Bytes(0x85, 0xC0)                                      // test eax,eax
+            .Jump(0x74, "setUpDone")                                // je setUpDone          ; no Kitserver
+            .Bytes(0x8B, 0xD8)                                      // mov ebx,eax
+            .AddressOf([0x68], "drawTextName")                      // push "KDrawText"
+            .Bytes(0x53)                                            // push ebx
+            .Bytes([0xFF, 0x15], sites.ProcAddressImport)           // call [GetProcAddress]
+            .Bytes(0x85, 0xC0)                                      // test eax,eax
+            .Jump(0x74, "setUpDone")                                // je setUpDone
+            .Bytes([0xA3], drawText)                                // mov [KDrawText],eax
+            .AddressOf([0x68], "hookFunction")                      // push "HookFunction"
+            .Bytes(0x53)                                            // push ebx
+            .Bytes([0xFF, 0x15], sites.ProcAddressImport)           // call [GetProcAddress]
+            .Bytes(0x85, 0xC0)                                      // test eax,eax
+            .Jump(0x74, "setUpDone")                                // je setUpDone
+            .AddressOf([0x68], "present")                           // push present
+            .Bytes(0x6A, 0x03)                                      // push 3                ; hk_D3D_Present
+            .Bytes(0xFF, 0xD0)                                      // call eax              ; HookFunction
+            .Bytes(0x83, 0xC4, 0x08)                                // add esp,8
+            .Mark("setUpDone")
+            .Bytes(0x5B, 0xC3)                                      // pop ebx ; ret
+            // Present hook (stdcall, 5 arguments), on every frame
+            .Mark("present");
+        for (int k = 0; k < keys.Count; k++)
+        {
+            var key = keys[k];
+            code.Bytes(0x6A, key.Key)                               // push key
+                .Bytes([0xFF, 0x15], sites.KeyStateImport)          // call [GetAsyncKeyState]
+                .Bytes(0xA8, 0x01)                                  // test al,1             ; pressed since last call
+                .Jump(0x74, $"next{k}")                             // je next
+                .Bytes([0x0F, 0xB7, 0x05], state + key.State)       // movzx eax,word [percent]
+                .Bytes(0x85, 0xC0)                                  // test eax,eax
+                .Jump(0x75, $"step{k}")                             // jne step
+                .Bytes([0xB8], key.Default)                         // mov eax,default
+                .Mark($"step{k}")
+                .Bytes(0x83, 0xC0, TestKeyStep)                     // add eax,step
+                .Bytes([0x3D], key.Max)                             // cmp eax,max
+                .Jump(0x7E, $"stored{k}")                           // jle stored
+                .Bytes([0xB8], key.Min)                             // mov eax,min
+                .Mark($"stored{k}")
+                .Bytes([0x66, 0xA3], state + key.State)             // mov [percent],ax
+                .Bytes([0xC6, 0x05, .. Addr(shown), (byte)k])      // mov byte [shown],k
+                .Bytes([0xFF, 0x15], sites.TickCountImport)         // call [GetTickCount]
+                .Bytes([0x05], SwitchMessageMs)                     // add eax,SwitchMessageMs
+                .Bytes([0xA3], until)                               // mov [until],eax
+                .Mark($"next{k}");
+        }
+        code.Bytes([0xFF, 0x15], sites.TickCountImport)             // call [GetTickCount]
+            .Bytes([0x3B, 0x05], until)                             // cmp eax,[until]
+            .Jump(0x72, "showKey")                                  // jb showKey
+            .Bytes(0xC2, 0x14, 0x00)                                // ret 0x14             ; nothing to show
+            .Mark("showKey")
+            .Bytes([0x0F, 0xB6, 0x0D], shown);                      // movzx ecx,byte [shown]
+        for (int k = 0; k < keys.Count; k++)
+        {
+            var key = keys[k];
+            code.Bytes(0x83, 0xF9, (byte)k)                         // cmp ecx,k
+                .Jump(0x75, $"notShown{k}")                         // jne notShown
+                .Bytes([0x0F, 0xB7, 0x05], state + key.State)       // movzx eax,word [percent]
+                .Bytes(0x6A, TestKeyStep, 0x59)                     // push step ; pop ecx
+                .Bytes(0x33, 0xD2, 0xF7, 0xF1)                      // xor edx,edx ; div ecx  ; percent / step
+                .Bytes([0x69, 0xC0], key.Stride)                    // imul eax,eax,stride
+                .Bytes([0x05], key.Texts)                           // add eax,texts         ; texts[0] = 0 %
+                .Jump(0xEB, "draw")                                 // jmp draw
+                .Mark($"notShown{k}");
+        }
+        return code.Jump(0xEB, "presentDone")                       // jmp presentDone
+            .Mark("draw")
+            .Bytes(0x6A, 0x01)                                      // push 1                ; absolute (640 x 480)
+            .Bytes(0x50)                                            // push eax              ; text
+            .Bytes(0x6A, 0x0C)                                      // push 12               ; font size
+            .Bytes([0x68], unchecked((int)0xFFFFE040))              // push yellow
+            .Bytes([0x68], BitConverter.ToInt32(BitConverter.GetBytes(64f)))   // push y
+            .Bytes([0x68], BitConverter.ToInt32(BitConverter.GetBytes(10f)))   // push x
+            .Bytes([0xFF, 0x15], drawText)                          // call [KDrawText]
+            .Bytes(0x83, 0xC4, 0x18)                                // add esp,24
+            .Mark("presentDone")
+            .Bytes(0xC2, 0x14, 0x00)                                // ret 0x14
+            .Mark("kload").Bytes(Ascii("kload.dll"))
+            .Mark("drawTextName").Bytes(Ascii("KDrawText"))
+            .Mark("hookFunction").Bytes(Ascii("HookFunction"))
+            .Build();
+    }
+
+    /// <summary>Test key texts: one per percent step from 0 %, each padded to the same length (stride).</summary>
+    public static (byte[] Bytes, int Stride) TestKeyTexts(IReadOnlyList<string> texts)
     {
         int stride = texts.Max(s => s.Length) + 1;
         return ([.. texts.SelectMany(s => System.Text.Encoding.ASCII.GetBytes(s).Concat(new byte[stride - s.Length]))], stride);
+    }
+
+    /// <summary>
+    /// Shot power below which the game's powers are left alone: the lowest base of its shot kinds (0xC0).
+    /// </summary>
+    public const int ShotPowerPivot = 0xC0;
+
+    /// <summary>
+    /// Shot power: every shot's power above <see cref="ShotPowerPivot"/> is scaled to a percent, at the shot
+    /// function's entry (the power argument), so a short press sends the ball less high. The percent is the one set
+    /// by F3 (with <paramref name="testKeys"/>: the state of <see cref="TestKeys"/>), else <paramref name="percent"/>.
+    /// Shots from the set piece's call (<see cref="ShotSites.SetPieceReturn"/>, or <paramref name="freeKickReturn"/>
+    /// through the free kick cave) keep their power. The replaced 9 bytes are replayed.
+    /// </summary>
+    public static Hook ShotPower(int cave, ShotSites sites, int percent, int freeKickReturn = 0, FreeKickSites? testKeys = null)
+    {
+        var code = new CodeBuilder(cave)
+            .Bytes(0x8B, 0x44, 0x24, 0x0C)                          // mov eax,[esp+0xC]    ; direction asked
+            .Bytes([0x66, 0xA3], sites.HumanScores + 2)             // mov [asked],ax       ; for ShotAccuracy
+            .Bytes(0x8B, 0x04, 0x24)                                // mov eax,[esp]        ; return address
+            .Bytes([0x3D], sites.SetPieceReturn)                    // cmp eax,set piece
+            .Jump(0x74, "original");                                // je original
+        if (freeKickReturn != 0)
+            code.Bytes([0x3D], freeKickReturn)                      // cmp eax,set piece through the free kick cave
+                .Jump(0x74, "original");                            // je original
+        // shooter of a team not controlled by a human (see EmitHumanTeams): the game's power
+        code.Bytes(0x8B, 0x54, 0x24, 0x04)                          // mov edx,[esp+4]      ; player
+            .Bytes(0x0F, 0xB6, 0x4A, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [edx+0x12] ; and ecx,1 ; team
+            .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(sites.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
+            .Jump(0x72, "original");                                // jb original
+        code.Bytes(0x8B, 0x44, 0x24, 0x08)                          // mov eax,[esp+8]      ; power
+            .Bytes([0x2D], ShotPowerPivot)                          // sub eax,pivot
+            .Jump(0x7E, "original");                                // jle original
+        if (testKeys != null)
+            code.Bytes([0x0F, 0xB7, 0x0D], testKeys.State + ShotPowerState)   // movzx ecx,word [percent]
+                .Bytes(0x85, 0xC9)                                  // test ecx,ecx
+                .Jump(0x75, "percentSet")                           // jne percentSet
+                .Bytes([0xB9], percent)                             // mov ecx,percent       ; from the patcher
+                .Mark("percentSet")
+                .Bytes(0x0F, 0xAF, 0xC1);                           // imul eax,ecx
+        else
+            code.Bytes(0x6B, 0xC0, (byte)percent);                  // imul eax,eax,percent
+        var bytes = code
+            .Bytes(0x99, 0x6A, 0x64, 0x59, 0xF7, 0xF9)              // cdq ; push 100 ; pop ecx ; idiv ecx
+            .Bytes([0x05], ShotPowerPivot)                          // add eax,pivot
+            .Bytes(0x89, 0x44, 0x24, 0x08)                          // mov [esp+8],eax
+            .Mark("original")
+            .Bytes(0x83, 0xEC, 0x14)                                // original: sub esp,0x14
+            .Bytes([0xD9, 0x05], sites.Float)                       // original: fld dword [...]
+            .JumpTo(sites.Entry + 9)                                // jmp back
+            .Build();
+        return new Hook("Hook.ShotPower", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 9), cave, bytes);
+    }
+
+    /// <summary>Shot height above which the excess is scaled by <see cref="ShotAccuracy"/>.</summary>
+    public const int ShotHeightPivot = 20;
+
+    /// <summary>
+    /// Shot accuracy: the shot function's "call kick" goes through here. For a team controlled by a human (see
+    /// <see cref="EmitHumanTeams"/>), the gap between the direction asked (saved by <see cref="ShotPower"/>) and the
+    /// direction after the game's random penalties is scaled to <paramref name="percent"/>, and so is the height
+    /// above <see cref="ShotHeightPivot"/>. Then the kick function is called as before. With the test key, F4's
+    /// percent is used once set.
+    /// </summary>
+    public static Hook ShotAccuracy(int cave, ShotSites sites, int percent, FreeKickSites? testKeys = null)
+    {
+        var code = new CodeBuilder(cave)
+            .Bytes(0x8B, 0x54, 0x24, 0x04)                          // mov edx,[esp+4]      ; player
+            .Bytes(0x0F, 0xB6, 0x4A, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [edx+0x12] ; and ecx,1 ; team
+            .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(sites.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
+            .Jump(0x72, "kick");                                    // jb kick              ; AI: the game's shot
+        // the percent stays on the stack: the arguments move 4 bytes up
+        if (testKeys != null)
+            code.Bytes([0x0F, 0xB7, 0x0D], testKeys.State + ShotAccuracyState)   // movzx ecx,word [percent]
+                .Bytes(0x85, 0xC9)                                  // test ecx,ecx
+                .Jump(0x75, "percentSet")                           // jne percentSet
+                .Bytes(0x6A, (byte)percent, 0x59)                   // push percent ; pop ecx ; from the patcher
+                .Mark("percentSet")
+                .Bytes(0x51);                                       // push ecx
+        else
+            code.Bytes(0x6A, (byte)percent);                        // push percent
+        var bytes = code
+            // direction: asked + (direction - asked) * percent / 100, on 16 bits
+            .Bytes([0x0F, 0xB7, 0x0D], sites.HumanScores + 2)       // movzx ecx,word [asked]
+            .Bytes(0x8B, 0x44, 0x24, 0x0C)                          // mov eax,[esp+0xC]    ; direction
+            .Bytes(0x2B, 0xC1, 0x98)                                // sub eax,ecx ; cwde   ; signed 16-bit gap
+            .Bytes(0x0F, 0xAF, 0x04, 0x24)                          // imul eax,[esp]       ; percent
+            .Bytes(0x99, 0x6A, 0x64, 0xF7, 0x3C, 0x24, 0x5A)        // cdq ; push 100 ; idiv dword [esp] ; pop edx
+            .Bytes(0x03, 0xC1, 0x0F, 0xB7, 0xC0)                    // add eax,ecx ; movzx eax,ax
+            .Bytes(0x89, 0x44, 0x24, 0x0C)                          // mov [esp+0xC],eax
+            // height above the pivot: scaled the same way
+            .Bytes(0x8B, 0x44, 0x24, 0x14)                          // mov eax,[esp+0x14]   ; height
+            .Bytes([0x2D], ShotHeightPivot)                         // sub eax,pivot
+            .Jump(0x7E, "done")                                     // jle done
+            .Bytes(0x0F, 0xAF, 0x04, 0x24)                          // imul eax,[esp]       ; percent
+            .Bytes(0x99, 0x6A, 0x64, 0xF7, 0x3C, 0x24, 0x5A)        // cdq ; push 100 ; idiv dword [esp] ; pop edx
+            .Bytes([0x05], ShotHeightPivot)                         // add eax,pivot
+            .Bytes(0x89, 0x44, 0x24, 0x14)                          // mov [esp+0x14],eax
+            .Mark("done")
+            .Bytes(0x59)                                            // pop ecx              ; percent
+            .Mark("kick")
+            .JumpTo(sites.KickEntry)                                // jmp kick function    ; returns to the shot function
+            .Build();
+        return new Hook("Hook.ShotPower", sites.KickCall, CodeBuilder.JumpPatch(sites.KickCall, cave, 5) is var j ? [0xE8, .. j[1..]] : [], cave, bytes);
     }
 
     /// <summary>Close dribbling message: shown this long after a switch (and at the first touch of a match).</summary>

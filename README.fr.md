@@ -2,7 +2,7 @@
 
 *[English](README.md) | Français*
 
-Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirement (16:9, 21:9, 32:9…), déplacement libre au stick analogique (dribble compris), dribble resserré en option, coups francs plus faciles, et plus d'intro au démarrage.
+Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirement (16:9, 21:9, 32:9…), déplacement libre au stick analogique (dribble compris), dribble resserré en option, coups francs plus faciles, tirs plus doux et plus précis, et plus d'intro au démarrage.
 
 ![PES6 Patcher](docs/app.fr.png)
 
@@ -17,6 +17,8 @@ Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirem
 - **Directions libres au stick analogique** : le joueur suit l'angle précis du stick au lieu des seules 8 directions d'origine, en course comme en dribble (le ballon part dans l'angle du stick au lieu du multiple de 22,5° le plus proche). La croix directionnelle, le clavier et l'IA ne changent pas.
 - **Dribble resserré** (option) : en dribble, le joueur ne peut changer de direction qu'à sa touche de balle suivante. Cette option raccourcit les touches : le ballon reste plus près et le joueur suit le stick plus tôt. La réduction suit la précision de dribble du joueur : aucune jusqu'à 65 (touches d'origine du jeu), complète à partir de 95 (× 0,875 en course, × 0,81 en sprint), proportionnelle entre les deux. Les bons dribbleurs gardent donc le ballon plus près que les mauvais. Les passes et les tirs ne changent pas. En match, **F1** l'active et le désactive ; l'état s'affiche un instant à l'écran (via Kitserver), ainsi qu'au coup d'envoi.
 - **Coups francs plus faciles** (option) : après un tir de coup franc direct, stick gauche poussé vers le haut au moment de la frappe, le ballon est plus lourd jusqu'à la touche suivante (+50 % par défaut, réglable de 10 à 200 % ; avec la case **Test**, F2 en match ajoute 10 % et affiche la valeur, pour trouver le bon réglage) : il plonge plus tôt derrière le mur. Sans le stick en haut, et dans le reste du jeu, le ballon garde son poids normal ; le gardien et l'IA voient la même trajectoire.
+- **Tirs plus doux** (option) : pour les équipes des joueurs seulement, la puissance au-delà du tir le plus léger est réduite (80 % par défaut, réglable de 50 à 90 % ; avec la case **Test**, F3 en match ajoute 10 % et affiche la valeur). Les tirs de l'IA et les coups de pied arrêtés ne changent pas.
+- **Tirs plus précis** (option) : pour les équipes des joueurs seulement, l'écart de visée du jeu (direction et hauteur) est réduit (à 50 % par défaut, réglable de 10 à 90 % ; avec la case **Test**, F4 en match ajoute 10 % et affiche la valeur) : un tir pris dans une position inconfortable ne part plus loin du cadre. Les tirs de l'IA ne changent pas.
 - **Vitesse du jeu** réglable (module Speeder de Kitserver).
 - **Mod de physique de PityCharly** (option, téléchargement séparé) : passes en une touche et passes courtes plus appuyées, poids du ballon ajusté en dribble. Voir [Mod de physique](#mod-de-physique).
 
@@ -69,6 +71,7 @@ Le jeu dessine ses menus dans un repère hérité de la PS2, de **512 × 448** u
 | Directions libres | Code ajouté autour de la conversion bits de direction → cap : ajoute l'écart entre l'angle précis du stick et le centre de son secteur de 45°. Le seuil de virage de la course passe de 45° à environ 17°. Pour la touche de dribble la plus fréquente, dont le jeu arrondit la direction à 22,5°, du code ajouté à l'entrée de la fonction qui frappe le ballon rajoute ce que l'arrondi a retiré (pour la manette dont le stick donne cette direction). |
 | Dribble resserré | Code ajouté à l'entrée de la fonction qui frappe le ballon : quand l'appel vient d'une des 7 touches de dribble (5 en course, 2 en sprint), la vitesse de frappe est réduite selon la précision de dribble du joueur (la stat que le jeu lit pour l'imprécision de direction des touches). |
 | Coups francs | L'appel de la fonction de tir par le code des coups de pied arrêtés passe par du code ajouté qui marque la frappe quand un stick gauche est poussé vers le haut (le jeu lit le stick pour l'effet du tir à ce même moment, et ne le relit plus pendant le vol) ; le vol du ballon (utilisé aussi par les prédictions de trajectoire) ajoute alors la part choisie du poids du ballon jusqu'à la frappe suivante. La constante de poids du jeu n'est pas modifiée (le mod de physique de PityCharly la change pendant le jeu). |
+| Tirs | L'entrée de la fonction de tir passe par du code ajouté qui garde la direction demandée et, pour un tireur d'une équipe humaine, réduit la puissance au-delà du tir le plus léger ; l'appel de la fonction de frappe par le tir passe par du code qui rapproche la direction et la hauteur finales de celles demandées (tirs plus précis). Les équipes humaines sont reconnues aux commandes des joueurs actifs qui correspondent aux manettes (un score par côté, qui suit le changement de côté à la mi-temps). Les coups de pied arrêtés gardent la puissance du jeu. |
 | Intro | Le jeu sait déjà sauter la vidéo d'ouverture quand on le lui demande, et passer un logo quand on appuie sur une touche : ces deux chemins sont toujours pris (3 sauts conditionnels neutralisés). Le chargement fait pendant les logos a toujours lieu. |
 
 Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe.
@@ -90,7 +93,7 @@ Versions testées en jeu :
 
 | SHA-256 | Remarques |
 |---|---|
-| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | `PES6.exe` « No-DVD » : écran large (16:9, 32:9), directions libres (course et dribble), dribble resserré, coups francs et saut de l'intro testés |
+| `3FE13850C933C85385F3FB5C45977D2DAA860D1FC03E95E97BE9F4FC24D81382` | `PES6.exe` « No-DVD » : écran large (16:9, 32:9), directions libres (course et dribble), dribble resserré, coups francs, tirs plus doux et plus précis, et saut de l'intro testés |
 
 Le détail des adresses et de la méthode, avec Ghidra, des points d'arrêt matériels et des relevés mémoire, est dans [`research/NOTES.md`](research/NOTES.md). Les scripts utilisés pendant la recherche sont dans [`research/scripts`](research/scripts).
 

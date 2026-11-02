@@ -102,6 +102,9 @@
   <data name="Overlay.FreeKickWeight" xml:space="preserve">
     <value>FREE KICKS: BALL WEIGHT +{0} % (F2)</value>
   </data>
+  <data name="Overlay.ShotPower" xml:space="preserve">
+    <value>SHOT POWER: {0} % (F3)</value>
+  </data>
   <data name="Gameplay.PhysicsMod" xml:space="preserve">
     <value>PityCharly's physics mod (pass power, ball weight)</value>
   </data>
@@ -129,6 +132,9 @@
   <data name="Hook.FreeKick" xml:space="preserve">
     <value>free kicks</value>
   </data>
+  <data name="Hook.ShotPower" xml:space="preserve">
+    <value>shots</value>
+  </data>
   <data name="Log.SkipIntro" xml:space="preserve">
     <value>Intro: opening movie and logos skipped.</value>
   </data>
@@ -149,6 +155,39 @@
   </data>
   <data name="Log.CloseDribble" xml:space="preserve">
     <value>Close dribbling: dribble touches up to x 0.875 when running, x 0.81 when sprinting, depending on dribble accuracy.</value>
+  </data>
+  <data name="Gameplay.Shot" xml:space="preserve">
+    <value>Gentler shots for players (the AI's are unchanged)</value>
+  </data>
+  <data name="Gameplay.ShotPower" xml:space="preserve">
+    <value>% of the shot power</value>
+  </data>
+  <data name="Gameplay.ShotPowerDebug" xml:space="preserve">
+    <value>Test: F3 in a match changes it (+10 %)</value>
+  </data>
+  <data name="Log.Shot" xml:space="preserve">
+    <value>Shots: human players' shot power at {0} %; the AI's shots are unchanged.</value>
+  </data>
+  <data name="Log.ShotPowerDebug" xml:space="preserve">
+    <value>Shot test key: F3 in a match adds 10 % to the shot power (back to 50 % after 100 %), shown on screen.</value>
+  </data>
+  <data name="Gameplay.ShotAccuracy" xml:space="preserve">
+    <value>More accurate shots for players (the AI's are unchanged)</value>
+  </data>
+  <data name="Gameplay.ShotAccuracyPercent" xml:space="preserve">
+    <value>% of the aim error</value>
+  </data>
+  <data name="Gameplay.ShotAccuracyDebug" xml:space="preserve">
+    <value>Test: F4 in a match changes it (+10 %)</value>
+  </data>
+  <data name="Log.ShotAccuracy" xml:space="preserve">
+    <value>Shot accuracy: human players' aim error (direction and height) brought down to {0} %; the AI's shots are unchanged.</value>
+  </data>
+  <data name="Log.ShotAccuracyDebug" xml:space="preserve">
+    <value>Accuracy test key: F4 in a match adds 10 % to the aim error kept (back to 10 % after 100 %), shown on screen.</value>
+  </data>
+  <data name="Overlay.ShotAccuracy" xml:space="preserve">
+    <value>SHOT AIM ERROR: {0} % (F4)</value>
   </data>
   <data name="Log.FreeKick" xml:space="preserve">
     <value>Free kicks: ball weight + {0} % after a free kick shot with the left stick up, until the next touch.</value>
@@ -295,7 +334,7 @@
     <value>(not available for this executable)</value>
   </data>
   <data name="Report.Result" xml:space="preserve">
-    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Close dribbling: {3} | Skip intro: {4} | Easier free kicks: {5} | Tested in game: {6}</value>
+    <value>Already patched: {0} | Widescreen fix: {1} | Free direction: {2} | Close dribbling: {3} | Skip intro: {4} | Easier free kicks: {5} | Gentler and more accurate shots: {6} | Tested in game: {7}</value>
   </data>
   <data name="Error.AlreadyPatched" xml:space="preserve">
     <value>This executable is already patched.</value>

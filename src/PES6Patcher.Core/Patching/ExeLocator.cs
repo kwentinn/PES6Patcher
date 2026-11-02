@@ -55,6 +55,35 @@ internal sealed record FreeKickSites(int ShotCall, int Shot, int KickEntry, int 
     public int StickTable { get; init; }
 }
 
+/// <summary>
+/// Shot function (player, power, ..., kind), called by every shot state: its first 9 bytes (sub esp,0x14 ;
+/// fld dword [<see cref="Float"/>]) can move to a cave. <see cref="SetPieceReturn"/>: return address of the set
+/// piece's call (free kicks keep their own power).
+/// </summary>
+internal sealed record ShotSites(int Entry, int Float, int SetPieceReturn)
+{
+    /// <summary>Active (cursor) player id of each team: byte at team * 2 (0xFF = none).</summary>
+    public int ActivePlayers { get; init; }
+
+    /// <summary>Players of the match (0x240 bytes each; +0x12 team, +0xB0 input bits).</summary>
+    public int Players { get; init; }
+
+    /// <summary>Analog stick table (as in <see cref="DirectionSites.StickTable"/>).</summary>
+    public int StickTable { get; init; }
+
+    /// <summary>The ball kick function's entry, where the human teams are learnt.</summary>
+    public int KickEntry { get; init; }
+
+    /// <summary>
+    /// Per team, how well its active player follows a pad's stick (bytes at +0 and +1), and the direction asked
+    /// for the shot under way (word at +2) (.rdata zero padding, made writable).
+    /// </summary>
+    public int HumanScores { get; init; }
+
+    /// <summary>The shot function's "call kick" (player, direction, speed, height, 0), after its random penalties.</summary>
+    public int KickCall { get; init; }
+}
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -139,6 +168,10 @@ internal sealed class ExeLocator
     /// <summary>Analog stick table reader: mov ebp,<table + 2> ; mov ebx,<pad copy> ; movzx esi,byte [ebx-2] ; test esi,esi.</summary>
     private const string StickTableReader = "BD ?? ?? ?? ?? BB ?? ?? ?? ?? 0F B6 73 FE 85 F6";
 
+    /// <summary>Shot function entry: sub esp,0x14 ; fld dword [...]. Patched: jmp cave ; 4 x nop.</summary>
+    private static readonly byte[] ShotEntry = [0x83, 0xEC, 0x14, 0xD9, 0x05];
+    private const string PatchedShotEntry = "E9 ?? ?? ?? ?? 90 90 90 90 A1 ?? ?? ?? ?? 53 56 8B 74 24 20";
+
     /// <summary>Ball kick function (player, direction, speed, height, flag): push ebx/ebp/esi ; mov esi,[esp+0x10] ; ...</summary>
     private const string KickEntry = "53 55 56 8B 74 24 10 8A 06 33 DB 3A C3 74";
     private const string PatchedKickEntry = "E9 ?? ?? ?? ?? 90 90 8A 06 33 DB 3A C3 74";
@@ -162,14 +195,14 @@ internal sealed class ExeLocator
     private const string LogoSkip = "8B 46 08 8D 7E 08 C1 E0 04 F6 80 ?? ?? ?? ?? 01 BB 04 00 00 00 74 1E 6A 00 E8 ?? ?? ?? ?? 83 C4 04 F6 C4 40 74 0F 8B 07";
     private static readonly int[] LogoSkipJumps = [21, 36];
 
-    public static (DisplaySites? Display, DirectionSites? Direction, DribbleSites? Dribble, IntroSites? Intro, FreeKickSites? FreeKick, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
+    public static (DisplaySites? Display, DirectionSites? Direction, DribbleSites? Dribble, IntroSites? Intro, FreeKickSites? FreeKick, ShotSites? Shot, bool AlreadyPatched, List<string> Problems) Locate(byte[] exe)
     {
         var locator = new ExeLocator(new PeImage(exe));
         var (display, patched) = locator.FindDisplay();
         // a patch without the display fix leaves the 2D width alone but lowers the turn threshold
-        // (0x20 -> 0x0C), hooks the kick relay or the kick function, or skips the opening movie
+        // (0x20 -> 0x0C), hooks the kick relay, the kick function or the shot function, or skips the opening movie
         patched |= locator.Hits(PatchedTurnThreshold).Count == 1 || locator.Hits(PatchedKickRelay).Count == 1
-            || locator.Hits(PatchedKickEntry).Count == 1 || locator.Hits(PatchedMovieSkip).Count == 1;
+            || locator.Hits(PatchedKickEntry).Count == 1 || locator.Hits(PatchedShotEntry).Count == 1 || locator.Hits(PatchedMovieSkip).Count == 1;
         int displayProblems = locator._problems.Count;
         var direction = locator.FindDirection();
         if (locator._problems.Count > displayProblems) direction = null;
@@ -182,7 +215,10 @@ internal sealed class ExeLocator
         otherProblems = locator._problems.Count;
         var freeKick = locator.FindFreeKick();
         if (locator._problems.Count > otherProblems) freeKick = null;
-        return (displayProblems == 0 ? display : null, direction, dribble, intro, freeKick, patched, locator._problems);
+        otherProblems = locator._problems.Count;
+        var shot = locator.FindShot();
+        if (locator._problems.Count > otherProblems) shot = null;
+        return (displayProblems == 0 ? display : null, direction, dribble, intro, freeKick, shot, patched, locator._problems);
     }
 
     private FreeKickSites? FindFreeKick()
@@ -211,6 +247,35 @@ internal sealed class ExeLocator
             StickTable = _image.ReadInt32(stick + 1) - 2,
         };
     }
+
+    private ShotSites? FindShot()
+    {
+        int setPiece = Unique(FreeKickShot, "Hook.ShotPower");
+        if (setPiece == 0) return null;
+        int call = setPiece + FreeKickShotCall, entry = _image.Rel32Target(call);
+        if (!_image.Matches(entry, ShotEntry)) { Problem("Hook.ShotPower", entry); return null; }
+        int active = Unique(ActivePlayerReader, "Hook.ShotPower");
+        int stick = Unique(StickTableReader, "Hook.ShotPower");
+        int kick = Unique(KickEntry, "Hook.ShotPower");
+        var rdata = _image.Named(".rdata");
+        int scores = rdata != null && _image.Matches(rdata.End - 0x40, new byte[0x10]) ? rdata.End - 0x40 : 0;
+        int kickCall = Unique(ShotKickCall, "Hook.ShotPower");
+        if (kickCall != 0 && _image.Rel32Target(kickCall + 10) != kick) kickCall = 0;
+        if (active == 0 || stick == 0 || kick == 0 || scores == 0 || kickCall == 0) { Problem("Hook.ShotPower", 0); return null; }
+        return new ShotSites(entry, _image.ReadInt32(entry + 5), call + 5)
+        {
+            ActivePlayers = _image.ReadInt32(active + 6), Players = _image.ReadInt32(active + 41),
+            StickTable = _image.ReadInt32(stick + 1) - 2, KickEntry = kick, HumanScores = scores, KickCall = kickCall + 10,
+        };
+    }
+
+    /// <summary>The shot's kick: push 0 ; push edi ; push ebx ; push ebp ; push esi ; mov [esp+0x4C],eax ; call kick (+10).</summary>
+    private const string ShotKickCall = "6A 00 57 53 55 56 89 44 24 4C E8 ?? ?? ?? ?? 56 E8";
+
+    /// <summary>
+    /// The other team's active player: xor ecx,1 ; mov al,[ecx*2 + active players] (+6) ; ... ; add edx,players (+41).
+    /// </summary>
+    private const string ActivePlayerReader = "83 F1 01 8A 04 4D ?? ?? ?? ?? 3C FF 74 0E 0F B6 C0 99 8B 0D ?? ?? ?? ?? F7 F9 EB 05 BA 01 00 00 00 8D 14 D2 C1 E2 06 81 C2 ?? ?? ?? ??";
 
     private IntroSites? FindIntro()
     {
