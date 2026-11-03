@@ -29,6 +29,21 @@ Done for the width: **Players spread wider** moves the players placing themselve
 
 Suggested by dansef on Evo-Web: change how the power bar fills for normal and through passes. It may not be doable: when looking at the shot gauge, the part that measures how long the button is held turned out to sit in the protected code of the exe.
 
+## AI players: movement without the ball
+
+Noted by Energia and maruni74 on Evo-Web: without the ball, the AI's players still run in the game's 8 directions, while human players follow the stick's angle. Not looked at yet.
+
+## AI players: dribble more
+
+Suggested by amsterdance on Evo-Web: the AI's skilful players (Ronaldinho, Zidane…) mostly pass at once or make small moves. They could try to dribble more. This means finding where the AI decides between passing, shooting and dribbling.
+
+## Menus: widen only the background
+
+Suggested by daffi2 on Evo-Web: keep the menu items at their original size and only widen the background image, as an option, to remove the black bars. This means finding how the backgrounds are drawn. Also seen by daffi2: in the kit selection, the Kitserver mini kit is widescreen while the game's one is not.
+
+## Kitserver module instead of patching the exe
+
+Suggested by daffi2 on Evo-Web: apply the patch from a Kitserver DLL, in memory when the game starts, so that `PES6.exe` stays untouched. Other modules, like Nemesis, require an untouched exe. The added code would be the same; the DLL would write it into the running game and read its settings from a file.
 ## Human players: dribbling in any direction
 
 The free direction follows the stick's precise angle, but some dribble touches and moves still use the game's own directions. Can a player really go anywhere?
