@@ -56,6 +56,17 @@ Suggested by daffi2 on Evo-Web: keep the menu items at their original size and o
 Issue: [#7](https://github.com/kwentinn/PES6Patcher/issues/7)
 
 Suggested by daffi2 on Evo-Web: apply the patch from a Kitserver DLL, in memory when the game starts, so that `PES6.exe` stays untouched. Other modules, like Nemesis, require an untouched exe. The added code would be the same; the DLL would write it into the running game and read its settings from a file.
+## Lofted passes: adjustable power
+
+Issue: [#9](https://github.com/kwentinn/PES6Patcher/issues/9)
+
+Lofted passes (circle on a PlayStation pad) are often too strong: the ball goes too far. Their power should be adjustable, like the shots'. Every pass goes through the ball kick function: finding the lofted pass's call and scaling its power for the human teams may work.
+
+## Headers: power and accuracy
+
+Issue: [#10](https://github.com/kwentinn/PES6Patcher/issues/10)
+
+Headers are often very inaccurate, like the shots were, and when the button is held too long the ball goes well over the bar. They may not go through the shot function that the shot options hook: find their path, then bring their power and aim error down the same way.
 ## Human players: dribbling in any direction
 
 Issue: [#8](https://github.com/kwentinn/PES6Patcher/issues/8)
