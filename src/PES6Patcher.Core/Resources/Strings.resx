@@ -411,4 +411,25 @@
   <data name="Overlay.SprintTurn" xml:space="preserve">
     <value>SPRINT TURN: {0} DEG MAX (F7)</value>
   </data>
+  <data name="Log.Tackle" xml:space="preserve">
+    <value>Pressing challenge: a pressing player tries to win the ball from {0} % of the game's distance (both teams).</value>
+  </data>
+  <data name="Hook.Tackle" xml:space="preserve">
+    <value>pressing challenge</value>
+  </data>
+  <data name="Gameplay.Tackle" xml:space="preserve">
+    <value>Pressing players challenge for the ball from further</value>
+  </data>
+  <data name="Log.TackleDebug" xml:space="preserve">
+    <value>Challenge reach test key: F8 in a match adds 20 % (back to 100 % = the game after 180 %), shown on screen.</value>
+  </data>
+  <data name="Overlay.Tackle" xml:space="preserve">
+    <value>CHALLENGE REACH: {0} % (F8)</value>
+  </data>
+  <data name="Gameplay.TacklePercent" xml:space="preserve">
+    <value>% of the game's reach</value>
+  </data>
+  <data name="Gameplay.TackleDebug" xml:space="preserve">
+    <value>Test: F8 in a match changes it (+20 %, 100 % = the game)</value>
+  </data>
 </root>

@@ -315,6 +315,38 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Tackle_widens_the_pressing_challenge_reach_and_the_attempt_distance()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).Tackle);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+
+        // measured in game: cmp edi,0xA0 ; jge ; push 0x50 at 0x572AE8, before the take-ball attempt 0x461DC0
+        var image = new PeImage(without);
+        Assert.Equal(new byte[] { 0x81, 0xFF, 0xA0, 0x00, 0x00, 0x00, 0x7D, 0x5B, 0x6A, 0x50 }, without[image.Offset(0x572AE8)..(image.Offset(0x572AE8) + 10)]);
+
+        // 180 %: reach 288, parameter 144 capped at 127 (a signed byte)
+        var with = ExePatcher.Build(original, options with { Tackle = 180 });
+        Assert.Equal(0x120, new PeImage(with).ReadInt32(0x572AEA));
+        Assert.Equal(0x7F, with[image.Offset(0x572AF1)]);
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i => Assert.True(i - image.Offset(0x572AEA) is >= 0 and < 4 || i == image.Offset(0x572AF1)));
+        Assert.Equal((0xA0 * 140 / 100, (byte)112), CodeCaves.TackleValues(140));
+
+        // with F8: a jump to a cave that comes back to push edi, or goes to the attempt's skip (0x572B4B)
+        var debug = ExePatcher.Build(original, options with { Tackle = 180, TackleDebug = true });
+        image = new PeImage(debug);
+        Assert.Equal(0xE9, debug[image.Offset(0x572AE8)]);
+        int cave = image.Rel32Target(0x572AE8);
+        Assert.Contains(Enumerable.Range(cave, 60), a => debug[image.Offset(a)] == 0xE9 && image.Rel32Target(a) == 0x572B4B);
+        Assert.Contains(Enumerable.Range(cave, 70), a => debug[image.Offset(a)] == 0xE9 && image.Rel32Target(a) == 0x572AF2);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { Tackle = 200 }));
+    }
+
+    [Fact]
     public void Sprint_turns_raise_the_turn_limit_by_dribble_accuracy_and_shorten_the_turning_touch()
     {
         var original = Load("PES6.orig.exe");

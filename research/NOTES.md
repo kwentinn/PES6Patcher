@@ -99,9 +99,19 @@ Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's field
 - **Sharper turns when sprinting** replaces the `push 1000h` by the maximum turn of the carrier: 22.5° up to 65 in dribble accuracy (the game's), the chosen maximum (90° by default) from 95, in proportion between. A touch that turns the ball more than 22.5° from its current direction (`[ball+0x58]`) also loses up to 40 % of its speed (reached at 90°), at the relay call (`0x5AFB32`), so the ball stays closer while the player turns. Tested in memory, then validated in game.
 - Tried and dropped: raising the `push 2Dh` (45°) of other strides (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70`: they never run while dribbling); raising the 15° and 25° steps (no effect: the protected code ignores them); forcing the player's direction to the stick's (`0x4E2A7E`: the body turns, the ball does not) or to the touch's (`0x4E2B04`: the animation jumps, and with the ball change the player stops turning).
 
+### Pressing and challenges
+
+Measured with a logger of the human-controlled player (buttons held `+0xB0`) against the carrier, and execute or write breakpoints:
+
+- Pressing with X puts the player in state 15. The pressing code (`0x572A90`…) searches an **interception point** on the ball's predicted path, stores it in `[ball+0x1454]` / `[ball+0x145C]` (`0x572B55`) and runs towards it (direction at `0x572B8A`, passed to the movement functions; `0x49030F` turns `+0x26` by at most 22.5° a frame; the position moves along `+0x28` at `0x496D10`). The run is precise, not rounded to 8 directions.
+- That run gets the player beside the carrier, mostly 340 to 500 units away. Aiming at the carrier instead made him trail behind (mean distance 2445 instead of 440, never under 300): the game's run is the right one.
+- The **take-ball attempt** `0x461DC0` (player, distance, `0x50`) is only asked for within 160 units of the ball (`cmp edi,0A0h` at `0x572AE8`), and the attempt itself, for most animations, only goes on within speed / 128 + 2 × `0x50` (about 210 when running). So the presser almost never tried: 1 attempt in 15 s of opposing possession; 17 requests, 1 accepted, once the reach was raised alone.
+- **Pressing players challenge for the ball from further** scales both (180 % by default: reach 288, parameter 127, the most a signed byte holds). Measured over 40 s: the presser now comes within 300 of the carrier (closest 116 instead of 337). Both teams are concerned.
+- Not the cause: the players spread wider option (the presser is not in state 7), checked with the spread switched off in memory.
+
 ### Test keys
 
-F2 to F7 change a value during a match and show it through Kitserver, like F1. Their set-up is called from the kick function's entry until done; their state is in the 32 bytes before the close dribbling ones (`0xBC3FD0`). F2 to F5 step by 10 %, F6 by 25 %, F7 by 15° (the texts for every step sit in caves of their own).
+F2 to F8 change a value during a match and show it through Kitserver, like F1. Their set-up is called from the kick function's entry until done; their state is in the 32 bytes before the close dribbling ones (`0xBC3FD0`). F2 to F5 step by 10 %, F6 by 25 %, F7 by 15°, F8 by 20 % (the texts for every step sit in caves of their own).
 
 ---
 

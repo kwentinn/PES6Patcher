@@ -242,7 +242,7 @@ internal static class CodeCaves
     private const byte StickUp = 0x10;
 
     /// <summary>Test keys (debug): F2 changes the free kick weight, F3 the shot power, F4 the shot aim error, by 10 % (wrapping from the maximum to the minimum).</summary>
-    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75, SprintTurnKey = 0x76;   // VK_F2 to VK_F7
+    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75, SprintTurnKey = 0x76, TackleKey = 0x77;   // VK_F2 to VK_F8
     public const int TestKeyStep = 10;
 
     /// <summary>
@@ -251,10 +251,10 @@ internal static class CodeCaves
     /// +4 free kick weight percent (word, 0 = the patcher's), +8 tick until which a test key value shows,
     /// +12 KDrawText, +16 shot power percent (word, 0 = the patcher's), +18 test key shown, +20 shot aim error
     /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's), +24 speed gap percent (word, 0 = the patcher's),
-    /// +26 sprint turn maximum in degrees (word, 0 = the patcher's).
+    /// +26 sprint turn maximum in degrees (word, 0 = the patcher's), +28 challenge reach percent (word, 0 = the patcher's).
     /// </summary>
     private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26;
+        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
@@ -638,6 +638,54 @@ internal static class CodeCaves
             .Build();
         return new Hook("Hook.SprintTurn", sites.Touch, CodeBuilder.JumpPatch(sites.Touch, cave, 7), cave, bytes);
     }
+
+    /// <summary>Pressing challenge: the game's reach (distance to the ball) and attempt parameter at 100 %.</summary>
+    public const int TackleBaseRange = 0xA0, TackleBaseParameter = 0x50;
+
+    /// <summary>F8 changes the challenge reach by 20 % (100 % = the game's).</summary>
+    public const int TackleStep = 20;
+
+    /// <summary>The reach and the attempt parameter for <paramref name="percent"/> % (the parameter is pushed as a signed byte).</summary>
+    public static (int Range, byte Parameter) TackleValues(int percent) =>
+        (TackleBaseRange * percent / 100, (byte)Math.Min(0x7F, TackleBaseParameter * percent / 100));
+
+    /// <summary>
+    /// Pressing challenge with F8: the reach test and the attempt parameter (cmp edi,0xA0 ; jge fail ; push 0x50) jump here
+    /// to scale both by the percent read at run time (<paramref name="percent"/> until F8 is pressed).
+    /// </summary>
+    public static Hook Tackle(int cave, TackleSites sites, int percent, FreeKickSites testKeys)
+    {
+        var bytes = new CodeBuilder(cave)
+            .Bytes([0x0F, 0xB7, 0x05], testKeys.State + TackleState)  // movzx eax,word [percent]
+            .Bytes(0x85, 0xC0)                                      // test eax,eax
+            .Jump(0x75, "percentSet")                               // jne percentSet
+            .Bytes([0xB8], percent)                                 // mov eax,percent      ; from the patcher
+            .Mark("percentSet")
+            .Bytes(0x8B, 0xC8)                                      // mov ecx,eax
+            .Bytes([0x69, 0xC1], TackleBaseRange)                   // imul eax,ecx,0xA0
+            .Bytes(0x99)                                            // cdq
+            .AddressOf([0xF7, 0x3D], "hundred")                     // idiv dword [100]     ; reach
+            .Bytes(0x3B, 0xF8)                                      // cmp edi,eax
+            .Jump(0x7C, "inReach")                                  // jl inReach
+            .JumpTo(sites.Fail)                                     // jmp fail             ; too far
+            .Mark("inReach")
+            .Bytes(0x6B, 0xC1, TackleBaseParameter)                 // imul eax,ecx,0x50
+            .Bytes(0x99)                                            // cdq
+            .AddressOf([0xF7, 0x3D], "hundred")                     // idiv dword [100]
+            .Bytes(0x83, 0xF8, 0x7F)                                // cmp eax,0x7F
+            .Jump(0x7E, "capped")                                   // jle capped
+            .Bytes(0x6A, 0x7F, 0x58)                                // push 0x7F ; pop eax
+            .Mark("capped")
+            .Bytes(0x50)                                            // push eax             ; instead of push 0x50
+            .JumpTo(sites.Range + 10)                               // jmp back to push edi
+            .Mark("hundred")
+            .Bytes(BitConverter.GetBytes(100))
+            .Build();
+        return new Hook("Hook.Tackle", sites.Range, CodeBuilder.JumpPatch(sites.Range, cave, 10), cave, bytes);
+    }
+
+    public static TestKey TackleTestKey(int percent, int texts, int stride) =>
+        new(TackleKey, TackleState, percent, PatchOptions.MinTackle, PatchOptions.MaxTackle, texts, stride, TackleStep);
 
     public static TestKey SprintTurnTestKey(int degrees, int texts, int stride) =>
         new(SprintTurnKey, SprintTurnState, degrees, PatchOptions.MinSprintTurn, PatchOptions.MaxSprintTurn, texts, stride, SprintTurnStep);

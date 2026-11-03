@@ -99,9 +99,19 @@ Mesuré avec `pes6turnlog.ps1` (une ligne à chaque changement des champs du por
 - **Virages plus francs en sprint** remplace le `push 1000h` par le virage maximum du porteur : 22,5° jusqu'à 65 en précision de dribble (celui du jeu), le maximum choisi (90° par défaut) à partir de 95, proportionnellement entre les deux. Une touche qui tourne le ballon de plus de 22,5° par rapport à sa direction actuelle (`[ballon+0x58]`) perd aussi jusqu'à 40 % de sa vitesse (atteint à 90°), à l'appel du relais (`0x5AFB32`), pour que le ballon reste plus près pendant que le joueur tourne. Testé en mémoire, puis validé en jeu.
 - Essayé puis abandonné : relever le `push 2Dh` (45°) d'autres foulées (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70` : elles ne servent jamais en dribble) ; relever les pas de 15° et 25° (sans effet : le code protégé les ignore) ; forcer la direction du joueur sur celle du stick (`0x4E2A7E` : le corps tourne, pas le ballon) ou sur celle de la touche (`0x4E2B04` : l'animation saute, et avec le changement du ballon le joueur ne tourne plus).
 
+### Pressing et tacles
+
+Mesuré avec un relevé du joueur contrôlé par l'humain (boutons tenus `+0xB0`) face au porteur, et des points d'arrêt d'exécution ou d'écriture :
+
+- Presser avec la croix met le joueur dans l'état 15. Le code du pressing (`0x572A90`…) cherche un **point d'interception** sur la trajectoire prévue du ballon, l'enregistre dans `[ballon+0x1454]` / `[ballon+0x145C]` (`0x572B55`) et court vers lui (direction en `0x572B8A`, passée aux fonctions de déplacement ; `0x49030F` tourne `+0x26` d'au plus 22,5° par image ; la position avance selon `+0x28` en `0x496D10`). La course est précise, pas arrondie à 8 directions.
+- Cette course amène le joueur à côté du porteur, surtout entre 340 et 500 unités. Viser le porteur à la place le faisait traîner derrière (distance moyenne 2445 au lieu de 440, jamais sous 300) : la course du jeu est la bonne.
+- La **tentative de prise de balle** `0x461DC0` (joueur, distance, `0x50`) n'est demandée qu'à moins de 160 unités du ballon (`cmp edi,0A0h` en `0x572AE8`), et la tentative elle-même, pour la plupart des animations, ne se poursuit qu'à moins de vitesse / 128 + 2 × `0x50` (environ 210 en course). Le presseur n'essayait donc presque jamais : 1 tentative en 15 s de possession adverse ; 17 demandes pour 1 acceptée, une fois la portée seule relevée.
+- **Au pressing, les joueurs tentent de prendre le ballon de plus loin** multiplie les deux (180 % par défaut : portée 288, paramètre 127, le maximum d'un octet signé). Mesuré sur 40 s : le presseur vient maintenant à moins de 300 du porteur (au plus près 116 au lieu de 337). Les deux équipes sont concernées.
+- Pas en cause : l'option d'écartement en largeur (le presseur n'est pas dans l'état 7), vérifié en coupant l'écartement en mémoire.
+
 ### Touches de test
 
-F2 à F7 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 %, F7 de 15° (les textes de chaque palier sont dans des zones libres à part).
+F2 à F8 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 %, F7 de 15°, F8 de 20 % (les textes de chaque palier sont dans des zones libres à part).
 
 ---
 

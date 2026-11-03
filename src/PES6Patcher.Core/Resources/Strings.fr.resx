@@ -411,4 +411,25 @@
   <data name="Overlay.SprintTurn" xml:space="preserve">
     <value>VIRAGE EN SPRINT : {0} DEG MAX (F7)</value>
   </data>
+  <data name="Log.Tackle" xml:space="preserve">
+    <value>Tacle au pressing : un joueur qui presse tente de prendre le ballon à {0} % de la distance du jeu (les deux équipes).</value>
+  </data>
+  <data name="Hook.Tackle" xml:space="preserve">
+    <value>tacle au pressing</value>
+  </data>
+  <data name="Gameplay.Tackle" xml:space="preserve">
+    <value>Au pressing, les joueurs tentent de prendre le ballon de plus loin</value>
+  </data>
+  <data name="Log.TackleDebug" xml:space="preserve">
+    <value>Touche de test de la portée des tacles : F8 en match ajoute 20 % (retour à 100 % = le jeu après 180 %), affiché à l'écran.</value>
+  </data>
+  <data name="Overlay.Tackle" xml:space="preserve">
+    <value>PORTEE DES TACLES : {0} % (F8)</value>
+  </data>
+  <data name="Gameplay.TacklePercent" xml:space="preserve">
+    <value>% de la portée du jeu</value>
+  </data>
+  <data name="Gameplay.TackleDebug" xml:space="preserve">
+    <value>Test : F8 en match le change (+20 %, 100 % = le jeu)</value>
+  </data>
 </root>

@@ -104,6 +104,12 @@ internal sealed record SpeedSites(int Entry, int Store);
 /// </summary>
 internal sealed record SprintTurnSites(int Limit, int Touch, int Ball);
 
+/// <summary>
+/// Pressing challenge: in the pressing state, <see cref="Range"/> = cmp edi,0xA0 ; jge <see cref="Fail"/> ; push 0x50, before the
+/// take-ball attempt (player, distance, 0x50). The attempt itself only goes on within speed / 128 + 2 * 0x50 of the ball.
+/// </summary>
+internal sealed record TackleSites(int Range, int Fail);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -332,6 +338,21 @@ internal sealed class ExeLocator
     /// </summary>
     private const string SprintTouch = "A1 ?? ?? ?? ?? 8B 88 FC 07 00 00 57 89 48 14 E8 ?? ?? ?? ?? 83 C0 04 50 8B C6 E8 ?? ?? ?? ?? " +
         "8B 0D ?? ?? ?? ?? 33 D2 66 8B 57 2C 83 C4 08 50 51 52 57 E8 ?? ?? ?? ?? 83 C4 0C 50 33 C0 66 8B 47 30 50 57 E8";
+
+    /// <summary>
+    /// Pressing state: mov [esp+0x20],edi ; call (direction) ; add esp,0x10 ; cmp edi,0xA0 (at +12) ; jge fail ; push 0x50 ;
+    /// push edi ; push esi ; call take-ball attempt.
+    /// </summary>
+    private const string TackleRange = "89 7C 24 20 E8 ?? ?? ?? ?? 83 C4 10 81 FF A0 00 00 00 7D ?? 6A 50 57 56 E8";
+
+    public static TackleSites? LocateTackle(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(TackleRange).FindAll(image, s)).ToList();
+        if (hits.Count != 1) return null;
+        int range = hits[0] + 12;
+        return new TackleSites(range, range + 8 + (sbyte)image.Bytes[image.Offset(range + 7)]);
+    }
 
     public static SprintTurnSites? LocateSprintTurn(byte[] exe)
     {

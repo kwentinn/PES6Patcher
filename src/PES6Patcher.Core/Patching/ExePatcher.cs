@@ -21,11 +21,16 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="SpeedGap">Top speed gap between players: effect of the top speed stat on the maximum running speed, in % of the game's (100 = unchanged).</param>
 /// <param name="SprintTurn">Sharper turns when sprinting: most the ball may turn per sprint touch for a star dribbler, in degrees (0 = unchanged; the game's is 22.5, kept up to 65 in dribble accuracy).</param>
 /// <param name="SprintTurnDebug">Test key: F7 in game changes <paramref name="SprintTurn"/> by 15 degrees and shows it (through Kitserver).</param>
+/// <param name="Tackle">Pressing challenge reach: how far from the ball a pressing player tries to win it, in % of the game's (100 = unchanged).</param>
+/// <param name="TackleDebug">Test key: F8 in game changes <paramref name="Tackle"/> by 20 % (back to 100 % after the maximum) and shows it (through Kitserver).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
-    int SprintTurn = 0, bool SprintTurnDebug = false)
+    int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false)
 {
+    /// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
+    public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
+
     /// <summary>Sprint turns: most a star dribbler's ball may turn per sprint touch, in degrees (the game's is 22.5): default and limits.</summary>
     public const int DefaultSprintTurn = 90, MinSprintTurn = 45, MaxSprintTurn = 90;
 
@@ -75,7 +80,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The sprint turns can be made sharper.</summary>
     public bool SprintTurn { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn;
+    /// <summary>The pressing challenge reach can be widened.</summary>
+    public bool Tackle { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -112,7 +120,7 @@ public static class ExePatcher
             {
                 CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
                 Spread = ExeLocator.LocateSpread(exe) != null, SpeedGap = ExeLocator.LocateSpeed(exe) != null,
-                SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null,
+                SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null, Tackle = ExeLocator.LocateTackle(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -190,8 +198,9 @@ public static class ExePatcher
         // in caves of their own (too large to share one with the code), their state with the free kick one
         bool freeKickKey = options.FreeKick && options.FreeKickDebug, shotKey = options.ShotPower < 100 && options.ShotPowerDebug,
             accuracyKey = options.ShotAccuracy < 100 && options.ShotAccuracyDebug, spreadKey = options.Spread > 0 && options.SpreadDebug,
-            speedKey = options.SpeedGap != 100 && options.SpeedGapDebug, sprintKey = options.SprintTurn > 0 && options.SprintTurnDebug;
-        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey) && freeKick == null) throw new PatchException(problems);
+            speedKey = options.SpeedGap != 100 && options.SpeedGapDebug, sprintKey = options.SprintTurn > 0 && options.SprintTurnDebug,
+            tackleKey = options.Tackle != 100 && options.TackleDebug;
+        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key, int step = CodeCaves.TestKeyStep)
         {
@@ -230,6 +239,11 @@ public static class ExePatcher
         {
             var (texts, stride) = KeyTexts(PatchOptions.MaxSprintTurn, "Overlay.SprintTurn", CodeCaves.SprintTurnStep);
             keys.Add(CodeCaves.SprintTurnTestKey(options.SprintTurn, texts, stride));
+        }
+        if (tackleKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxTackle, "Overlay.Tackle", CodeCaves.TackleStep);
+            keys.Add(CodeCaves.TackleTestKey(options.Tackle, texts, stride));
         }
         int testKeysSetUp = 0;
         if (keys.Count > 0)
@@ -325,6 +339,27 @@ public static class ExePatcher
             var touch = CodeCaves.SprintTouch(0, sites);
             touch = CodeCaves.SprintTouch(Cave(touch.CaveBytes.Length), sites);
             foreach (var hook in new[] { limit, touch }) { plan.Add((hook.Cave, hook.CaveBytes)); plan.Add((hook.Entry, hook.EntryBytes)); }
+        }
+
+        // pressing challenge: a pressing player tries to win the ball from further (the reach test and the attempt's
+        // own distance limit); with F8, a hook reads the percent at run time
+        if (options.Tackle != 100)
+        {
+            if (options.Tackle is < PatchOptions.MinTackle or > PatchOptions.MaxTackle) throw new ArgumentOutOfRangeException(nameof(options), options.Tackle, null);
+            var sites = ExeLocator.LocateTackle(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.Tackle"), 0)]);
+            if (tackleKey)
+            {
+                var tackle = CodeCaves.Tackle(0, sites, options.Tackle, freeKick!);
+                tackle = CodeCaves.Tackle(Cave(tackle.CaveBytes.Length), sites, options.Tackle, freeKick!);
+                plan.Add((tackle.Cave, tackle.CaveBytes));
+                plan.Add((tackle.Entry, tackle.EntryBytes));
+            }
+            else
+            {
+                var (range, parameter) = CodeCaves.TackleValues(options.Tackle);
+                plan.Add((sites.Range + 2, BitConverter.GetBytes(range)));
+                plan.Add((sites.Range + 9, [parameter]));
+            }
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);
