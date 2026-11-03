@@ -82,3 +82,9 @@ Issue: [#11](https://github.com/kwentinn/PES6Patcher/issues/11)
 When the stick is turned suddenly while dribbling, the player does not change direction at once: he turns in several steps, touch after touch. Turning in one go (within what the player's stats allow) would make dribbling much livelier.
 
 Done when sprinting: **Sharper turns when sprinting, by dribble accuracy** lets the ball turn up to 90° per sprint touch (the game: 22.5°) for the best dribblers, and shortens such a touch. Still open: the player's body keeps the game's turning step for a moment (forcing it made the animation jump), and the running strides without sprint were not changed.
+
+## Human players: semi dribbling speed
+
+Issue: [#12](https://github.com/kwentinn/PES6Patcher/issues/12)
+
+Suggested by H_G on Evo-Web: in PES5, holding R2 while dribbling gave a slower, controlled speed between walking and running; PES6 removed it. First find out whether PES6 still has the code for that speed, or whether it was removed completely.
