@@ -2,9 +2,11 @@
 
 *English | [Français](TODO.fr.md)*
 
-Gameplay improvements planned for PES6 Patcher, in no particular order.
+Gameplay improvements planned for PES6 Patcher, in no particular order. Each open item has a [GitHub issue](https://github.com/kwentinn/PES6Patcher/issues), where it can be discussed.
 
 ## AI players: 360° dribbling
+
+Issue: [#2](https://github.com/kwentinn/PES6Patcher/issues/2)
 
 AI dribblers still move in the game's few fixed directions (mostly multiples of 45°), while human players follow the stick's precise angle.
 
@@ -27,23 +29,35 @@ Done for the width: **Players spread wider** moves the players placing themselve
 
 ## Pass power bar
 
+Issue: [#5](https://github.com/kwentinn/PES6Patcher/issues/5)
+
 Suggested by dansef on Evo-Web: change how the power bar fills for normal and through passes. It may not be doable: when looking at the shot gauge, the part that measures how long the button is held turned out to sit in the protected code of the exe.
 
 ## AI players: movement without the ball
+
+Issue: [#3](https://github.com/kwentinn/PES6Patcher/issues/3)
 
 Noted by Energia and maruni74 on Evo-Web: without the ball, the AI's players still run in the game's 8 directions, while human players follow the stick's angle. Not looked at yet.
 
 ## AI players: dribble more
 
+Issue: [#4](https://github.com/kwentinn/PES6Patcher/issues/4)
+
 Suggested by amsterdance on Evo-Web: the AI's skilful players (Ronaldinho, Zidane…) mostly pass at once or make small moves. They could try to dribble more. This means finding where the AI decides between passing, shooting and dribbling.
 
 ## Menus: widen only the background
+
+Issue: [#6](https://github.com/kwentinn/PES6Patcher/issues/6)
 
 Suggested by daffi2 on Evo-Web: keep the menu items at their original size and only widen the background image, as an option, to remove the black bars. This means finding how the backgrounds are drawn. Also seen by daffi2: in the kit selection, the Kitserver mini kit is widescreen while the game's one is not.
 
 ## Kitserver module instead of patching the exe
 
+Issue: [#7](https://github.com/kwentinn/PES6Patcher/issues/7)
+
 Suggested by daffi2 on Evo-Web: apply the patch from a Kitserver DLL, in memory when the game starts, so that `PES6.exe` stays untouched. Other modules, like Nemesis, require an untouched exe. The added code would be the same; the DLL would write it into the running game and read its settings from a file.
 ## Human players: dribbling in any direction
+
+Issue: [#8](https://github.com/kwentinn/PES6Patcher/issues/8)
 
 The free direction follows the stick's precise angle, but some dribble touches and moves still use the game's own directions. Can a player really go anywhere?
