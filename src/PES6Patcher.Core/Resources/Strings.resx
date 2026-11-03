@@ -390,4 +390,25 @@
   <data name="State.Compatible" xml:space="preserve">
     <value>{0}: original, build not tested in game yet (every location was found).</value>
   </data>
+  <data name="Hook.SprintTurn" xml:space="preserve">
+    <value>sprint turns</value>
+  </data>
+  <data name="Log.SprintTurnDebug" xml:space="preserve">
+    <value>Sprint turn test key: F7 in a match adds 15 degrees (back to 45 after 90), shown on screen.</value>
+  </data>
+  <data name="Gameplay.SprintTurnDebug" xml:space="preserve">
+    <value>Test: F7 in a match changes it (+15 degrees)</value>
+  </data>
+  <data name="Gameplay.SprintTurnDegrees" xml:space="preserve">
+    <value>degrees max per touch (game: 22.5)</value>
+  </data>
+  <data name="Gameplay.SprintTurn" xml:space="preserve">
+    <value>Sharper turns when sprinting, by dribble accuracy</value>
+  </data>
+  <data name="Log.SprintTurn" xml:space="preserve">
+    <value>Sprint turns: the ball may turn up to {0} degrees per sprint touch from 95 in dribble accuracy (the game's 22.5 up to 65, in proportion between); a touch turning more than 22.5 degrees is up to 40 % shorter.</value>
+  </data>
+  <data name="Overlay.SprintTurn" xml:space="preserve">
+    <value>SPRINT TURN: {0} DEG MAX (F7)</value>
+  </data>
 </root>

@@ -97,6 +97,13 @@ internal sealed record SpreadSites(int Entry, int Players);
 /// </summary>
 internal sealed record SpeedSites(int Entry, int Store);
 
+/// <summary>
+/// Sprint turns: <see cref="Limit"/> = push 0x1000, the most the ball's direction may turn towards the stick at a
+/// sprint stride (22.5 degrees); <see cref="Touch"/> = push eax (speed) ; xor eax,eax ; mov ax,[edi+0x30] (direction)
+/// before the sprint touch's relay call; <see cref="Ball"/> = pointer to the ball (direction at +0x58).
+/// </summary>
+internal sealed record SprintTurnSites(int Limit, int Touch, int Ball);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -312,6 +319,27 @@ internal sealed class ExeLocator
         var image = new PeImage(exe);
         var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(MaxSpeed).FindAll(image, s)).ToList();
         return hits.Count == 1 ? new SpeedSites(hits[0], hits[0] + 21) : null;
+    }
+
+    /// <summary>
+    /// Sprint stride: mov edx,[esi+0x58] ; xor ecx,ecx ; mov cx,[esi+0x26] ; add cx,0x800 ; ... ; push 0x1000 (at +26) ;
+    /// then the facing rounded to 22.5 degrees is turned towards the stick by at most that.
+    /// </summary>
+    private const string SprintTurnLimit = "8B 56 58 33 C9 66 8B 4E 26 66 81 C1 00 08 8D 04 40 8D 84 98 ?? ?? ?? ?? 03 C2 68 00 10 00 00 89 44 24 44";
+
+    /// <summary>
+    /// Sprint touch: mov eax,[ball] (+1) ; ... ; push eax (speed, at +58) ; xor eax,eax ; mov ax,[edi+0x30] ; push eax ; push edi ; call relay.
+    /// </summary>
+    private const string SprintTouch = "A1 ?? ?? ?? ?? 8B 88 FC 07 00 00 57 89 48 14 E8 ?? ?? ?? ?? 83 C0 04 50 8B C6 E8 ?? ?? ?? ?? " +
+        "8B 0D ?? ?? ?? ?? 33 D2 66 8B 57 2C 83 C4 08 50 51 52 57 E8 ?? ?? ?? ?? 83 C4 0C 50 33 C0 66 8B 47 30 50 57 E8";
+
+    public static SprintTurnSites? LocateSprintTurn(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        List<int> Find(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
+        var limit = Find(SprintTurnLimit);
+        var touch = Find(SprintTouch);
+        return limit.Count == 1 && touch.Count == 1 ? new SprintTurnSites(limit[0] + 26, touch[0] + 58, image.ReadInt32(touch[0] + 1)) : null;
     }
 
     /// <summary>Player array: imul reg,reg,0x240 ; add reg,players (the most frequent base).</summary>

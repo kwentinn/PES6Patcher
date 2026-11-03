@@ -87,9 +87,21 @@ Chaque option est un détournement : quelques octets du jeu remplacés par un sa
 - La **vitesse maximale** `[joueur+0x58]` est calculée, et recalculée pendant le match, en `0x447BF52` (section `.rld` de la protection, code en clair) : 7542 + 12 × (vitesse de pointe − 40) × 100 / 60 − 16 × `[joueur+0x5C]`. La stat de vitesse de pointe est l'octet `0x3BCF5AE` (corrélation de 1,00 avec `+0x58` sur 22 joueurs). Un point de stat ne vaut que 20 unités : 68 → 8094, 97 → 8682.
 - Le code ajouté multiplie la part de la stat autour d'un joueur à 75. Comme la valeur est recalculée pendant le match, F6 s'applique tout de suite.
 
+### Virages francs en sprint
+
+Mesuré avec `pes6turnlog.ps1` (une ligne à chaque changement des champs du porteur du ballon) et des points d'arrêt d'exécution :
+
+- En course balle au pied, une foulée dure environ 26 images (0,46 s, animations 65/66), avec une touche vers l'image 7 ; la nouvelle direction du stick n'est prise qu'à la foulée suivante. En sprint, une foulée dure environ 0,67 s (animations 29/30 = `0x1D`/`0x1E`). Un virage de plus de 112° passe par une animation de virage (552, environ 0,65 s).
+- La foulée de sprint démarre dans `0x4E2830` (appelée depuis `0x5B7954` quand le bouton de sprint est tenu, `0x4DCBB0` sinon). Elle compare la direction du stick (`0x4B3010`) à l'orientation `+0x26`, en 256e de tour : en dessous de 8 rien ne se passe, à partir de `0x50` (112°) c'est l'animation de virage. Sinon :
+  - la **direction du joueur** tourne d'un pas fixe : animation `0x1E` avec 15° (`push 0Fh` en `0x4E299D`) du côté du bon pied, `0x1D` avec 25° (`push 19h` en `0x4E2A51`) de l'autre, via `0x4F3820`, qui passe dans le code protégé ; les deux branches se rejoignent en `0x4E2A7E` avec la nouvelle direction dans `di`, écrite dans `+0x2C` en `0x4E2FA7` ;
+  - la **direction du ballon** est calculée en `0x4E2AFF` : `0x4970F0` (tourner une direction vers une autre d'un angle maximum) depuis l'orientation arrondie à 22,5° (`(+0x26 + 0x800) & 0xF000`) vers le stick, d'au plus `0x1000` (`push 1000h` en `0x4E2AE6`). Relevé à la touche (appel du relais en `0x5AFB3B`, direction prise dans `[joueur+0x30]`) : `0xA000`, `0xB000`, `0xC000`… exactement un cran de 22,5° par touche, quoi que demande le stick. **C'est ce cran qui fait tourner « par paliers ».**
+- Le joueur court ensuite après le ballon : `0x5AFD45` oriente `+0x2C` à chaque image vers la position prévue du ballon.
+- **Virages plus francs en sprint** remplace le `push 1000h` par le virage maximum du porteur : 22,5° jusqu'à 65 en précision de dribble (celui du jeu), le maximum choisi (90° par défaut) à partir de 95, proportionnellement entre les deux. Une touche qui tourne le ballon de plus de 22,5° par rapport à sa direction actuelle (`[ballon+0x58]`) perd aussi jusqu'à 40 % de sa vitesse (atteint à 90°), à l'appel du relais (`0x5AFB32`), pour que le ballon reste plus près pendant que le joueur tourne. Testé en mémoire, puis validé en jeu.
+- Essayé puis abandonné : relever le `push 2Dh` (45°) d'autres foulées (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70` : elles ne servent jamais en dribble) ; relever les pas de 15° et 25° (sans effet : le code protégé les ignore) ; forcer la direction du joueur sur celle du stick (`0x4E2A7E` : le corps tourne, pas le ballon) ou sur celle de la touche (`0x4E2B04` : l'animation saute, et avec le changement du ballon le joueur ne tourne plus).
+
 ### Touches de test
 
-F2 à F6 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 % (les textes de chaque palier sont dans des zones libres à part).
+F2 à F7 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 %, F7 de 15° (les textes de chaque palier sont dans des zones libres à part).
 
 ---
 
@@ -109,6 +121,21 @@ F2 à F6 changent une valeur en match et l'affichent par Kitserver, comme F1. Le
 | Ballon | `[0xBCCE94]` : position `+0x10/+0x14/+0x18`, vitesse verticale `+0x30`, vitesse `+0x50`, direction `+0x58`, effet `+0x6A/+0x6C/+0x74` |
 | Stats | `0x3BCF5A8` + (équipe × 32 + poste) × `0x348`, 7 bits par stat : `+0x0` bit 0 pied fort, `+0x6` vitesse de pointe, `+0x8` (lue pour l'accélération), `+0x18` précision de dribble |
 | Sticks analogiques | `0x1016680` + manette × 4 : angle (mot), amplitude, bits de direction |
+| Animation (`[joueur+4]`) | `+0x28` vitesse de lecture (flottant, tirée du pas d'image global, ou en % par `0x65D9B0`), `+0x30` animation, `+0x34` nombre d'images, `+0x38` temps (flottant) ; avancée par `0x65D870`, lancée par `0x65D7D0` |
+| Constantes physiques du ballon | 10 flottants en `0xB8AE68` (voir ci-dessous) |
+
+Constantes physiques du ballon (les 40 octets que changent le BallPhysics Editor de Rechi et le `gameplay.dll` de DonMike), lues par le code de vol du ballon `0x475810` :
+
+| Adresse | Valeur | Rôle | Lue ailleurs |
+|---|---|---|---|
+| `0xB8AE68` | 1/600 | amortissement d'un ballon qui roule lentement | 1 endroit |
+| `0xB8AE6C` | 1/32 | freinage du ballon qui roule | 13 endroits |
+| `0xB8AE70` | 188 | gravité, ajoutée à la vitesse verticale à chaque image | 3 endroits, dont la visée des frappes (`0x515909`) |
+| `0xB8AE74` | 4,07e-5 | effet Magnus : rotation × vitesse² | non |
+| `0xB8AE78` | −376 | en dessous, le ballon cesse de rebondir et roule | non |
+| `0xB8AE7C` / `0xB8AE80` / `0xB8AE84` | 184 / −1/256 / 9024 | rebond : sous 9024, 53 à 63 % de la vitesse verticale est gardée (selon `+0x50` du ballon) ; au-dessus, 72 % de l'excédent | peu |
+| `0xB8AE88` | 0,8 | vitesse horizontale perdue au rebond | 49 endroits |
+| `0xB8AE8C` | −28 | hauteur du sol (rayon du ballon) | 11 endroits |
 
 ---
 
@@ -125,6 +152,7 @@ Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'appli
 | `pes6viewport.ps1` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |
 | `pes6stick.ps1` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
 | `pes6heading.ps1` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
+| `pes6turnlog.ps1` | relevé du porteur du ballon guidé par des bips (état, animation, image, orientations, vitesse, direction du ballon) : une ligne CSV à chaque changement, qui a montré les crans de virage en sprint |
 | `pes6window.ps1`, `capture-window.ps1` | géométrie et capture de la fenêtre du jeu ou de l'application |
 | `make-signatures.ps1` | construit la signature d'un emplacement : les octets qui l'entourent, adresses absolues et cibles d'appel masquées, allongés jusqu'à n'apparaître qu'une fois dans le code |
 | `StringRefs.java` | script Ghidra : décompile les fonctions qui utilisent une chaîne (par exemple les noms de versions de Kitserver dans `kload.dll`) |
@@ -179,6 +207,7 @@ L'application PES6 Patcher installe ces réglages pour n'importe quelle résolut
 
 - **Police des menus plus lisse** : passer le filtrage de la texture de la police en linéaire n'a rien changé de visible.
 - **Dribble à 360° de l'IA** : les directions de dribble de l'IA sont déjà arrondies (surtout à 45°) au moment où elle les décide. `+0x2C` contient très probablement la direction qu'elle vise ; l'utiliser ne changeait chaque touche que de 2 à 13°, sans gain visible.
+- **Moins d'effet sur le ballon** : multiplier la constante Magnus (`0xB8AE74`) de 10 à 150 % avec une touche de test n'a rien changé de perceptible en jeu : ce terme est minuscule à côté de la gravité.
 
 ---
 

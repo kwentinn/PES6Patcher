@@ -87,9 +87,21 @@ Each option is a hook: a few bytes of the game replaced by a jump to added code 
 - The **maximum speed** `[player+0x58]` is computed, and recomputed during the match, at `0x447BF52` (`.rld` section of the protection, plain code): 7542 + 12 × (top speed − 40) × 100 / 60 − 16 × `[player+0x5C]`. The top speed stat is the byte `0x3BCF5AE` (correlation 1.00 with `+0x58` over 22 players). One stat point is only worth 20 units: 68 → 8094, 97 → 8682.
 - The added code scales the stat's part around a player at 75. As the value is recomputed during the match, F6 applies at once.
 
+### Sharp turns when sprinting
+
+Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's fields) and execute breakpoints:
+
+- Running with the ball, a stride lasts about 26 frames (0.46 s, animations 65/66) with one touch near frame 7; the stick's new direction is only taken at the next stride. Sprinting, a stride lasts about 0.67 s (animations 29/30 = `0x1D`/`0x1E`). A turn of more than 112° goes through a turning animation (552, about 0.65 s).
+- The sprint stride starts in `0x4E2830` (called from `0x5B7954` when the sprint button is held, `0x4DCBB0` otherwise). It compares the stick direction (`0x4B3010`) with the facing `+0x26`, in 1/256 of a turn: below 8 nothing happens, from `0x50` (112°) the turning animation is used. Otherwise:
+  - the **player's direction** turns by a fixed step: animation `0x1E` with 15° (`push 0Fh` at `0x4E299D`) on the favoured foot's side, `0x1D` with 25° (`push 19h` at `0x4E2A51`) on the other, through `0x4F3820`, which goes into the protected code; both branches meet at `0x4E2A7E` with the new direction in `di`, written to `+0x2C` at `0x4E2FA7`;
+  - the **ball's direction** is computed at `0x4E2AFF`: `0x4970F0` (turn a direction towards another by at most a given angle) from the facing rounded to 22.5° (`(+0x26 + 0x800) & 0xF000`) towards the stick, by at most `0x1000` (`push 1000h` at `0x4E2AE6`). Logged at the touch (relay call at `0x5AFB3B`, direction from `[player+0x30]`): `0xA000`, `0xB000`, `0xC000`… exactly one 22.5° step per touch, whatever the stick asked. **That step is what makes the turns go "by stages".**
+- The player then runs after the ball: `0x5AFD45` points `+0x2C` every frame at the ball's predicted position.
+- **Sharper turns when sprinting** replaces the `push 1000h` by the maximum turn of the carrier: 22.5° up to 65 in dribble accuracy (the game's), the chosen maximum (90° by default) from 95, in proportion between. A touch that turns the ball more than 22.5° from its current direction (`[ball+0x58]`) also loses up to 40 % of its speed (reached at 90°), at the relay call (`0x5AFB32`), so the ball stays closer while the player turns. Tested in memory, then validated in game.
+- Tried and dropped: raising the `push 2Dh` (45°) of other strides (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70`: they never run while dribbling); raising the 15° and 25° steps (no effect: the protected code ignores them); forcing the player's direction to the stick's (`0x4E2A7E`: the body turns, the ball does not) or to the touch's (`0x4E2B04`: the animation jumps, and with the ball change the player stops turning).
+
 ### Test keys
 
-F2 to F6 change a value during a match and show it through Kitserver, like F1. Their set-up is called from the kick function's entry until done; their state is in the 32 bytes before the close dribbling ones (`0xBC3FD0`). F2 to F5 step by 10 %, F6 by 25 % (the texts for every step sit in caves of their own).
+F2 to F7 change a value during a match and show it through Kitserver, like F1. Their set-up is called from the kick function's entry until done; their state is in the 32 bytes before the close dribbling ones (`0xBC3FD0`). F2 to F5 step by 10 %, F6 by 25 %, F7 by 15° (the texts for every step sit in caves of their own).
 
 ---
 
@@ -109,6 +121,21 @@ F2 to F6 change a value during a match and show it through Kitserver, like F1. T
 | Ball | `[0xBCCE94]`: position `+0x10/+0x14/+0x18`, vertical speed `+0x30`, speed `+0x50`, direction `+0x58`, spin `+0x6A/+0x6C/+0x74` |
 | Stats | `0x3BCF5A8` + (team × 32 + slot) × `0x348`, 7 bits per stat: `+0x0` bit 0 favoured foot, `+0x6` top speed, `+0x8` (read for the acceleration), `+0x18` dribble accuracy |
 | Analog sticks | `0x1016680` + pad × 4: angle (word), magnitude, direction bits |
+| Animation (`[player+4]`) | `+0x28` playback rate (float, set from the global frame step, or as a % by `0x65D9B0`), `+0x30` animation, `+0x34` frame count, `+0x38` time (float); advanced by `0x65D870`, set by `0x65D7D0` |
+| Ball physics constants | 10 floats at `0xB8AE68` (see below) |
+
+Ball physics constants (the 40 bytes changed by Rechi's BallPhysics Editor and DonMike's `gameplay.dll`), read by the ball flight code `0x475810`:
+
+| Address | Value | Role | Read elsewhere |
+|---|---|---|---|
+| `0xB8AE68` | 1/600 | damping of a slow rolling ball | 1 place |
+| `0xB8AE6C` | 1/32 | rolling drag | 13 places |
+| `0xB8AE70` | 188 | gravity, added to the vertical speed every frame | 3 places, among them the kick aiming (`0x515909`) |
+| `0xB8AE74` | 4.07e-5 | spin lift (Magnus effect): spin × speed² | no |
+| `0xB8AE78` | −376 | below this, the ball stops bouncing and rolls | no |
+| `0xB8AE7C` / `0xB8AE80` / `0xB8AE84` | 184 / −1/256 / 9024 | bounce: below 9024, 53 to 63 % of the vertical speed is kept (from the ball's `+0x50`); above, 72 % of the excess | few |
+| `0xB8AE88` | 0.8 | horizontal speed lost on a bounce | 49 places |
+| `0xB8AE8C` | −28 | ground height (ball radius) | 11 places |
 
 ---
 
@@ -125,6 +152,7 @@ The scripts in [`scripts`](scripts) were used to find the fixes. The app does no
 | `pes6viewport.ps1` | records the `SetViewport` calls (rectangle and caller), which led to the list clipping |
 | `pes6stick.ps1` | memory capture guided by beeps (stick at rest, right, up), which led to the controller state |
 | `pes6heading.ps1` | measures the players' real heading against the stick angle, with and without the free direction |
+| `pes6turnlog.ps1` | beep-guided log of the ball carrier (state, animation, frame, headings, speed, ball direction): one CSV line per change, which showed the sprint turn steps |
 | `pes6window.ps1`, `capture-window.ps1` | geometry and screenshot of the game's or the app's window |
 | `make-signatures.ps1` | builds a location's signature: the surrounding bytes, with absolute addresses and call targets masked, extended until they appear only once in the code |
 | `StringRefs.java` | Ghidra script: decompiles the functions that use a string (for example the Kitserver version names in `kload.dll`) |
@@ -179,6 +207,7 @@ The PES6 Patcher app installs these settings for any resolution. Its **Restore o
 
 - **Smoother menu font**: switching the font texture filtering to linear changed nothing visible.
 - **AI 360° dribbling**: the AI's dribble directions are already rounded (mostly to 45°) when it decides them. `+0x2C` very likely holds the direction it aims at; using it only changed each touch by 2 to 13°, with no visible gain.
+- **Less ball spin lift**: scaling the Magnus constant (`0xB8AE74`) from 10 to 150 % with a test key made no difference felt in game: that term is tiny next to the gravity.
 
 ---
 

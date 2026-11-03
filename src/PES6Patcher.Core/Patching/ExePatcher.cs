@@ -19,10 +19,16 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="SpreadDebug">Test key: F5 in game changes <paramref name="Spread"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="SpeedGapDebug">Test key: F6 in game changes <paramref name="SpeedGap"/> by 25 % and shows it (through Kitserver).</param>
 /// <param name="SpeedGap">Top speed gap between players: effect of the top speed stat on the maximum running speed, in % of the game's (100 = unchanged).</param>
+/// <param name="SprintTurn">Sharper turns when sprinting: most the ball may turn per sprint touch for a star dribbler, in degrees (0 = unchanged; the game's is 22.5, kept up to 65 in dribble accuracy).</param>
+/// <param name="SprintTurnDebug">Test key: F7 in game changes <paramref name="SprintTurn"/> by 15 degrees and shows it (through Kitserver).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
-    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false)
+    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
+    int SprintTurn = 0, bool SprintTurnDebug = false)
 {
+    /// <summary>Sprint turns: most a star dribbler's ball may turn per sprint touch, in degrees (the game's is 22.5): default and limits.</summary>
+    public const int DefaultSprintTurn = 90, MinSprintTurn = 45, MaxSprintTurn = 90;
+
     /// <summary>Shot aim error kept: default when the option is checked, and limits (100 = the game's).</summary>
     public const int DefaultShotAccuracy = 50, MinShotAccuracy = 10, MaxShotAccuracy = 100;
 
@@ -66,7 +72,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The top speed gap between players can be widened.</summary>
     public bool SpeedGap { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap;
+    /// <summary>The sprint turns can be made sharper.</summary>
+    public bool SprintTurn { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -103,6 +112,7 @@ public static class ExePatcher
             {
                 CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
                 Spread = ExeLocator.LocateSpread(exe) != null, SpeedGap = ExeLocator.LocateSpeed(exe) != null,
+                SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -180,8 +190,8 @@ public static class ExePatcher
         // in caves of their own (too large to share one with the code), their state with the free kick one
         bool freeKickKey = options.FreeKick && options.FreeKickDebug, shotKey = options.ShotPower < 100 && options.ShotPowerDebug,
             accuracyKey = options.ShotAccuracy < 100 && options.ShotAccuracyDebug, spreadKey = options.Spread > 0 && options.SpreadDebug,
-            speedKey = options.SpeedGap != 100 && options.SpeedGapDebug;
-        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey) && freeKick == null) throw new PatchException(problems);
+            speedKey = options.SpeedGap != 100 && options.SpeedGapDebug, sprintKey = options.SprintTurn > 0 && options.SprintTurnDebug;
+        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key, int step = CodeCaves.TestKeyStep)
         {
@@ -215,6 +225,11 @@ public static class ExePatcher
         {
             var (texts, stride) = KeyTexts(PatchOptions.MaxSpeedGap, "Overlay.SpeedGap", CodeCaves.SpeedGapStep);
             keys.Add(CodeCaves.SpeedGapTestKey(options.SpeedGap, texts, stride));
+        }
+        if (sprintKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxSprintTurn, "Overlay.SprintTurn", CodeCaves.SprintTurnStep);
+            keys.Add(CodeCaves.SprintTurnTestKey(options.SprintTurn, texts, stride));
         }
         int testKeysSetUp = 0;
         if (keys.Count > 0)
@@ -295,6 +310,21 @@ public static class ExePatcher
             speed = CodeCaves.Speed(Cave(speed.CaveBytes.Length), sites, options.SpeedGap, testKeys);
             plan.Add((speed.Cave, speed.CaveBytes));
             plan.Add((speed.Entry, speed.EntryBytes));
+        }
+
+        // sprint turns: the ball may turn further per sprint touch for good dribblers, and such a touch is shorter
+        if (options.SprintTurn > 0)
+        {
+            if (options.SprintTurn is < PatchOptions.MinSprintTurn or > PatchOptions.MaxSprintTurn)
+                throw new ArgumentOutOfRangeException(nameof(options), options.SprintTurn, null);
+            var sites = (dribble != null ? ExeLocator.LocateSprintTurn(original) : null)
+                ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.SprintTurn"), 0)]);
+            var testKeys = sprintKey ? freeKick : null;
+            var limit = CodeCaves.SprintTurnLimit(0, sites, dribble!.DribbleAccuracy, options.SprintTurn, testKeys);
+            limit = CodeCaves.SprintTurnLimit(Cave(limit.CaveBytes.Length), sites, dribble.DribbleAccuracy, options.SprintTurn, testKeys);
+            var touch = CodeCaves.SprintTouch(0, sites);
+            touch = CodeCaves.SprintTouch(Cave(touch.CaveBytes.Length), sites);
+            foreach (var hook in new[] { limit, touch }) { plan.Add((hook.Cave, hook.CaveBytes)); plan.Add((hook.Entry, hook.EntryBytes)); }
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);

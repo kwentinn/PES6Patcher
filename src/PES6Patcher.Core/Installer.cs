@@ -24,10 +24,13 @@ namespace PES6Patcher.Core;
 /// <param name="SpreadDebug">Test key: F5 in a match changes the spread.</param>
 /// <param name="SpeedGap">Top speed gap between players, in % of the game's (100 = unchanged).</param>
 /// <param name="SpeedGapDebug">Test key: F6 in a match changes the speed gap.</param>
+/// <param name="SprintTurn">Most the ball may turn per sprint touch for a star dribbler, in degrees (0 = unchanged).</param>
+/// <param name="SprintTurnDebug">Test key: F7 in a match changes the sprint turn maximum.</param>
 /// <param name="PhysicsMod">Load PityCharly's physics mod DLL (kload.cfg); null = leave as it is.</param>
 public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
-    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false)
+    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
+    int SprintTurn = 0, bool SprintTurnDebug = false)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -51,12 +54,14 @@ public static class Installer
         bool closeDribble = settings.Gameplay && settings.CloseDribble;
         bool freeKick = settings.Gameplay && settings.FreeKick;
         int shotPower = settings.Gameplay ? settings.ShotPower : 100, shotAccuracy = settings.Gameplay ? settings.ShotAccuracy : 100;
-        int spread = settings.Gameplay ? settings.Spread : 0, speedGap = settings.Gameplay ? settings.SpeedGap : 100;
+        int spread = settings.Gameplay ? settings.Spread : 0, speedGap = settings.Gameplay ? settings.SpeedGap : 100,
+            sprintTurn = settings.Gameplay ? settings.SprintTurn : 0;
         // without any exe fix, the exe goes back to the original
-        byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || shotPower < 100 || shotAccuracy < 100 || spread > 0 || speedGap != 100 || settings.SkipIntro
+        byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || shotPower < 100 || shotAccuracy < 100 || spread > 0 || speedGap != 100 || sprintTurn > 0 || settings.SkipIntro
             ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro, freeKick, settings.FreeKickWeight,
                 freeKick && settings.FreeKickDebug, shotPower, shotPower < 100 && settings.ShotPowerDebug,
-                shotAccuracy, shotAccuracy < 100 && settings.ShotAccuracyDebug, spread, spread > 0 && settings.SpreadDebug, speedGap, speedGap != 100 && settings.SpeedGapDebug))
+                shotAccuracy, shotAccuracy < 100 && settings.ShotAccuracyDebug, spread, spread > 0 && settings.SpreadDebug, speedGap, speedGap != 100 && settings.SpeedGapDebug,
+                sprintTurn, sprintTurn > 0 && settings.SprintTurnDebug))
             : original;
         string yesNo = Loc.T(freeDirection ? "Common.Yes" : "Common.No");
         log(settings.Display ? Loc.T("Log.ExeBuilt", settings.Half, yesNo) : Loc.T("Log.ExeBuiltNoDisplay", yesNo));
@@ -71,6 +76,8 @@ public static class Installer
         if (spread > 0 && settings.SpreadDebug) log(Loc.T("Log.SpreadDebug"));
         if (speedGap != 100) log(Loc.T("Log.SpeedGap", speedGap));
         if (speedGap != 100 && settings.SpeedGapDebug) log(Loc.T("Log.SpeedGapDebug"));
+        if (sprintTurn > 0) log(Loc.T("Log.SprintTurn", sprintTurn));
+        if (sprintTurn > 0 && settings.SprintTurnDebug) log(Loc.T("Log.SprintTurnDebug"));
         if (settings.SkipIntro) log(Loc.T("Log.SkipIntro"));
 
         string kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii), kload = kloadBefore;

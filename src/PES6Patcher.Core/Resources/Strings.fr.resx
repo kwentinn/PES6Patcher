@@ -390,4 +390,25 @@
   <data name="State.Compatible" xml:space="preserve">
     <value>{0} : d'origine, version pas encore testée en jeu (tous les emplacements ont été trouvés).</value>
   </data>
+  <data name="Hook.SprintTurn" xml:space="preserve">
+    <value>virages en sprint</value>
+  </data>
+  <data name="Log.SprintTurnDebug" xml:space="preserve">
+    <value>Touche de test des virages en sprint : F7 en match ajoute 15 degrés (retour à 45 après 90), affiché à l'écran.</value>
+  </data>
+  <data name="Gameplay.SprintTurnDebug" xml:space="preserve">
+    <value>Test : F7 en match le change (+15 degrés)</value>
+  </data>
+  <data name="Gameplay.SprintTurnDegrees" xml:space="preserve">
+    <value>degrés max par touche (jeu : 22,5)</value>
+  </data>
+  <data name="Gameplay.SprintTurn" xml:space="preserve">
+    <value>Virages plus francs en sprint, selon la précision de dribble</value>
+  </data>
+  <data name="Log.SprintTurn" xml:space="preserve">
+    <value>Virages en sprint : le ballon peut tourner jusqu'à {0} degrés par touche en sprint à partir de 95 en précision de dribble (les 22,5 du jeu jusqu'à 65, proportionnellement entre les deux) ; une touche qui tourne de plus de 22,5 degrés est jusqu'à 40 % plus courte.</value>
+  </data>
+  <data name="Overlay.SprintTurn" xml:space="preserve">
+    <value>VIRAGE EN SPRINT : {0} DEG MAX (F7)</value>
+  </data>
 </root>

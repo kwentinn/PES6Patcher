@@ -242,7 +242,7 @@ internal static class CodeCaves
     private const byte StickUp = 0x10;
 
     /// <summary>Test keys (debug): F2 changes the free kick weight, F3 the shot power, F4 the shot aim error, by 10 % (wrapping from the maximum to the minimum).</summary>
-    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75;   // VK_F2 to VK_F6
+    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75, SprintTurnKey = 0x76;   // VK_F2 to VK_F7
     public const int TestKeyStep = 10;
 
     /// <summary>
@@ -250,10 +250,11 @@ internal static class CodeCaves
     /// padding of .rdata made writable): +0 free kick shot under way, +1 ball from a free kick, +2 test keys set up,
     /// +4 free kick weight percent (word, 0 = the patcher's), +8 tick until which a test key value shows,
     /// +12 KDrawText, +16 shot power percent (word, 0 = the patcher's), +18 test key shown, +20 shot aim error
-    /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's), +24 speed gap percent (word, 0 = the patcher's).
+    /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's), +24 speed gap percent (word, 0 = the patcher's),
+    /// +26 sprint turn maximum in degrees (word, 0 = the patcher's).
     /// </summary>
     private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24;
+        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
@@ -541,6 +542,105 @@ internal static class CodeCaves
 
     /// <summary>F6 changes the speed gap by 25 % (texts for 0 to 400 % in steps of 10 would not fit a cave).</summary>
     public const int SpeedGapStep = 25;
+
+    /// <summary>The game's sprint turn limit: 0x1000 = 22.5 degrees (an angle is 0x10000 for a full turn).</summary>
+    public const int SprintTurnBase = 0x1000;
+
+    /// <summary>A sprint touch turning the ball 90 degrees or more loses this % of its speed (less in proportion from 22.5).</summary>
+    public const int SprintTouchShorter = 40;
+
+    /// <summary>F7 changes the sprint turn maximum by 15 degrees.</summary>
+    public const int SprintTurnStep = 15;
+
+    public static int Angle(int degrees) => degrees * 0x10000 / 360;
+
+    /// <summary>
+    /// Sprint turns: at a sprint stride, the ball's direction turns towards the stick by at most 22.5 degrees. The
+    /// limit (push 0x1000) becomes the carrier's: the game's up to <see cref="MinAccuracy"/> in dribble accuracy,
+    /// <paramref name="degrees"/> (or the F7 value) from <see cref="MaxAccuracy"/>, in proportion between.
+    /// </summary>
+    public static Hook SprintTurnLimit(int cave, SprintTurnSites sites, int dribbleAccuracy, int degrees, FreeKickSites? testKeys = null)
+    {
+        var code = new CodeBuilder(cave)
+            .Bytes(0x50, 0x51)                                      // push eax ; push ecx
+            .Bytes(0x0F, 0xB6, 0x56, 0x12)                          // movzx edx,byte [esi+0x12] ; team
+            .Bytes(0x0F, 0xB6, 0x46, 0x11)                          // movzx eax,byte [esi+0x11] ; slot
+            .Bytes(0xC1, 0xE2, 0x05, 0x03, 0xC2)                    // shl edx,5 ; add eax,edx
+            .Bytes([0x69, 0xC0], 0x348)                             // imul eax,eax,0x348
+            .Bytes([0x8B, 0x80], dribbleAccuracy)                   // mov eax,[eax+dribble accuracy]
+            .Bytes(0x83, 0xE0, 0x7F)                                // and eax,0x7F
+            .Bytes(0x83, 0xE8, MinAccuracy)                         // sub eax,min
+            .Jump(0x7F, "above")                                    // jg above
+            .Bytes(0x33, 0xC0)                                      // xor eax,eax          ; weak dribbler: the game's limit
+            .Mark("above")
+            .Bytes(0x83, 0xF8, MaxAccuracy - MinAccuracy)           // cmp eax,max-min
+            .Jump(0x7E, "capped")                                   // jle capped
+            .Bytes([0xB8], MaxAccuracy - MinAccuracy)               // mov eax,max-min
+            .Mark("capped")
+            .Bytes(0x8B, 0xC8);                                     // mov ecx,eax          ; share of the extra turn
+        if (testKeys != null)
+            code.Bytes([0x0F, 0xB7, 0x05], testKeys.State + SprintTurnState)   // movzx eax,word [degrees]
+                .Bytes(0x85, 0xC0)                                  // test eax,eax
+                .Jump(0x75, "degreesSet")                           // jne degreesSet
+                .Bytes([0xB8], degrees)                             // mov eax,degrees      ; from the patcher
+                .Mark("degreesSet")
+                .Bytes(0xC1, 0xE0, 0x10, 0x99)                      // shl eax,16 ; cdq
+                .Bytes(0x51, 0xB9, 0x68, 0x01, 0x00, 0x00)          // push ecx ; mov ecx,360
+                .Bytes(0xF7, 0xF9, 0x59);                           // idiv ecx ; pop ecx   ; angle
+        else
+            code.Bytes([0xB8], Angle(degrees));                     // mov eax,angle
+        var bytes = code
+            .Bytes([0x2D], SprintTurnBase)                          // sub eax,0x1000
+            .Bytes(0x0F, 0xAF, 0xC1, 0x99)                          // imul eax,ecx ; cdq
+            .Bytes(0x6A, MaxAccuracy - MinAccuracy, 0x59)           // push max-min ; pop ecx
+            .Bytes(0xF7, 0xF9)                                      // idiv ecx
+            .Bytes([0x05], SprintTurnBase)                          // add eax,0x1000
+            .Bytes(0x8B, 0xD0, 0x59, 0x58)                          // mov edx,eax ; pop ecx ; pop eax
+            .Bytes(0x52)                                            // push edx             ; instead of push 0x1000
+            .JumpTo(sites.Limit + 5)                                // jmp back
+            .Build();
+        return new Hook("Hook.SprintTurn", sites.Limit, CodeBuilder.JumpPatch(sites.Limit, cave, 5), cave, bytes);
+    }
+
+    /// <summary>
+    /// Sprint touch: a touch turning the ball more than 22.5 degrees from its current direction loses up to
+    /// <see cref="SprintTouchShorter"/> % of its speed (reached at 90 degrees), so the ball stays closer while the
+    /// player turns. The 7 replaced bytes are replayed.
+    /// </summary>
+    public static Hook SprintTouch(int cave, SprintTurnSites sites)
+    {
+        const int span = 0x4000 - SprintTurnBase;
+        var bytes = new CodeBuilder(cave)
+            .Bytes(0x51, 0x52)                                      // push ecx ; push edx
+            .Bytes([0x8B, 0x0D], sites.Ball)                        // mov ecx,[ball]
+            .Bytes(0x0F, 0xB7, 0x49, 0x58)                          // movzx ecx,word [ecx+0x58] ; ball direction
+            .Bytes(0x0F, 0xB7, 0x57, 0x30)                          // movzx edx,word [edi+0x30] ; touch direction
+            .Bytes(0x2B, 0xD1, 0x0F, 0xBF, 0xD2)                    // sub edx,ecx ; movsx edx,dx
+            .Bytes(0x85, 0xD2)                                      // test edx,edx
+            .Jump(0x79, "positive")                                 // jns positive
+            .Bytes(0xF7, 0xDA)                                      // neg edx
+            .Mark("positive")
+            .Bytes([0x81, 0xEA], SprintTurnBase)                    // sub edx,0x1000
+            .Jump(0x7E, "done")                                     // jle done             ; the game's turn
+            .Bytes([0x81, 0xFA], span)                              // cmp edx,span
+            .Jump(0x7E, "capped")                                   // jle capped
+            .Bytes([0xBA], span)                                    // mov edx,span
+            .Mark("capped")
+            .Bytes(0x8B, 0xCA, 0x50)                                // mov ecx,edx ; push eax
+            .Bytes(0x0F, 0xAF, 0xC1, 0x99)                          // imul eax,ecx ; cdq   ; speed * extra turn
+            .Bytes([0xB9], span * 100 / SprintTouchShorter)         // mov ecx,span*100/percent
+            .Bytes(0xF7, 0xF9)                                      // idiv ecx
+            .Bytes(0x8B, 0xC8, 0x58, 0x2B, 0xC1)                    // mov ecx,eax ; pop eax ; sub eax,ecx
+            .Mark("done")
+            .Bytes(0x5A, 0x59)                                      // pop edx ; pop ecx
+            .Bytes(0x50, 0x33, 0xC0, 0x66, 0x8B, 0x47, 0x30)        // original: push eax ; xor eax,eax ; mov ax,[edi+0x30]
+            .JumpTo(sites.Touch + 7)                                // jmp back
+            .Build();
+        return new Hook("Hook.SprintTurn", sites.Touch, CodeBuilder.JumpPatch(sites.Touch, cave, 7), cave, bytes);
+    }
+
+    public static TestKey SprintTurnTestKey(int degrees, int texts, int stride) =>
+        new(SprintTurnKey, SprintTurnState, degrees, PatchOptions.MinSprintTurn, PatchOptions.MaxSprintTurn, texts, stride, SprintTurnStep);
 
     public static TestKey ShotPowerTestKey(int percent, int texts, int stride) =>
         new(ShotPowerKey, ShotPowerState, percent, PatchOptions.MinShotPower, PatchOptions.MaxShotPower, texts, stride);

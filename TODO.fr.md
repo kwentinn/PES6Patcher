@@ -79,4 +79,6 @@ La direction libre suit l'angle précis du stick, mais certaines touches de drib
 
 Issue : [#11](https://github.com/kwentinn/PES6Patcher/issues/11)
 
-Quand on tourne brusquement le stick en dribblant, le joueur ne change pas de direction d'un coup : il tourne par paliers, touche après touche. Tourner en une fois (dans la limite de ce que permettent ses stats) rendrait le dribble beaucoup plus vif. Il faudrait trouver où le jeu limite la rotation par touche ou par image pour le porteur du ballon ; c'est proche du dribble serré et de la direction libre, qui raccourcissent déjà les touches et suivent l'angle du stick.
+Quand on tourne brusquement le stick en dribblant, le joueur ne change pas de direction d'un coup : il tourne par paliers, touche après touche. Tourner en une fois (dans la limite de ce que permettent ses stats) rendrait le dribble beaucoup plus vif.
+
+Fait en sprint : **Virages plus francs en sprint, selon la précision de dribble** laisse le ballon tourner jusqu'à 90° par touche en sprint (le jeu : 22,5°) pour les meilleurs dribbleurs, et raccourcit une telle touche. Reste ouvert : le corps du joueur garde un moment le pas de virage du jeu (le forcer faisait sauter l'animation), et les foulées de course sans sprint n'ont pas été changées.

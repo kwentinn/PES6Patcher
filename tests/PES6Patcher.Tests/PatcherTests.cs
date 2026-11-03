@@ -315,6 +315,47 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Sprint_turns_raise_the_turn_limit_by_dribble_accuracy_and_shorten_the_turning_touch()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).SprintTurn);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { SprintTurn = 90 });
+        var image = new PeImage(with);
+
+        // measured in game: push 0x1000 at 0x4E2AE6 (ball turn limit of a sprint stride), touch at 0x5AFB32
+        Assert.Equal(new byte[] { 0x68, 0x00, 0x10, 0x00, 0x00 }, without[image.Offset(0x4E2AE6)..(image.Offset(0x4E2AE6) + 5)]);
+        Assert.Equal(0xE9, with[image.Offset(0x4E2AE6)]);
+        int limit = image.Rel32Target(0x4E2AE6);
+        Assert.Equal(0x3BCF5C0, image.ReadInt32(limit + 23));                       // mov eax,[eax+dribble accuracy]
+        Assert.Contains(BitConverter.GetBytes(CodeCaves.Angle(90)), Chunks(with, image.Offset(limit), 83));
+        Assert.Equal(0x4E2AEB, image.Rel32Target(limit + 78));                      // back after the push
+
+        Assert.Equal(0xE9, with[image.Offset(0x5AFB32)]);
+        Assert.Equal(new byte[] { 0x90, 0x90 }, with[(image.Offset(0x5AFB32) + 5)..(image.Offset(0x5AFB32) + 7)]);
+        int touch = image.Rel32Target(0x5AFB32);
+        Assert.Equal(0xBCCE94, image.ReadInt32(touch + 4));                         // ball pointer
+        Assert.Equal(0x5AFB39, image.Rel32Target(touch + 76));                      // back after the 7 replaced bytes
+
+        // only the two entries and their caves change
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i => Assert.True(i - image.Offset(0x4E2AE6) is >= 0 and < 5 || i - image.Offset(0x5AFB32) is >= 0 and < 7
+            || i - image.Offset(limit) is >= 0 and < 83 || i - image.Offset(touch) is >= 0 and < 81));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SprintTurn = 30 }));
+
+        // with F7, the maximum is read from the test keys' state (+26), in degrees
+        var debug = ExePatcher.Build(original, options with { SprintTurn = 90, SprintTurnDebug = true });
+        image = new PeImage(debug);
+        Assert.Equal(0xE9, debug[image.Offset(0x4E2AE6)]);
+
+        static IEnumerable<byte[]> Chunks(byte[] bytes, int from, int length) =>
+            Enumerable.Range(from, length - 3).Select(i => bytes[i..(i + 4)]);
+    }
+
+    [Fact]
     public void Skip_intro_only_turns_the_three_skip_jumps_into_nops()
     {
         var original = Load("PES6.orig.exe");
