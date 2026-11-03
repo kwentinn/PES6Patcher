@@ -74,3 +74,9 @@ Headers are often very inaccurate, like the shots were, and when the button is h
 Issue: [#8](https://github.com/kwentinn/PES6Patcher/issues/8)
 
 The free direction follows the stick's precise angle, but some dribble touches and moves still use the game's own directions. Can a player really go anywhere?
+
+## Human players: sharp changes of direction with the ball
+
+Issue: [#11](https://github.com/kwentinn/PES6Patcher/issues/11)
+
+When the stick is turned suddenly while dribbling, the player does not change direction at once: he turns in several steps, touch after touch. Turning in one go (within what the player's stats allow) would make dribbling much livelier. This means finding where the game limits the turn per touch or per frame for the ball carrier; it is close to the close dribbling and free direction fixes, which already shorten the touches and follow the stick's angle.
