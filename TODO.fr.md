@@ -56,6 +56,7 @@ Suggestion de daffi2 sur Evo-Web : garder les éléments des menus à leur taill
 Issue : [#7](https://github.com/kwentinn/PES6Patcher/issues/7)
 
 Suggestion de daffi2 sur Evo-Web : appliquer le patch depuis une DLL Kitserver, en mémoire au démarrage du jeu, pour que `PES6.exe` reste intact. D'autres modules, comme Nemesis, exigent un exe d'origine. Le code ajouté serait le même ; la DLL l'écrirait dans le jeu en cours d'exécution et lirait ses réglages dans un fichier.
+
 ## Passes en hauteur : puissance réglable
 
 Issue : [#9](https://github.com/kwentinn/PES6Patcher/issues/9)
@@ -67,6 +68,7 @@ Les passes en hauteur (rond sur une manette PlayStation) sont souvent trop forte
 Issue : [#10](https://github.com/kwentinn/PES6Patcher/issues/10)
 
 Les têtes sont souvent très imprécises, comme l'étaient les tirs, et si on appuie trop longtemps, le ballon part bien au-dessus de la barre. Elles ne passent peut-être pas par la fonction de tir que modifient les options de tir : trouver leur chemin, puis réduire leur puissance et leur écart de visée de la même façon.
+
 ## Joueurs humains : dribbler dans n'importe quelle direction
 
 Issue : [#8](https://github.com/kwentinn/PES6Patcher/issues/8)
