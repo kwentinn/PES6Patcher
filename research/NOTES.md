@@ -111,6 +111,7 @@ Kick probe with tags (with beeps, numpad), then breakpoints and reading:
 - The lofted pass is decided by `0x5697B0` (called from the state handler around `0x56DA00`): the **receiver** is the passer's byte `+0x48`, the **point aimed at** `+0x9C` / `+0xA0`, the kind `+0x4C`. `0x56A260`… then computes the kick: speed from the kick power stat (`0x3BCF5B7`) and the height, capped by animation.
 - The receiver is chosen by **`0x569020`** (passer, stick direction from `0x4B2F70`, which reads the analog stick's precise angle): the **pass gauge** `+0x4D` (0 to `0x80`, capped at `0x569821`) gives a **distance wanted** `0x800 + gauge / 8 × 0x380` (at least `0xE00`); a team-mate is kept only within `0x700` of that distance and, for a human, within **45°** of the stick (`cmp word [esp+0x1C],0x20` at `0x56938F`); the one with the smallest (angle gap + 1) × distance gap wins. With nobody kept, the pass goes along the stick with the gauge's power. Just before the kick, `0x45FFE0` re-checks the receiver in protected code.
 - **Lofted passes: the press sets the distance, the stick the direction** makes the distance wanted grow with the square of the gauge (`0x800 + gauge² × 7 / 8`: the same maximum, about 5600 instead of 9200 at half a gauge), and narrows the cone to **22.5°**. Validated in game.
+- **Through passes**: the pass point (passer `+0x9C` / `+0xA0`, found with a write breakpoint during a through pass) is placed at `0x4D0AF8`–`0x4D0B35`: start point + direction × **lead** (passer `+0xA8`), the lead being built from the angle and the receiver's run (`0x4D0AC4`). The ball reached the right receiver but far ahead of him, and out of play on the wings: the touchline guard at `0x4D0B83` (pulls the point 1024 back inside) only runs for some kinds and by chance from a passer's stat. **Through passes less far ahead of the receiver** scales the lead where it is read (60 % by default, F9). Validated in free training and in a match.
 - Dropped: scaling the speed of the state 8 and 9 kicks (70 %, F9). The ball fell short of the receiver the game had chosen, so the aim looked random, and crosses (state 9) went wrong too.
 
 ### Pressing and challenges
@@ -125,7 +126,7 @@ Measured with a logger of the human-controlled player (buttons held `+0xB0`) aga
 
 ### Test keys
 
-F2 to F8 change a value during a match and show it through Kitserver, like F1. Their set-up is called from the kick function's entry until done; their state is in the 32 bytes before the close dribbling ones (`0xBC3FD0`). F2 to F5 step by 10 %, F6 by 25 %, F7 by 15°, F8 by 20 % (the texts for every step sit in caves of their own).
+F2 to F9 change a value during a match and show it through Kitserver, like F1. Their set-up is called from the kick function's entry until done; their state is in the 32 bytes before the close dribbling ones (`0xBC3FD0`). F2 to F5 step by 10 %, F6 by 25 %, F7 by 15°, F8 by 20 %, F9 by 10 % (the texts for every step sit in caves of their own).
 
 ---
 

@@ -447,4 +447,25 @@
   <data name="Log.LoftedAim" xml:space="preserve">
     <value>Lofted passes: a short press aims at a nearer team-mate (same maximum), and the receiver is looked for within 22.5 degrees of the stick (45 in the game).</value>
   </data>
+  <data name="Gameplay.PassLeadPercent" xml:space="preserve">
+    <value>% of the game's lead</value>
+  </data>
+  <data name="Hook.PassLead" xml:space="preserve">
+    <value>pass lead</value>
+  </data>
+  <data name="Gameplay.PassLeadDebug" xml:space="preserve">
+    <value>Test: F9 in a match changes it (+10 %)</value>
+  </data>
+  <data name="Log.PassLeadDebug" xml:space="preserve">
+    <value>Pass lead test key: F9 in a match adds 10 % (back to 30 % after 100 %), shown on screen.</value>
+  </data>
+  <data name="Gameplay.PassLead" xml:space="preserve">
+    <value>Through passes less far ahead of the receiver</value>
+  </data>
+  <data name="Overlay.PassLead" xml:space="preserve">
+    <value>PASS LEAD: {0} % (F9)</value>
+  </data>
+  <data name="Log.PassLead" xml:space="preserve">
+    <value>Pass lead: a pass is aimed {0} % as far ahead of the receiver as in the game (both teams).</value>
+  </data>
 </root>

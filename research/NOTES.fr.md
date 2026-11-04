@@ -111,6 +111,7 @@ Sonde de frappe avec étiquettes (avec bips, pavé numérique), puis points d'ar
 - La passe en hauteur est décidée par `0x5697B0` (appelée depuis le code de l'état autour de `0x56DA00`) : le **receveur** est l'octet `+0x48` du passeur, le **point visé** `+0x9C` / `+0xA0`, le genre `+0x4C`. `0x56A260`… calcule ensuite la frappe : vitesse tirée de la stat de puissance de frappe (`0x3BCF5B7`) et de la hauteur, plafonnée selon l'animation.
 - Le receveur est choisi par **`0x569020`** (passeur, direction du stick lue par `0x4B2F70`, qui prend l'angle précis du stick analogique) : la **jauge de passe** `+0x4D` (0 à `0x80`, plafonnée en `0x569821`) donne une **distance voulue** `0x800 + jauge / 8 × 0x380` (au moins `0xE00`) ; un coéquipier n'est gardé qu'à moins de `0x700` de cette distance et, pour un humain, à moins de **45°** du stick (`cmp word [esp+0x1C],0x20` en `0x56938F`) ; celui qui a le plus petit (écart d'angle + 1) × écart de distance l'emporte. Si personne n'est gardé, la passe part dans la direction du stick avec la force de la jauge. Juste avant la frappe, `0x45FFE0` revérifie le receveur dans le code protégé.
 - **Passes en hauteur : l'appui règle la distance, le stick la direction** fait croître la distance voulue avec le carré de la jauge (`0x800 + jauge² × 7 / 8` : le même maximum, environ 5600 au lieu de 9200 à mi-jauge), et resserre le cône à **22,5°**. Validé en jeu.
+- **Passes en profondeur** : le point visé (passeur `+0x9C` / `+0xA0`, trouvé avec un point d'arrêt d'écriture pendant une passe en profondeur) est placé en `0x4D0AF8`–`0x4D0B35` : point de départ + direction × **avance** (passeur `+0xA8`), l'avance étant construite d'après l'angle et la course du receveur (`0x4D0AC4`). Le ballon allait au bon receveur mais loin devant lui, et en touche sur les ailes : le garde-fou de la ligne de touche en `0x4D0B83` (ramène le point de 1024 vers l'intérieur) ne joue que pour certains genres de passe, et au hasard selon une stat du passeur. **Passes en profondeur moins loin devant le receveur** réduit l'avance là où elle est lue (60 % par défaut, F9). Validé en entraînement libre et en match.
 - Abandonné : réduire la vitesse des frappes des états 8 et 9 (70 %, F9). Le ballon tombait avant le receveur choisi par le jeu, si bien que la visée semblait aléatoire, et les centres (état 9) étaient déréglés aussi.
 
 ### Pressing et tacles
@@ -125,7 +126,7 @@ Mesuré avec un relevé du joueur contrôlé par l'humain (boutons tenus `+0xB0`
 
 ### Touches de test
 
-F2 à F8 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 %, F7 de 15°, F8 de 20 % (les textes de chaque palier sont dans des zones libres à part).
+F2 à F9 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 %, F7 de 15°, F8 de 20 %, F9 de 10 % (les textes de chaque palier sont dans des zones libres à part).
 
 ---
 

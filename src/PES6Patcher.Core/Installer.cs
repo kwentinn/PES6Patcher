@@ -22,6 +22,8 @@ namespace PES6Patcher.Core;
 /// <param name="ShotAccuracyDebug">Test key: F4 in a match changes the aim error kept.</param>
 /// <param name="LobPower">With the shot accuracy, the speed of a lob in % of the game's (its height is kept).</param>
 /// <param name="LoftedAim">Lofted passes: the press sets the distance, the stick the direction.</param>
+/// <param name="PassLead">How far ahead of the receiver a pass is aimed, in % of the game's (100 = unchanged).</param>
+/// <param name="PassLeadDebug">Test key: F9 in a match changes the pass lead.</param>
 /// <param name="Spread">Players spread across the pitch, in % away from their team's centre (0 = unchanged).</param>
 /// <param name="SpreadDebug">Test key: F5 in a match changes the spread.</param>
 /// <param name="SpeedGap">Top speed gap between players, in % of the game's (100 = unchanged).</param>
@@ -35,7 +37,7 @@ public sealed record InstallSettings(int Width, int Height, bool BorderlessWindo
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
-    int LobPower = 100, bool LoftedAim = false)
+    int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -61,13 +63,15 @@ public static class Installer
         int shotPower = settings.Gameplay ? settings.ShotPower : 100, shotAccuracy = settings.Gameplay ? settings.ShotAccuracy : 100;
         int spread = settings.Gameplay ? settings.Spread : 0, speedGap = settings.Gameplay ? settings.SpeedGap : 100,
             sprintTurn = settings.Gameplay ? settings.SprintTurn : 0,
-            tackle = settings.Gameplay ? settings.Tackle : 100;
+            tackle = settings.Gameplay ? settings.Tackle : 100,
+            passLead = settings.Gameplay ? settings.PassLead : 100;
         // without any exe fix, the exe goes back to the original
-        byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || shotPower < 100 || shotAccuracy < 100 || spread > 0 || speedGap != 100 || sprintTurn > 0 || tackle != 100 || (settings.Gameplay && settings.LoftedAim) || settings.SkipIntro
+        byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || shotPower < 100 || shotAccuracy < 100 || spread > 0 || speedGap != 100 || sprintTurn > 0 || tackle != 100 || (settings.Gameplay && settings.LoftedAim) || passLead < 100 || settings.SkipIntro
             ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro, freeKick, settings.FreeKickWeight,
                 freeKick && settings.FreeKickDebug, shotPower, shotPower < 100 && settings.ShotPowerDebug,
                 shotAccuracy, shotAccuracy < 100 && settings.ShotAccuracyDebug, spread, spread > 0 && settings.SpreadDebug, speedGap, speedGap != 100 && settings.SpeedGapDebug,
-                sprintTurn, sprintTurn > 0 && settings.SprintTurnDebug, tackle, tackle != 100 && settings.TackleDebug, shotAccuracy < 100 ? settings.LobPower : 100, settings.Gameplay && settings.LoftedAim))
+                sprintTurn, sprintTurn > 0 && settings.SprintTurnDebug, tackle, tackle != 100 && settings.TackleDebug, shotAccuracy < 100 ? settings.LobPower : 100, settings.Gameplay && settings.LoftedAim,
+                passLead, passLead < 100 && settings.PassLeadDebug))
             : original;
         string yesNo = Loc.T(freeDirection ? "Common.Yes" : "Common.No");
         log(settings.Display ? Loc.T("Log.ExeBuilt", settings.Half, yesNo) : Loc.T("Log.ExeBuiltNoDisplay", yesNo));
@@ -88,6 +92,8 @@ public static class Installer
         if (tackle != 100) log(Loc.T("Log.Tackle", tackle));
         if (tackle != 100 && settings.TackleDebug) log(Loc.T("Log.TackleDebug"));
         if (settings.Gameplay && settings.LoftedAim) log(Loc.T("Log.LoftedAim"));
+        if (passLead < 100) log(Loc.T("Log.PassLead", passLead));
+        if (passLead < 100 && settings.PassLeadDebug) log(Loc.T("Log.PassLeadDebug"));
         if (settings.SkipIntro) log(Loc.T("Log.SkipIntro"));
 
         string kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii), kload = kloadBefore;

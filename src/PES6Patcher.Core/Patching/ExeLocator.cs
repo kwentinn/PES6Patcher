@@ -117,6 +117,13 @@ internal sealed record TackleSites(int Range, int Fail);
 /// </summary>
 internal sealed record LoftedAimSites(int Gauge, int Angle);
 
+/// <summary>
+/// Pass lead: where the pass point (passer +0x9C / +0xA0) is placed ahead of the receiver, the lead (passer +0xA8) is
+/// read twice: <see cref="First"/> = mov eax,[edi+0xA8] (6 bytes, for the cosine), <see cref="Second"/> = mov ecx,[edi+0xA8]
+/// (6 bytes, for the sine).
+/// </summary>
+internal sealed record PassLeadSites(int First, int Second);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -360,6 +367,19 @@ internal sealed class ExeLocator
 
     /// <summary>Receiver angle: cmp ax,0x38 ; jae ; cmp word [esp+0x1C],0x20 (the byte at +11) ; jae.</summary>
     private const string LoftedAngle = "66 3D 38 00 73 ?? 66 83 7C 24 1C 20 73";
+
+    /// <summary>
+    /// Pass point: mov eax,[edi+0xA8] ; push eax ; push ebx ; call cos ; mov ecx,[edi+0xA8] (at +13) ; mov ebp,[esp+0x20] ;
+    /// push ecx ; add eax,ebp ; push ebx ; mov [edi+0x9C],eax ; call sin.
+    /// </summary>
+    private const string PassLead = "8B 87 A8 00 00 00 50 53 E8 ?? ?? ?? ?? 8B 8F A8 00 00 00 8B 6C 24 20 51 03 C5 53 89 87 9C 00 00 00 E8";
+
+    public static PassLeadSites? LocatePassLead(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(PassLead).FindAll(image, s)).ToList();
+        return hits.Count == 1 ? new PassLeadSites(hits[0], hits[0] + 13) : null;
+    }
 
     public static LoftedAimSites? LocateLoftedAim(byte[] exe)
     {

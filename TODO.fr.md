@@ -27,6 +27,12 @@ Les joueurs sont globalement trop rapprochés. Le jeu paraît daté, il est plus
 
 Fait pour la largeur : **Joueurs plus écartés en largeur** éloigne les joueurs qui se replacent du centre de leur équipe en largeur (20 à 30 % semblent justes en jeu). Écarter aussi en longueur faisait reculer les défenseurs trop près de leur gardien : ce n'est donc pas fait.
 
+## Passes en profondeur
+
+Les passes en profondeur vont au bon coéquipier mais loin devant lui, et sur les ailes elles sortent presque toujours en touche.
+
+Fait : **Passes en profondeur moins loin devant le receveur** réduit l'avance que le jeu donne au point visé (60 % semble juste en jeu, F9 pour comparer).
+
 ## Barre de puissance des passes
 
 Issue : [#5](https://github.com/kwentinn/PES6Patcher/issues/5)

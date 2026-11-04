@@ -324,6 +324,37 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Pass_lead_scales_both_reads_of_the_lead_that_place_the_pass_point()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).PassLead);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { PassLead = 60 });
+        var image = new PeImage(with);
+
+        // measured in game: mov eax,[edi+0xA8] at 0x4D0AF8 and mov ecx,[edi+0xA8] at 0x4D0B05
+        Assert.Equal(new byte[] { 0x8B, 0x87, 0xA8, 0, 0, 0 }, without[image.Offset(0x4D0AF8)..(image.Offset(0x4D0AF8) + 6)]);
+        Assert.Equal(new byte[] { 0x8B, 0x8F, 0xA8, 0, 0, 0 }, without[image.Offset(0x4D0B05)..(image.Offset(0x4D0B05) + 6)]);
+        Assert.Equal(0xE9, with[image.Offset(0x4D0AF8)]);
+        Assert.Equal(0xE9, with[image.Offset(0x4D0B05)]);
+        int first = image.Rel32Target(0x4D0AF8), second = image.Rel32Target(0x4D0B05);
+        Assert.Equal(new byte[] { 0x8B, 0x87, 0xA8, 0, 0, 0, 0x6B, 0xC0, 60 }, with[image.Offset(first)..(image.Offset(first) + 9)]);
+        Assert.Equal(0x4D0AFE, image.Rel32Target(first + 15));                      // back after the first read
+        Assert.Equal(new byte[] { 0x50, 0x52, 0x8B, 0x87, 0xA8, 0, 0, 0 }, with[image.Offset(second)..(image.Offset(second) + 8)]);
+        Assert.Equal(0x4D0B0B, image.Rel32Target(second + 21));                     // back after the second read, ecx = scaled lead
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { PassLead = 20 }));
+
+        // with F9: the percent comes from the test keys' state (+30)
+        var debug = ExePatcher.Build(original, options with { FreeKick = true, PassLead = 60, PassLeadDebug = true });
+        var debugImage = new PeImage(debug);
+        int debugFirst = debugImage.Offset(debugImage.Rel32Target(0x4D0AF8));
+        Assert.True(debug.AsSpan(debugFirst, 40).IndexOf(new byte[] { 0x0F, 0xB7, 0x0D }) > 0);
+    }
+
+    [Fact]
     public void Lofted_aim_squares_the_gauge_and_narrows_the_receiver_angle()
     {
         var original = Load("PES6.orig.exe");

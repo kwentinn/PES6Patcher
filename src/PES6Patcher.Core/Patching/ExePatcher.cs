@@ -17,6 +17,8 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="ShotAccuracyDebug">Test key: F4 in game changes <paramref name="ShotAccuracy"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="LobPower">With <paramref name="ShotAccuracy"/>, the speed of a lob (L1 held) in % of the game's; its height is kept (not taken for an error).</param>
 /// <param name="LoftedAim">Lofted passes follow the press and the stick more: the distance wanted grows with the square of the gauge (same maximum), and the receiver must be within 22.5 degrees of the stick (45 in the game).</param>
+/// <param name="PassLead">How far ahead of the receiver a pass is aimed, in % of the game's lead (100 = unchanged): through passes no longer run out of play.</param>
+/// <param name="PassLeadDebug">Test key: F9 in game changes <paramref name="PassLead"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
 /// <param name="SpreadDebug">Test key: F5 in game changes <paramref name="Spread"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="SpeedGapDebug">Test key: F6 in game changes <paramref name="SpeedGap"/> by 25 % and shows it (through Kitserver).</param>
@@ -29,7 +31,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
-    int LobPower = 100, bool LoftedAim = false)
+    int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false)
 {
     /// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
@@ -42,6 +44,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
     /// <summary>Lob speed with the shot accuracy, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultLobPower = 70, MinLobPower = 40, MaxLobPower = 100;
+
+    /// <summary>Pass lead, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
+    public const int DefaultPassLead = 60, MinPassLead = 30, MaxPassLead = 100;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -92,7 +97,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The lofted pass aim can be changed.</summary>
     public bool LoftedAim { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim;
+    /// <summary>The pass lead can be shortened.</summary>
+    public bool PassLead { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -130,6 +138,7 @@ public static class ExePatcher
                 CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
                 Spread = ExeLocator.LocateSpread(exe) != null, SpeedGap = ExeLocator.LocateSpeed(exe) != null,
                 SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null, Tackle = ExeLocator.LocateTackle(exe) != null, LoftedAim = ExeLocator.LocateLoftedAim(exe) != null,
+                PassLead = ExeLocator.LocatePassLead(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -208,8 +217,9 @@ public static class ExePatcher
         bool freeKickKey = options.FreeKick && options.FreeKickDebug, shotKey = options.ShotPower < 100 && options.ShotPowerDebug,
             accuracyKey = options.ShotAccuracy < 100 && options.ShotAccuracyDebug, spreadKey = options.Spread > 0 && options.SpreadDebug,
             speedKey = options.SpeedGap != 100 && options.SpeedGapDebug, sprintKey = options.SprintTurn > 0 && options.SprintTurnDebug,
-            tackleKey = options.Tackle != 100 && options.TackleDebug;
-        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey) && freeKick == null) throw new PatchException(problems);
+            tackleKey = options.Tackle != 100 && options.TackleDebug,
+            passLeadKey = options.PassLead < 100 && options.PassLeadDebug;
+        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key, int step = CodeCaves.TestKeyStep)
         {
@@ -253,6 +263,11 @@ public static class ExePatcher
         {
             var (texts, stride) = KeyTexts(PatchOptions.MaxTackle, "Overlay.Tackle", CodeCaves.TackleStep);
             keys.Add(CodeCaves.TackleTestKey(options.Tackle, texts, stride));
+        }
+        if (passLeadKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxPassLead, "Overlay.PassLead");
+            keys.Add(CodeCaves.PassLeadTestKey(options.PassLead, texts, stride));
         }
         int testKeysSetUp = 0;
         if (keys.Count > 0)
@@ -379,6 +394,19 @@ public static class ExePatcher
             var sites = ExeLocator.LocateLoftedAim(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.LoftedAim"), 0)]);
             plan.Add((sites.Gauge, CodeCaves.LoftedGaugeSquare));
             plan.Add((sites.Angle, [CodeCaves.LoftedAngle]));
+        }
+
+        // pass lead: the pass point is placed less far ahead of the receiver (through passes stay in play)
+        if (options.PassLead < 100)
+        {
+            if (options.PassLead < PatchOptions.MinPassLead) throw new ArgumentOutOfRangeException(nameof(options), options.PassLead, null);
+            var sites = ExeLocator.LocatePassLead(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.PassLead"), 0)]);
+            var testKeys = passLeadKey ? freeKick : null;
+            int size = CodeCaves.PassLead(0, sites, options.PassLead, testKeys).Cave.Length;
+            int at = Cave(size);
+            var (cave, entries) = CodeCaves.PassLead(at, sites, options.PassLead, testKeys);
+            plan.Add((at, cave));
+            plan.AddRange(entries);
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);

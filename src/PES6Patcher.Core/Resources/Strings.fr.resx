@@ -447,4 +447,25 @@
   <data name="Log.LoftedAim" xml:space="preserve">
     <value>Passes en hauteur : un appui court vise un coéquipier plus proche (même maximum), et le receveur est cherché à moins de 22,5 degrés du stick (45 dans le jeu).</value>
   </data>
+  <data name="Gameplay.PassLeadPercent" xml:space="preserve">
+    <value>% de l'avance du jeu</value>
+  </data>
+  <data name="Hook.PassLead" xml:space="preserve">
+    <value>avance des passes</value>
+  </data>
+  <data name="Gameplay.PassLeadDebug" xml:space="preserve">
+    <value>Test : F9 en match le change (+10 %)</value>
+  </data>
+  <data name="Log.PassLeadDebug" xml:space="preserve">
+    <value>Touche de test de l'avance des passes : F9 en match ajoute 10 % (retour à 30 % après 100 %), affiché à l'écran.</value>
+  </data>
+  <data name="Gameplay.PassLead" xml:space="preserve">
+    <value>Passes en profondeur moins loin devant le receveur</value>
+  </data>
+  <data name="Overlay.PassLead" xml:space="preserve">
+    <value>AVANCE DES PASSES : {0} % (F9)</value>
+  </data>
+  <data name="Log.PassLead" xml:space="preserve">
+    <value>Avance des passes : une passe vise à {0} % de la distance devant le receveur du jeu (les deux équipes).</value>
+  </data>
 </root>

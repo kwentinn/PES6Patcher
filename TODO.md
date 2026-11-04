@@ -27,6 +27,12 @@ Players stand too close to each other overall. The game feels dated, harder, and
 
 Done for the width: **Players spread wider** moves the players placing themselves away from their team's centre across the pitch (20 to 30 % feel right in game). Spreading the length too made the defenders drop too close to their keeper, so it was left out.
 
+## Through passes
+
+Through passes reach the right team-mate but far ahead of him, and on the wings they almost always go out of play.
+
+Done: **Through passes less far ahead of the receiver** shortens the lead the game gives the pass point (60 % feels right in game, F9 to compare).
+
 ## Pass power bar
 
 Issue: [#5](https://github.com/kwentinn/PES6Patcher/issues/5)

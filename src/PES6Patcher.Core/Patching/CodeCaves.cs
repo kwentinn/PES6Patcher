@@ -242,7 +242,7 @@ internal static class CodeCaves
     private const byte StickUp = 0x10;
 
     /// <summary>Test keys (debug): F2 changes the free kick weight, F3 the shot power, F4 the shot aim error, by 10 % (wrapping from the maximum to the minimum).</summary>
-    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75, SprintTurnKey = 0x76, TackleKey = 0x77;   // VK_F2 to VK_F8
+    public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75, SprintTurnKey = 0x76, TackleKey = 0x77, PassLeadKey = 0x78;   // VK_F2 to VK_F9
     public const int TestKeyStep = 10;
 
     /// <summary>
@@ -251,10 +251,10 @@ internal static class CodeCaves
     /// +4 free kick weight percent (word, 0 = the patcher's), +8 tick until which a test key value shows,
     /// +12 KDrawText, +16 shot power percent (word, 0 = the patcher's), +18 test key shown, +20 shot aim error
     /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's), +24 speed gap percent (word, 0 = the patcher's),
-    /// +26 sprint turn maximum in degrees (word, 0 = the patcher's), +28 challenge reach percent (word, 0 = the patcher's).
+    /// +26 sprint turn maximum in degrees (word, 0 = the patcher's), +28 challenge reach percent (word, 0 = the patcher's), +30 pass lead percent (word, 0 = the patcher's).
     /// </summary>
     private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28;
+        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28, PassLeadState = 30;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
@@ -648,6 +648,44 @@ internal static class CodeCaves
 
     /// <summary>Lofted pass aim: a receiver must be within this angle of the stick (1/256 of a turn: 22.5 degrees; the game's is 45).</summary>
     public const byte LoftedAngle = 0x10;
+
+    /// <summary>
+    /// Pass lead: the two reads of the lead (passer +0xA8) that place the pass point ahead of the receiver jump here and
+    /// get it scaled to <paramref name="percent"/> % (or the F9 value), so a through pass no longer runs far ahead of the
+    /// receiver (and out on the wings). The lead itself is not changed (the game keeps building it). One cave, two entries.
+    /// </summary>
+    public static (byte[] Cave, (int Va, byte[] Bytes)[] Entries) PassLead(int cave, PassLeadSites sites, int percent, FreeKickSites? testKeys = null)
+    {
+        var code = new CodeBuilder(cave);
+        void Scaled(string name)
+        {
+            // eax = lead * percent / 100 (ecx and edx are free at the first read; the second keeps eax and edx)
+            code.Mark(name)
+                .Bytes(0x8B, 0x87, 0xA8, 0x00, 0x00, 0x00);         // mov eax,[edi+0xA8]   ; lead
+            if (testKeys != null)
+                code.Bytes([0x0F, 0xB7, 0x0D], testKeys.State + PassLeadState)   // movzx ecx,word [percent]
+                    .Bytes(0x85, 0xC9)                              // test ecx,ecx
+                    .Jump(0x75, name + "Set")                       // jne set
+                    .Bytes(0x6A, (byte)percent, 0x59)               // push percent ; pop ecx ; from the patcher
+                    .Mark(name + "Set")
+                    .Bytes(0x0F, 0xAF, 0xC1);                       // imul eax,ecx
+            else
+                code.Bytes(0x6B, 0xC0, (byte)percent);              // imul eax,eax,percent
+            code.Bytes(0x99, 0x6A, 0x64, 0x59, 0xF7, 0xF9);         // cdq ; push 100 ; pop ecx ; idiv ecx
+        }
+        Scaled("first");
+        code.JumpTo(sites.First + 6);                               // jmp back             ; eax = scaled lead
+        code.Bytes(0x50, 0x52);                                     // second: push eax ; push edx   ; the cosine stays
+        Scaled("second");
+        code.Bytes(0x8B, 0xC8, 0x5A, 0x58)                          // mov ecx,eax ; pop edx ; pop eax
+            .JumpTo(sites.Second + 6);                              // jmp back             ; ecx = scaled lead
+        var bytes = code.Build();
+        int second = code.AddressOfLabel("second") - 2;             // the push eax ; push edx before it
+        return (bytes, [(sites.First, CodeBuilder.JumpPatch(sites.First, cave, 6)), (sites.Second, CodeBuilder.JumpPatch(sites.Second, second, 6))]);
+    }
+
+    public static TestKey PassLeadTestKey(int percent, int texts, int stride) =>
+        new(PassLeadKey, PassLeadState, percent, PatchOptions.MinPassLead, PatchOptions.MaxPassLead, texts, stride);
 
     /// <summary>Pressing challenge: the game's reach (distance to the ball) and attempt parameter at 100 %.</summary>
     public const int TackleBaseRange = 0xA0, TackleBaseParameter = 0x50;
