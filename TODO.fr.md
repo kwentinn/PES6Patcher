@@ -147,4 +147,30 @@ Appuyer deux fois sur R1 en sprint pousse le ballon plus loin devant. Un troisi�
 
 ## Coups de pied arrêtés : stick trop sensible
 
+Issue : [#20](https://github.com/kwentinn/PES6Patcher/issues/20)
+
 Sur les corners (et les coups francs aussi), le stick déplace trop la visée : une légère poussée l'envoie loin. Sans doute accentué par la zone morte du stick réduite. Trouver d'abord comment la visée des coups de pied arrêtés lit le stick, puis réduire sa sensibilité.
+
+## IA : le gardien monte sur les derniers corners
+
+Issue : [#21](https://github.com/kwentinn/PES6Patcher/issues/21)
+
+Suggestion de daffi2 sur Evo-Web : quand une équipe est menée en fin de match, son gardien pourrait monter dans la surface adverse sur les corners. Il faut d'abord trouver comment l'IA choisit les joueurs qui montent sur un coup de pied arrêté.
+
+## Joueurs humains : changer de joueur au stick droit
+
+Issue : [#22](https://github.com/kwentinn/PES6Patcher/issues/22)
+
+Suggestion de jean noel sur Evo-Web : choisir le joueur à contrôler en pointant le stick droit vers lui, comme dans les PES suivants. Il faut d'abord trouver où le jeu choisit le joueur suivant au changement.
+
+## IA : défendre en bloc
+
+Issue : [#23](https://github.com/kwentinn/PES6Patcher/issues/23)
+
+Suggestion de Tinker sur Evo-Web : en défense, les défenseurs se regroupent, les milieux défensifs rejoignent la ligne arrière et les défenseurs reculent jusqu'à leur surface au lieu de tenir une ligne. **Joueurs plus écartés en largeur** aide déjà en largeur ; tenir une ligne défensive demande de changer le placement des joueurs sans le ballon.
+
+## Vitesse de jeu : la vitesse x2 de la boutique
+
+Issue : [#24](https://github.com/kwentinn/PES6Patcher/issues/24)
+
+Suggestion de bukowski sur Evo-Web : la boutique PES déverrouille une vitesse de jeu x2. Comprendre comment elle marche pourrait montrer où le jeu règle sa vitesse, pour un vrai réglage de vitesse (Speeder ralentit tout le moteur).

@@ -147,4 +147,30 @@ Pressing R1 twice while sprinting pushes the ball further ahead. A third press c
 
 ## Set pieces: stick too sensitive
 
+Issue: [#20](https://github.com/kwentinn/PES6Patcher/issues/20)
+
 On corners (and free kicks too), the stick moves the aim too much: a slight push sends it far. Probably made worse by the smaller analog stick dead zone. First find how the set piece aim reads the stick, then lower its sensitivity.
+
+## AI: keeper going up for late corners
+
+Issue: [#21](https://github.com/kwentinn/PES6Patcher/issues/21)
+
+Suggested by daffi2 on Evo-Web: when a team is losing late in the match, its keeper could go up into the opposing box for corners. First find how the AI picks the players who go forward on a set piece.
+
+## Human players: switch player with the right stick
+
+Issue: [#22](https://github.com/kwentinn/PES6Patcher/issues/22)
+
+Suggested by jean noel on Evo-Web: choose the player to control by pointing the right stick towards him, as in later PES. First find where the game picks the next player when switching.
+
+## AI: defending as a unit
+
+Issue: [#23](https://github.com/kwentinn/PES6Patcher/issues/23)
+
+Suggested by Tinker on Evo-Web: when defending, the defenders bunch together, the defensive midfielders join the back line and the defenders drop back to their box instead of holding a line. **Players spread wider** already helps across the pitch; keeping a defensive line means changing how the players without the ball place themselves.
+
+## Game speed: the x2 speed from the shop
+
+Issue: [#24](https://github.com/kwentinn/PES6Patcher/issues/24)
+
+Suggested by bukowski on Evo-Web: the PES Shop unlocks a x2 game speed. Finding how it works may show where the game sets its speed, for a real speed setting (Speeder slows the whole engine).
