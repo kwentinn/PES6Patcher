@@ -26,6 +26,7 @@ internal sealed class MainForm : Form
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Increment = 10, Width = 80 };
     private readonly Label _formatInfo = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
+    private readonly CheckBox _checkAll = new() { Text = Loc.T("Gameplay.CheckAll"), AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Italic) };
     private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
     private readonly CheckBox _stickDeadZone = new() { Text = Loc.T("Gameplay.StickDeadZone"), AutoSize = true, Checked = true };
     private readonly NumericUpDown _stickDeadZonePercent = new()
@@ -143,6 +144,13 @@ internal sealed class MainForm : Form
         _stickDeadZone.CheckedChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
         _passLead.EnabledChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
         _passLead.CheckedChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
+        // "check all": a click sets every available option; it shows as checked when they all are
+        _checkAll.Click += (_, _) => { foreach (var option in GameplayOptions.Where(o => o.Enabled)) option.Checked = _checkAll.Checked; };
+        foreach (var option in GameplayOptions)
+        {
+            option.CheckedChanged += (_, _) => UpdateCheckAll();
+            option.EnabledChanged += (_, _) => UpdateCheckAll();
+        }
         _physicsCredit.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(PhysicsMod.Url) { UseShellExecute = true });
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
@@ -164,6 +172,7 @@ internal sealed class MainForm : Form
             _formatInfo,
             _borderless);
         var gameplay = Group(_gameplay,
+            _checkAll,
             _freeDirection,
             Flow(_stickDeadZone, _stickDeadZonePercent, LabelText(Loc.T("Gameplay.StickDeadZonePercent"))),
             _closeDribble,
@@ -297,6 +306,17 @@ internal sealed class MainForm : Form
             TackleDebug: _tackleDebug.Checked, LoftedAim: _loftedAim.Enabled && _loftedAim.Checked,
             PassLead: _passLead.Enabled && _passLead.Checked ? (int)_passLeadPercent.Value : 100, PassLeadDebug: _passLeadDebug.Checked,
             StickDeadZone: _stickDeadZone.Enabled && _stickDeadZone.Checked ? (int)_stickDeadZonePercent.Value : PatchOptions.GameStickDeadZone);
+
+    /// <summary>The gameplay options that "check all" sets (not the test keys).</summary>
+    private CheckBox[] GameplayOptions =>
+        [_freeDirection, _stickDeadZone, _closeDribble, _freeKick, _shot, _accuracy, _spread, _speedGap, _sprintTurn, _tackle, _loftedAim, _passLead, _physicsMod];
+
+    private void UpdateCheckAll()
+    {
+        var available = GameplayOptions.Where(o => o.Enabled).ToList();
+        _checkAll.Checked = available.Count > 0 && available.All(o => o.Checked);
+        _checkAll.Enabled = available.Count > 0;
+    }
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()

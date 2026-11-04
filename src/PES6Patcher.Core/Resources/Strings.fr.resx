@@ -480,4 +480,7 @@
   <data name="Log.StickDeadZone" xml:space="preserve">
     <value>Stick analogique : zone morte de chaque axe à {0} % (le jeu : 29 %), pour qu'un stick tenu près d'un axe oriente le joueur au lieu de se coller à l'axe.</value>
   </data>
+  <data name="Gameplay.CheckAll" xml:space="preserve">
+    <value>Tout cocher</value>
+  </data>
 </root>

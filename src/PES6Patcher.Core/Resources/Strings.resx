@@ -480,4 +480,7 @@
   <data name="Log.StickDeadZone" xml:space="preserve">
     <value>Analog stick: dead zone of each axis at {0} % (the game's: 29 %), so a stick held near an axis steers instead of snapping onto it.</value>
   </data>
+  <data name="Gameplay.CheckAll" xml:space="preserve">
+    <value>Check all</value>
+  </data>
 </root>
