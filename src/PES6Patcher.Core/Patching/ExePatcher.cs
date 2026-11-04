@@ -19,6 +19,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="LoftedAim">Lofted passes follow the press and the stick more: the distance wanted grows with the square of the gauge (same maximum), and the receiver must be within 22.5 degrees of the stick (45 in the game).</param>
 /// <param name="PassLead">How far ahead of the receiver a pass is aimed, in % of the game's lead (100 = unchanged): through passes no longer run out of play.</param>
 /// <param name="PassLeadDebug">Test key: F9 in game changes <paramref name="PassLead"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="StickDeadZone">Analog stick dead zone of each axis, in % (<see cref="GameStickDeadZone"/> = unchanged): smaller, a stick held near an axis no longer snaps onto it.</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
 /// <param name="SpreadDebug">Test key: F5 in game changes <paramref name="Spread"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="SpeedGapDebug">Test key: F6 in game changes <paramref name="SpeedGap"/> by 25 % and shows it (through Kitserver).</param>
@@ -31,8 +32,13 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
-    int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false)
+    int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone)
 {
+    /// <summary>
+    /// Analog stick dead zone of each axis, in % of the axis (the game's: 29 %, 37 of 127): default (tested in game) and limits.
+    /// </summary>
+    public const int GameStickDeadZone = 29, DefaultStickDeadZone = 6, MinStickDeadZone = 2, MaxStickDeadZone = 20;
+
     /// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
 
@@ -100,7 +106,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The pass lead can be shortened.</summary>
     public bool PassLead { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead;
+    /// <summary>The analog stick dead zone can be made smaller.</summary>
+    public bool StickDeadZone { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -138,7 +147,7 @@ public static class ExePatcher
                 CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
                 Spread = ExeLocator.LocateSpread(exe) != null, SpeedGap = ExeLocator.LocateSpeed(exe) != null,
                 SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null, Tackle = ExeLocator.LocateTackle(exe) != null, LoftedAim = ExeLocator.LocateLoftedAim(exe) != null,
-                PassLead = ExeLocator.LocatePassLead(exe) != null,
+                PassLead = ExeLocator.LocatePassLead(exe) != null, StickDeadZone = ExeLocator.LocateStickDeadZone(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -394,6 +403,16 @@ public static class ExePatcher
             var sites = ExeLocator.LocateLoftedAim(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.LoftedAim"), 0)]);
             plan.Add((sites.Gauge, CodeCaves.LoftedGaugeSquare));
             plan.Add((sites.Angle, [CodeCaves.LoftedAngle]));
+        }
+
+        // analog stick dead zone: each axis is zeroed near the centre; a smaller zone lets a stick held near an axis
+        // steer instead of snapping onto it
+        if (options.StickDeadZone != PatchOptions.GameStickDeadZone)
+        {
+            if (options.StickDeadZone is < PatchOptions.MinStickDeadZone or > PatchOptions.MaxStickDeadZone) throw new ArgumentOutOfRangeException(nameof(options), options.StickDeadZone, null);
+            var sites = ExeLocator.LocateStickDeadZone(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.StickDeadZone"), 0)]);
+            byte limit = CodeCaves.StickDeadZoneLimit(options.StickDeadZone);
+            foreach (int site in sites.Limits) plan.Add((site, [limit]));
         }
 
         // pass lead: the pass point is placed less far ahead of the receiver (through passes stay in play)

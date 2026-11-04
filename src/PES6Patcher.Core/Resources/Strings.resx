@@ -468,4 +468,16 @@
   <data name="Log.PassLead" xml:space="preserve">
     <value>Pass lead: a pass is aimed {0} % as far ahead of the receiver as in the game (both teams).</value>
   </data>
+  <data name="Gameplay.StickDeadZone" xml:space="preserve">
+    <value>Smaller analog stick dead zone:</value>
+  </data>
+  <data name="Gameplay.StickDeadZonePercent" xml:space="preserve">
+    <value>% of the axis (the game's: 29 %)</value>
+  </data>
+  <data name="Hook.StickDeadZone" xml:space="preserve">
+    <value>stick dead zone</value>
+  </data>
+  <data name="Log.StickDeadZone" xml:space="preserve">
+    <value>Analog stick: dead zone of each axis at {0} % (the game's: 29 %), so a stick held near an axis steers instead of snapping onto it.</value>
+  </data>
 </root>

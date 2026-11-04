@@ -103,6 +103,17 @@ Mesuré avec `pes6turnlog.ps1` (une ligne à chaque changement des champs du por
 - **Virages plus francs en sprint** remplace le `push 1000h` par le virage maximum du porteur : 22,5° jusqu'à 65 en précision de dribble (celui du jeu), le maximum choisi (90° par défaut) à partir de 95, proportionnellement entre les deux. Une touche qui tourne le ballon de plus de 22,5° par rapport à sa direction actuelle (`[ballon+0x58]`) perd aussi jusqu'à 40 % de sa vitesse (atteint à 90°), à l'appel du relais (`0x5AFB32`), pour que le ballon reste plus près pendant que le joueur tourne. Testé en mémoire, puis validé en jeu.
 - Essayé puis abandonné : relever le `push 2Dh` (45°) d'autres foulées (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70` : elles ne servent jamais en dribble) ; relever les pas de 15° et 25° (sans effet : le code protégé les ignore) ; forcer la direction du joueur sur celle du stick (`0x4E2A7E` : le corps tourne, pas le ballon) ou sur celle de la touche (`0x4E2B04` : l'animation saute, et avec le changement du ballon le joueur ne tourne plus).
 
+### Zone morte du stick
+
+Mesuré avec `pes6turnlog.ps1` en dribblant vers la droite et en bougeant légèrement le stick vers le haut et le bas, puis avec des points d'arrêt en écriture :
+
+- L'angle du stick (`0x1016680` + manette × 4) ne prend jamais de valeur à moins d'environ 16° de 0°, 90°, 180° ou 270° : il reste pile sur l'axe, puis saute à 16-17°. Le joueur continue donc sur une ligne, quoi que fasse le code des directions libres avec l'angle.
+- L'angle est écrit en `0x4B23E7` à partir de 4 octets d'axe par manette (`0x3BCEE51`…, un octet par demi-axe), par une arctangente ; là, les deux axes sous `0x19` donnent la zone morte centrale.
+- Ces octets viennent du lecteur de manette `0x8B7D63`… : chaque axe brut (0-255, centre 128) est mis à zéro quand il est à `0x25` (37) ou moins du centre (`cmp eax,25h` en `0x8B7D83`, `0x8B7DAA`, `0x8B7DD1`, `0x8B7DFC`), sans remise à l'échelle. C'est une zone morte de 29 % par axe, d'où les 16° (arctan(37/127)).
+- **Zone morte du stick analogique réduite** abaisse les 4 limites (6 % = 8 par défaut). Validé en jeu : un léger mouvement du stick oriente le joueur. Elle vaut pour les deux sticks (stick droit : passes manuelles).
+- Essayé avant, sans effet tant que l'angle était aplati : supprimer l'arrondi à 22,5° en `0x4E2AF3` (touche de sprint) et `0x4DCE5D` (foulée de course : l'angle du stick), et abaisser les zones mortes des foulées (`0x4E2870` : 8, `0x4DCE73` : `0x18`, `0x4DCEEE` : `0x0E`, en 256e de tour).
+- Détacher le débogueur (`pes6watch.ps1`) du jeu l'a fermé.
+
 ### Passes en hauteur et centres
 
 Sonde de frappe avec étiquettes (avec bips, pavé numérique), puis points d'arrêt et lecture du code :

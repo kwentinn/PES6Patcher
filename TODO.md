@@ -83,6 +83,8 @@ Issue: [#8](https://github.com/kwentinn/PES6Patcher/issues/8)
 
 The free direction follows the stick's precise angle, but some dribble touches and moves still use the game's own directions. Can a player really go anywhere?
 
+Done for the stick: the game read any stick held within about 16° of an axis as exactly on it (a dead zone of 29 % per axis), so the player kept running along a line. **Smaller analog stick dead zone** lowers it (6 % by default). Still open: some turning moves send the ball along multiples of 45° or 22.5°.
+
 ## Human players: sharp changes of direction with the ball
 
 Issue: [#11](https://github.com/kwentinn/PES6Patcher/issues/11)

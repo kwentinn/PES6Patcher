@@ -124,6 +124,13 @@ internal sealed record LoftedAimSites(int Gauge, int Angle);
 /// </summary>
 internal sealed record PassLeadSites(int First, int Second);
 
+/// <summary>
+/// Analog stick dead zone, in the pad reader: each of the 4 axis bytes (0-255, centre 128) is zeroed when its distance from the
+/// centre is at most 0x25; <see cref="Limits"/> = the imm8 of those 4 "cmp eax,25h". A stick held within about 16 degrees of
+/// an axis therefore reads as exactly on it.
+/// </summary>
+internal sealed record StickDeadZoneSites(int[] Limits);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -379,6 +386,17 @@ internal sealed class ExeLocator
         var image = new PeImage(exe);
         var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(PassLead).FindAll(image, s)).ToList();
         return hits.Count == 1 ? new PassLeadSites(hits[0], hits[0] + 13) : null;
+    }
+
+    /// <summary>One axis of the pad reader: neg eax (distance from 128) ; cmp eax,25h ; jle +12 ; movzx reg,dl ; sub reg,80h.</summary>
+    private const string StickAxis = "F7 D8 83 F8 25 7E 0C 66 0F B6 ?? 81 ?? 80 00 00 00";
+
+    public static StickDeadZoneSites? LocateStickDeadZone(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(StickAxis).FindAll(image, s)).Order().ToList();
+        // the 4 axes follow one another in the same function
+        return hits.Count == 4 && hits[3] - hits[0] < 0x100 ? new StickDeadZoneSites([.. hits.Select(h => h + 4)]) : null;
     }
 
     public static LoftedAimSites? LocateLoftedAim(byte[] exe)

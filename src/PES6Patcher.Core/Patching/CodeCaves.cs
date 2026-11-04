@@ -911,6 +911,9 @@ internal static class CodeCaves
         return new Hook("Hook.ShotPower", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 9), cave, bytes);
     }
 
+    /// <summary>The pad reader's limit for a dead zone in % of the axis (127 from the centre): 6 % -> 8, the game's 29 % -> 37.</summary>
+    public static byte StickDeadZoneLimit(int percent) => (byte)Math.Round(percent * 127 / 100.0);
+
     /// <summary>Shot height above which the excess is scaled by <see cref="ShotAccuracy"/>.</summary>
     public const int ShotHeightPivot = 20;
 

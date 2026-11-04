@@ -359,6 +359,29 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Stick_dead_zone_lowers_the_four_axis_limits()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).StickDeadZone);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { StickDeadZone = PatchOptions.DefaultStickDeadZone });
+        var image = new PeImage(with);
+
+        // measured in game: the imm8 of the 4 "cmp eax,25h" of the pad reader; 6 % of 127 -> 8
+        int[] sites = [0x8B7D83, 0x8B7DAA, 0x8B7DD1, 0x8B7DFC];
+        Assert.Equal(8, CodeCaves.StickDeadZoneLimit(PatchOptions.DefaultStickDeadZone));
+        Assert.Equal(0x25, CodeCaves.StickDeadZoneLimit(PatchOptions.GameStickDeadZone));
+        Assert.All(sites, va => Assert.Equal(0x25, without[image.Offset(va)]));
+        Assert.All(sites, va => Assert.Equal(8, with[image.Offset(va)]));
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.Equal(sites.Select(image.Offset), changed);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { StickDeadZone = 1 }));
+    }
+
+    [Fact]
     public void Lofted_aim_squares_the_gauge_and_narrows_the_receiver_angle()
     {
         var original = Load("PES6.orig.exe");

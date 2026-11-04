@@ -103,6 +103,17 @@ Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's field
 - **Sharper turns when sprinting** replaces the `push 1000h` by the maximum turn of the carrier: 22.5° up to 65 in dribble accuracy (the game's), the chosen maximum (90° by default) from 95, in proportion between. A touch that turns the ball more than 22.5° from its current direction (`[ball+0x58]`) also loses up to 40 % of its speed (reached at 90°), at the relay call (`0x5AFB32`), so the ball stays closer while the player turns. Tested in memory, then validated in game.
 - Tried and dropped: raising the `push 2Dh` (45°) of other strides (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70`: they never run while dribbling); raising the 15° and 25° steps (no effect: the protected code ignores them); forcing the player's direction to the stick's (`0x4E2A7E`: the body turns, the ball does not) or to the touch's (`0x4E2B04`: the animation jumps, and with the ball change the player stops turning).
 
+### Stick dead zone
+
+Measured with `pes6turnlog.ps1` while dribbling right and nudging the stick up and down, then with write breakpoints:
+
+- The stick angle (`0x1016680` + pad × 4) never takes a value within about 16° of 0°, 90°, 180° or 270°: it stays exactly on the axis, then jumps to 16-17°. So the player keeps running along a line, whatever the free direction code does with the angle.
+- The angle is written at `0x4B23E7` from 4 axis bytes per pad (`0x3BCEE51`…, one byte per half axis), through an arctangent; there, both axes under `0x19` give the centre dead zone.
+- Those bytes come from the pad reader `0x8B7D63`…: each raw axis (0-255, centre 128) is zeroed when it is at most `0x25` (37) from the centre (`cmp eax,25h` at `0x8B7D83`, `0x8B7DAA`, `0x8B7DD1`, `0x8B7DFC`), without rescaling. That is a per-axis dead zone of 29 %, hence the 16° (arctan(37/127)).
+- **Smaller analog stick dead zone** lowers the 4 limits (6 % = 8 by default). Validated in game: a slight move of the stick steers the player. It applies to both sticks (right stick: manual passes).
+- Tried before, without effect while the angle was flattened: removing the 22.5° rounding at `0x4E2AF3` (sprint touch) and `0x4DCE5D` (running stride: the stick angle), and lowering the stride dead zones (`0x4E2870`: 8, `0x4DCE73`: `0x18`, `0x4DCEEE`: `0x0E`, in 1/256 of a turn).
+- Detaching the debugger (`pes6watch.ps1`) from the game closed it.
+
 ### Lofted passes and crosses
 
 Kick probe with tags (with beeps, numpad), then breakpoints and reading:

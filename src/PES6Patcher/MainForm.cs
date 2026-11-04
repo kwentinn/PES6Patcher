@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -27,6 +27,12 @@ internal sealed class MainForm : Form
     private readonly Label _formatInfo = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
     private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
+    private readonly CheckBox _stickDeadZone = new() { Text = Loc.T("Gameplay.StickDeadZone"), AutoSize = true, Checked = true };
+    private readonly NumericUpDown _stickDeadZonePercent = new()
+    {
+        Minimum = PatchOptions.MinStickDeadZone, Maximum = PatchOptions.MaxStickDeadZone, Increment = 2,
+        Value = PatchOptions.DefaultStickDeadZone, Width = 60,
+    };
     private readonly CheckBox _closeDribble = new() { Text = Loc.T("Gameplay.CloseDribble"), AutoSize = true };
     private readonly CheckBox _freeKick = new() { Text = Loc.T("Gameplay.FreeKick"), AutoSize = true };
     private readonly NumericUpDown _freeKickWeight = new()
@@ -133,6 +139,8 @@ internal sealed class MainForm : Form
         _sprintTurn.CheckedChanged += (_, _) => _sprintTurnDegrees.Enabled = _sprintTurnDebug.Enabled = _sprintTurn.Enabled && _sprintTurn.Checked;
         _tackle.EnabledChanged += (_, _) => _tacklePercent.Enabled = _tackleDebug.Enabled = _tackle.Enabled && _tackle.Checked;
         _tackle.CheckedChanged += (_, _) => _tacklePercent.Enabled = _tackleDebug.Enabled = _tackle.Enabled && _tackle.Checked;
+        _stickDeadZone.EnabledChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
+        _stickDeadZone.CheckedChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
         _passLead.EnabledChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
         _passLead.CheckedChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
         _physicsCredit.LinkClicked += (_, _) => Process.Start(new ProcessStartInfo(PhysicsMod.Url) { UseShellExecute = true });
@@ -157,6 +165,7 @@ internal sealed class MainForm : Form
             _borderless);
         var gameplay = Group(_gameplay,
             _freeDirection,
+            Flow(_stickDeadZone, _stickDeadZonePercent, LabelText(Loc.T("Gameplay.StickDeadZonePercent"))),
             _closeDribble,
             Flow(_freeKick, _freeKickWeight, LabelText(Loc.T("Gameplay.FreeKickWeight"))),
             _freeKickDebug,
@@ -242,6 +251,8 @@ internal sealed class MainForm : Form
             _passLead.Checked = previous.PassLead;
             _passLeadPercent.Value = previous.PassLeadPercent;
             _passLeadDebug.Checked = previous.PassLeadDebug;
+            _stickDeadZone.Checked = previous.StickDeadZone;
+            _stickDeadZonePercent.Value = previous.StickDeadZonePercent;
             _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
@@ -267,7 +278,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -284,7 +295,8 @@ internal sealed class MainForm : Form
             LobPower: (int)_lobPower.Value,
             SprintTurnDebug: _sprintTurnDebug.Checked, Tackle: _tackle.Enabled && _tackle.Checked ? (int)_tacklePercent.Value : 100,
             TackleDebug: _tackleDebug.Checked, LoftedAim: _loftedAim.Enabled && _loftedAim.Checked,
-            PassLead: _passLead.Enabled && _passLead.Checked ? (int)_passLeadPercent.Value : 100, PassLeadDebug: _passLeadDebug.Checked);
+            PassLead: _passLead.Enabled && _passLead.Checked ? (int)_passLeadPercent.Value : 100, PassLeadDebug: _passLeadDebug.Checked,
+            StickDeadZone: _stickDeadZone.Enabled && _stickDeadZone.Checked ? (int)_stickDeadZonePercent.Value : PatchOptions.GameStickDeadZone);
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
     private void UpdateApply()
@@ -386,6 +398,9 @@ internal sealed class MainForm : Form
         bool passLead = report is { PassLead: true };
         _passLead.Enabled = passLead;
         _passLead.Text = Loc.T("Gameplay.PassLead") + (passLead || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        bool stickDeadZone = report is { StickDeadZone: true };
+        _stickDeadZone.Enabled = stickDeadZone;
+        _stickDeadZone.Text = Loc.T("Gameplay.StickDeadZone") + (stickDeadZone || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
         bool skipIntro = report is { SkipIntro: true };
         _skipIntro.Enabled = skipIntro;
         _skipIntro.Text = Loc.T("Startup.SkipIntro") + (skipIntro || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
