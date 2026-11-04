@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -46,10 +46,15 @@ internal sealed class MainForm : Form
     private readonly CheckBox _accuracy = new() { Text = Loc.T("Gameplay.ShotAccuracy"), AutoSize = true };
     private readonly NumericUpDown _shotAccuracy = new()
     {
-        Minimum = PatchOptions.MinShotAccuracy, Maximum = PatchOptions.MaxShotAccuracy - 10, Increment = 10,
+        Minimum = PatchOptions.MinShotAccuracy, Maximum = PatchOptions.MaxShotAccuracy - 10, Increment = 5,
         Value = PatchOptions.DefaultShotAccuracy, Width = 60, Enabled = false,
     };
     private readonly CheckBox _shotAccuracyDebug = new() { Text = Loc.T("Gameplay.ShotAccuracyDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
+    private readonly NumericUpDown _lobPower = new()
+    {
+        Minimum = PatchOptions.MinLobPower, Maximum = PatchOptions.MaxLobPower, Increment = 10,
+        Value = PatchOptions.DefaultLobPower, Width = 60, Enabled = false, Margin = new Padding(22, 3, 3, 3),
+    };
     private readonly CheckBox _spread = new() { Text = Loc.T("Gameplay.Spread"), AutoSize = true };
     private readonly NumericUpDown _spreadPercent = new()
     {
@@ -110,8 +115,8 @@ internal sealed class MainForm : Form
         _freeKick.CheckedChanged += (_, _) => _freeKickWeight.Enabled = _freeKickDebug.Enabled = _freeKick.Enabled && _freeKick.Checked;
         _shot.EnabledChanged += (_, _) => _shotPower.Enabled = _shotPowerDebug.Enabled = _shot.Enabled && _shot.Checked;
         _shot.CheckedChanged += (_, _) => _shotPower.Enabled = _shotPowerDebug.Enabled = _shot.Enabled && _shot.Checked;
-        _accuracy.EnabledChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _accuracy.Enabled && _accuracy.Checked;
-        _accuracy.CheckedChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _accuracy.Enabled && _accuracy.Checked;
+        _accuracy.EnabledChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _lobPower.Enabled = _accuracy.Enabled && _accuracy.Checked;
+        _accuracy.CheckedChanged += (_, _) => _shotAccuracy.Enabled = _shotAccuracyDebug.Enabled = _lobPower.Enabled = _accuracy.Enabled && _accuracy.Checked;
         _spread.EnabledChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
         _spread.CheckedChanged += (_, _) => _spreadPercent.Enabled = _spreadDebug.Enabled = _spread.Enabled && _spread.Checked;
         _speedGap.EnabledChanged += (_, _) => _speedGapPercent.Enabled = _speedGapDebug.Enabled = _speedGap.Enabled && _speedGap.Checked;
@@ -149,6 +154,7 @@ internal sealed class MainForm : Form
             _shotPowerDebug,
             Flow(_accuracy, _shotAccuracy, LabelText(Loc.T("Gameplay.ShotAccuracyPercent"))),
             _shotAccuracyDebug,
+            Flow(_lobPower, LabelText(Loc.T("Gameplay.LobPower"))),
             Flow(_spread, _spreadPercent, LabelText(Loc.T("Gameplay.SpreadPercent"))),
             _spreadDebug,
             Flow(_speedGap, _speedGapPercent, LabelText(Loc.T("Gameplay.SpeedGapPercent"))),
@@ -206,6 +212,7 @@ internal sealed class MainForm : Form
             _accuracy.Checked = previous.Accuracy;
             _shotAccuracy.Value = previous.ShotAccuracy;
             _shotAccuracyDebug.Checked = previous.ShotAccuracyDebug;
+            _lobPower.Value = previous.LobPower;
             _spread.Checked = previous.Spread;
             _spreadPercent.Value = previous.SpreadPercent;
             _spreadDebug.Checked = previous.SpreadDebug;
@@ -243,7 +250,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -257,6 +264,7 @@ internal sealed class MainForm : Form
             ShotAccuracyDebug: _shotAccuracyDebug.Checked, Spread: _spread.Enabled && _spread.Checked ? (int)_spreadPercent.Value : 0,
             SpreadDebug: _spreadDebug.Checked, SpeedGap: _speedGap.Enabled && _speedGap.Checked ? (int)_speedGapPercent.Value : 100,
             SpeedGapDebug: _speedGapDebug.Checked, SprintTurn: _sprintTurn.Enabled && _sprintTurn.Checked ? (int)_sprintTurnDegrees.Value : 0,
+            LobPower: (int)_lobPower.Value,
             SprintTurnDebug: _sprintTurnDebug.Checked, Tackle: _tackle.Enabled && _tackle.Checked ? (int)_tacklePercent.Value : 100,
             TackleDebug: _tackleDebug.Checked);
 

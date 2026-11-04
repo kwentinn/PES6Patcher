@@ -694,7 +694,7 @@ internal static class CodeCaves
         new(ShotPowerKey, ShotPowerState, percent, PatchOptions.MinShotPower, PatchOptions.MaxShotPower, texts, stride);
 
     public static TestKey ShotAccuracyTestKey(int percent, int texts, int stride) =>
-        new(ShotAccuracyKey, ShotAccuracyState, percent, PatchOptions.MinShotAccuracy, PatchOptions.MaxShotAccuracy, texts, stride);
+        new(ShotAccuracyKey, ShotAccuracyState, percent, Math.Max(TestKeyStep, PatchOptions.MinShotAccuracy), PatchOptions.MaxShotAccuracy, texts, stride);   // 0 is the "not set" value
 
     /// <summary>
     /// Test keys, through Kitserver's kload.dll as the close dribbling switch: the cave starts with the set-up (called
@@ -859,14 +859,23 @@ internal static class CodeCaves
     public const int ShotHeightPivot = 20;
 
     /// <summary>
+    /// A lob is a shot whose shooter holds this button (L1) when the ball leaves (player+0xB0): its height is kept at
+    /// <see cref="LobHeight"/> % instead of being taken for an error (tested in game: a lob leaves at a height of 45 to
+    /// 68, a shot at 13 to 35).
+    /// </summary>
+    public const int LobButton = 0x400;
+    public const byte LobHeight = 95;
+
+    /// <summary>
     /// Shot accuracy: the shot function's "call kick" goes through here. For a team controlled by a human (see
     /// <see cref="EmitHumanTeams"/>), the gap between the direction asked (saved by <see cref="ShotPower"/>) and the
     /// direction after the game's random penalties is scaled to <paramref name="percent"/>, and so is the height
     /// above <see cref="ShotHeightPivot"/>. A shot from the weak foot (the game gives it a larger gap, always to the
-    /// same side) keeps percent² / 100 instead: 25 % at 50 %. Then the kick function is called as before. With the
+    /// same side) keeps percent² / 100 instead: 25 % at 50 %. A lob (see <see cref="LobButton"/>) keeps its height
+    /// and gets <paramref name="lobPower"/> % of its speed. Then the kick function is called as before. With the
     /// test key, F4's percent is used once set.
     /// </summary>
-    public static Hook ShotAccuracy(int cave, ShotSites sites, int percent, FreeKickSites? testKeys = null)
+    public static Hook ShotAccuracy(int cave, ShotSites sites, int percent, FreeKickSites? testKeys = null, int lobPower = 100)
     {
         var code = new CodeBuilder(cave)
             .Bytes(0x8B, 0x54, 0x24, 0x04)                          // mov edx,[esp+4]      ; player
@@ -907,6 +916,19 @@ internal static class CodeCaves
             .Bytes(0x99, 0x6A, 0x64, 0xF7, 0x3C, 0x24, 0x5A)        // cdq ; push 100 ; idiv dword [esp] ; pop edx
             .Bytes(0x03, 0xC1, 0x0F, 0xB7, 0xC0)                    // add eax,ecx ; movzx eax,ax
             .Bytes(0x89, 0x44, 0x24, 0x0C)                          // mov [esp+0xC],eax
+            // a lob (L1 held when the ball leaves): its height is wanted, not an error; it keeps LobHeight % of it,
+            // and its speed is scaled to lobPower %
+            .Bytes(0x8B, 0x44, 0x24, 0x08)                          // mov eax,[esp+8]      ; player
+            .Bytes([0xF7, 0x80, 0xB0, 0x00, 0x00, 0x00], LobButton) // test dword [eax+0xB0],lob button
+            .Jump(0x74, "notLob")                                   // jz notLob
+            .Bytes(0x8B, 0x44, 0x24, 0x10, 0x6B, 0xC0, (byte)lobPower)   // mov eax,[esp+0x10] ; imul eax,eax,lobPower ; speed
+            .Bytes(0x99, 0x6A, 0x64, 0x59, 0xF7, 0xF9)              // cdq ; push 100 ; pop ecx ; idiv ecx
+            .Bytes(0x89, 0x44, 0x24, 0x10)                          // mov [esp+0x10],eax
+            .Bytes(0x8B, 0x44, 0x24, 0x14, 0x6B, 0xC0, LobHeight)   // mov eax,[esp+0x14] ; imul eax,eax,LobHeight ; height
+            .Bytes(0x99, 0xF7, 0xF9)                                // cdq ; idiv ecx
+            .Bytes(0x89, 0x44, 0x24, 0x14)                          // mov [esp+0x14],eax
+            .Jump(0xEB, "done")                                     // jmp done
+            .Mark("notLob")
             // height above the pivot: scaled the same way
             .Bytes(0x8B, 0x44, 0x24, 0x14)                          // mov eax,[esp+0x14]   ; height
             .Bytes([0x2D], ShotHeightPivot)                         // sub eax,pivot

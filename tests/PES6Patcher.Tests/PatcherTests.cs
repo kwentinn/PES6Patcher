@@ -230,7 +230,8 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.NotEqual(0x478020, kickCall);
         Assert.Equal(0xE9, debug[debugImage.Offset(0x478020)]);              // still reaches the kick function's hook
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { ShotPower = 40 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { ShotAccuracy = 0 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { ShotAccuracy = -1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { ShotAccuracy = 50, LobPower = 30 }));
 
         // each one alone: power without the aim hook, accuracy with the entry (it keeps the direction asked)
         var power = new PeImage(ExePatcher.Build(original, options with { ShotPower = 80 }));
@@ -238,6 +239,14 @@ public class PatcherTests(ITestOutputHelper output)
         var accuracy = new PeImage(ExePatcher.Build(original, options with { ShotAccuracy = 50 }));
         Assert.NotEqual(0x478020, accuracy.Rel32Target(0x5BBC9A));
         Assert.Equal(0x58CC16, accuracy.ReadInt32(accuracy.Rel32Target(0x5B9130) + 14));
+
+        // a lob (L1 held, 0x400 in player+0xB0) keeps its height (95 %) and gets the lob power (70 %) on its speed
+        var lob = ExePatcher.Build(original, options with { ShotAccuracy = 0, LobPower = 70 });
+        var lobImage = new PeImage(lob);
+        int lobCave = lobImage.Offset(lobImage.Rel32Target(0x5BBC9A));
+        Assert.True(lob.AsSpan(lobCave, 200).IndexOf(new byte[] { 0xF7, 0x80, 0xB0, 0, 0, 0, 0x00, 0x04, 0, 0 }) > 0);
+        Assert.True(lob.AsSpan(lobCave, 200).IndexOf(new byte[] { 0x8B, 0x44, 0x24, 0x10, 0x6B, 0xC0, 70 }) > 0);
+        Assert.True(lob.AsSpan(lobCave, 200).IndexOf(new byte[] { 0x8B, 0x44, 0x24, 0x14, 0x6B, 0xC0, CodeCaves.LobHeight }) > 0);
 
         // alone, it makes .rdata writable and is detected as patched
         var alone = ExePatcher.Build(original, new PatchOptions(398, false, Display: false, FreeKick: true));

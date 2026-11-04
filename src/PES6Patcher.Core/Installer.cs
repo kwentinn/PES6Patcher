@@ -20,6 +20,7 @@ namespace PES6Patcher.Core;
 /// <param name="ShotPowerDebug">Test key: F3 in a match changes the shot power.</param>
 /// <param name="ShotAccuracy">Aim error of the human players' shots kept, in % of the game's (100 = unchanged).</param>
 /// <param name="ShotAccuracyDebug">Test key: F4 in a match changes the aim error kept.</param>
+/// <param name="LobPower">With the shot accuracy, the speed of a lob in % of the game's (its height is kept).</param>
 /// <param name="Spread">Players spread across the pitch, in % away from their team's centre (0 = unchanged).</param>
 /// <param name="SpreadDebug">Test key: F5 in a match changes the spread.</param>
 /// <param name="SpeedGap">Top speed gap between players, in % of the game's (100 = unchanged).</param>
@@ -32,7 +33,8 @@ namespace PES6Patcher.Core;
 public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
-    int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false)
+    int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
+    int LobPower = 100)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -64,7 +66,7 @@ public static class Installer
             ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro, freeKick, settings.FreeKickWeight,
                 freeKick && settings.FreeKickDebug, shotPower, shotPower < 100 && settings.ShotPowerDebug,
                 shotAccuracy, shotAccuracy < 100 && settings.ShotAccuracyDebug, spread, spread > 0 && settings.SpreadDebug, speedGap, speedGap != 100 && settings.SpeedGapDebug,
-                sprintTurn, sprintTurn > 0 && settings.SprintTurnDebug, tackle, tackle != 100 && settings.TackleDebug))
+                sprintTurn, sprintTurn > 0 && settings.SprintTurnDebug, tackle, tackle != 100 && settings.TackleDebug, shotAccuracy < 100 ? settings.LobPower : 100))
             : original;
         string yesNo = Loc.T(freeDirection ? "Common.Yes" : "Common.No");
         log(settings.Display ? Loc.T("Log.ExeBuilt", settings.Half, yesNo) : Loc.T("Log.ExeBuiltNoDisplay", yesNo));
@@ -75,6 +77,7 @@ public static class Installer
         if (shotPower < 100 && settings.ShotPowerDebug) log(Loc.T("Log.ShotPowerDebug"));
         if (shotAccuracy < 100) log(Loc.T("Log.ShotAccuracy", shotAccuracy));
         if (shotAccuracy < 100 && settings.ShotAccuracyDebug) log(Loc.T("Log.ShotAccuracyDebug"));
+        if (shotAccuracy < 100) log(Loc.T("Log.LobPower", settings.LobPower));
         if (spread > 0) log(Loc.T("Log.Spread", spread));
         if (spread > 0 && settings.SpreadDebug) log(Loc.T("Log.SpreadDebug"));
         if (speedGap != 100) log(Loc.T("Log.SpeedGap", speedGap));

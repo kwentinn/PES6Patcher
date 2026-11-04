@@ -432,4 +432,10 @@
   <data name="Gameplay.TackleDebug" xml:space="preserve">
     <value>Test : F8 en match le change (+20 %, 100 % = le jeu)</value>
   </data>
+  <data name="Gameplay.LobPower" xml:space="preserve">
+    <value>% de la puissance du jeu pour les lobs (L1), qui gardent leur hauteur</value>
+  </data>
+  <data name="Log.LobPower" xml:space="preserve">
+    <value>Lobs (L1 tenu au départ du ballon) : {0} % de la puissance du jeu, hauteur gardée (pas prise pour une erreur de visée).</value>
+  </data>
 </root>

@@ -15,6 +15,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="ShotPowerDebug">Test key: F3 in game changes <paramref name="ShotPower"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="ShotAccuracy">Human shots: share of the game's aim error (direction and height) kept, in % (100 = unchanged).</param>
 /// <param name="ShotAccuracyDebug">Test key: F4 in game changes <paramref name="ShotAccuracy"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="LobPower">With <paramref name="ShotAccuracy"/>, the speed of a lob (L1 held) in % of the game's; its height is kept (not taken for an error).</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
 /// <param name="SpreadDebug">Test key: F5 in game changes <paramref name="Spread"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="SpeedGapDebug">Test key: F6 in game changes <paramref name="SpeedGap"/> by 25 % and shows it (through Kitserver).</param>
@@ -26,7 +27,8 @@ namespace PES6Patcher.Core.Patching;
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
-    int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false)
+    int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
+    int LobPower = 100)
 {
     /// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
@@ -35,7 +37,10 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     public const int DefaultSprintTurn = 90, MinSprintTurn = 45, MaxSprintTurn = 90;
 
     /// <summary>Shot aim error kept: default when the option is checked, and limits (100 = the game's).</summary>
-    public const int DefaultShotAccuracy = 50, MinShotAccuracy = 10, MaxShotAccuracy = 100;
+    public const int DefaultShotAccuracy = 50, MinShotAccuracy = 0, MaxShotAccuracy = 100;
+
+    /// <summary>Lob speed with the shot accuracy, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
+    public const int DefaultLobPower = 70, MinLobPower = 40, MaxLobPower = 100;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -296,8 +301,9 @@ public static class ExePatcher
         if (options.ShotAccuracy < 100)
         {
             var testKeys = accuracyKey ? freeKick : null;
-            var accuracy = CodeCaves.ShotAccuracy(0, shot!, options.ShotAccuracy, testKeys);
-            accuracy = CodeCaves.ShotAccuracy(Cave(accuracy.CaveBytes.Length), shot!, options.ShotAccuracy, testKeys);
+            if (options.LobPower is < PatchOptions.MinLobPower or > PatchOptions.MaxLobPower) throw new ArgumentOutOfRangeException(nameof(options), options.LobPower, null);
+            var accuracy = CodeCaves.ShotAccuracy(0, shot!, options.ShotAccuracy, testKeys, options.LobPower);
+            accuracy = CodeCaves.ShotAccuracy(Cave(accuracy.CaveBytes.Length), shot!, options.ShotAccuracy, testKeys, options.LobPower);
             plan.Add((accuracy.Cave, accuracy.CaveBytes));
             plan.Add((accuracy.Entry, accuracy.EntryBytes));
         }
