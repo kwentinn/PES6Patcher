@@ -110,6 +110,13 @@ internal sealed record SprintTurnSites(int Limit, int Touch, int Ball);
 /// </summary>
 internal sealed record TackleSites(int Range, int Fail);
 
+/// <summary>
+/// Lofted pass aim, in the receiver choice 0x569020: <see cref="Gauge"/> = movzx eax,al ; shr eax,3 ; imul eax,eax,0x380
+/// (12 bytes: the pass gauge +0x4D turned into the distance wanted, before add eax,0x800); <see cref="Angle"/> = the byte of
+/// cmp word [esp+0x1C],0x20 (a receiver within 45 degrees of the stick).
+/// </summary>
+internal sealed record LoftedAimSites(int Gauge, int Angle);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -344,6 +351,24 @@ internal sealed class ExeLocator
     /// push edi ; push esi ; call take-ball attempt.
     /// </summary>
     private const string TackleRange = "89 7C 24 20 E8 ?? ?? ?? ?? 83 C4 10 81 FF A0 00 00 00 7D ?? 6A 50 57 56 E8";
+
+    /// <summary>
+    /// Pass gauge to distance: mov al,[edi+0x4D] ; cmp al,0x80 ; jb ; mov eax,0x3800 ; jmp ; movzx eax,al (at +14) ; shr eax,3 ;
+    /// imul eax,eax,0x380 ; add eax,0x800.
+    /// </summary>
+    private const string LoftedGauge = "8A 47 4D 3C 80 72 07 B8 00 38 00 00 EB 0C 0F B6 C0 C1 E8 03 69 C0 80 03 00 00 05 00 08 00 00";
+
+    /// <summary>Receiver angle: cmp ax,0x38 ; jae ; cmp word [esp+0x1C],0x20 (the byte at +11) ; jae.</summary>
+    private const string LoftedAngle = "66 3D 38 00 73 ?? 66 83 7C 24 1C 20 73";
+
+    public static LoftedAimSites? LocateLoftedAim(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        List<int> Find(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
+        var gauge = Find(LoftedGauge);
+        var angle = Find(LoftedAngle);
+        return gauge.Count == 1 && angle.Count == 1 ? new LoftedAimSites(gauge[0] + 14, angle[0] + 11) : null;
+    }
 
     public static TackleSites? LocateTackle(byte[] exe)
     {

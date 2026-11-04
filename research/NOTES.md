@@ -103,6 +103,16 @@ Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's field
 - **Sharper turns when sprinting** replaces the `push 1000h` by the maximum turn of the carrier: 22.5° up to 65 in dribble accuracy (the game's), the chosen maximum (90° by default) from 95, in proportion between. A touch that turns the ball more than 22.5° from its current direction (`[ball+0x58]`) also loses up to 40 % of its speed (reached at 90°), at the relay call (`0x5AFB32`), so the ball stays closer while the player turns. Tested in memory, then validated in game.
 - Tried and dropped: raising the `push 2Dh` (45°) of other strides (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70`: they never run while dribbling); raising the 15° and 25° steps (no effect: the protected code ignores them); forcing the player's direction to the stick's (`0x4E2A7E`: the body turns, the ball does not) or to the touch's (`0x4E2B04`: the animation jumps, and with the ball change the player stops turning).
 
+### Lofted passes and crosses
+
+Kick probe with tags (with beeps, numpad), then breakpoints and reading:
+
+- A **lofted pass** (circle in midfield) is kicked from `0x56A585` with the passer in state 8; a **cross** (circle from a wing or near the box) from `0x587C90` in state 9. Another state-8 kick comes from `0x50A420`.
+- The lofted pass is decided by `0x5697B0` (called from the state handler around `0x56DA00`): the **receiver** is the passer's byte `+0x48`, the **point aimed at** `+0x9C` / `+0xA0`, the kind `+0x4C`. `0x56A260`… then computes the kick: speed from the kick power stat (`0x3BCF5B7`) and the height, capped by animation.
+- The receiver is chosen by **`0x569020`** (passer, stick direction from `0x4B2F70`, which reads the analog stick's precise angle): the **pass gauge** `+0x4D` (0 to `0x80`, capped at `0x569821`) gives a **distance wanted** `0x800 + gauge / 8 × 0x380` (at least `0xE00`); a team-mate is kept only within `0x700` of that distance and, for a human, within **45°** of the stick (`cmp word [esp+0x1C],0x20` at `0x56938F`); the one with the smallest (angle gap + 1) × distance gap wins. With nobody kept, the pass goes along the stick with the gauge's power. Just before the kick, `0x45FFE0` re-checks the receiver in protected code.
+- **Lofted passes: the press sets the distance, the stick the direction** makes the distance wanted grow with the square of the gauge (`0x800 + gauge² × 7 / 8`: the same maximum, about 5600 instead of 9200 at half a gauge), and narrows the cone to **22.5°**. Validated in game.
+- Dropped: scaling the speed of the state 8 and 9 kicks (70 %, F9). The ball fell short of the receiver the game had chosen, so the aim looked random, and crosses (state 9) went wrong too.
+
 ### Pressing and challenges
 
 Measured with a logger of the human-controlled player (buttons held `+0xB0`) against the carrier, and execute or write breakpoints:

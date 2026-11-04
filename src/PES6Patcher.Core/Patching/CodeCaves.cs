@@ -639,6 +639,16 @@ internal static class CodeCaves
         return new Hook("Hook.SprintTurn", sites.Touch, CodeBuilder.JumpPatch(sites.Touch, cave, 7), cave, bytes);
     }
 
+    /// <summary>
+    /// Lofted pass aim: the gauge g (0 to 0x80) gives the distance wanted 0x800 + g * g * 7 / 8 instead of
+    /// 0x800 + g / 8 * 0x380 (the same 0x4000 at a full gauge, about 5600 instead of 9200 at half): movzx eax,al ;
+    /// imul eax,eax ; imul eax,eax,7 ; shr eax,3, the 12 bytes of the game's conversion.
+    /// </summary>
+    public static readonly byte[] LoftedGaugeSquare = [0x0F, 0xB6, 0xC0, 0x0F, 0xAF, 0xC0, 0x6B, 0xC0, 0x07, 0xC1, 0xE8, 0x03];
+
+    /// <summary>Lofted pass aim: a receiver must be within this angle of the stick (1/256 of a turn: 22.5 degrees; the game's is 45).</summary>
+    public const byte LoftedAngle = 0x10;
+
     /// <summary>Pressing challenge: the game's reach (distance to the ball) and attempt parameter at 100 %.</summary>
     public const int TackleBaseRange = 0xA0, TackleBaseParameter = 0x50;
 

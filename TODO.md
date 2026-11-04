@@ -61,7 +61,9 @@ Suggested by daffi2 on Evo-Web: apply the patch from a Kitserver DLL, in memory 
 
 Issue: [#9](https://github.com/kwentinn/PES6Patcher/issues/9)
 
-Lofted passes (circle on a PlayStation pad) are often too strong: the ball goes too far. Their power should be adjustable, like the shots'. Every pass goes through the ball kick function: finding the lofted pass's call and scaling its power for the human teams may work.
+Lofted passes (circle on a PlayStation pad) are often too strong: the ball goes too far. Their power should be adjustable, like the shots'.
+
+Done another way: the game chooses the receiver from the gauge and the stick, then gives the ball the speed to reach him, so scaling the speed only made the ball fall short. **Lofted passes: the press sets the distance, the stick the direction** makes a short press aim nearer and narrows the cone around the stick. Crosses are unchanged.
 
 ## Headers: power and accuracy
 

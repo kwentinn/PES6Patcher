@@ -61,7 +61,9 @@ Suggestion de daffi2 sur Evo-Web : appliquer le patch depuis une DLL Kitserver, 
 
 Issue : [#9](https://github.com/kwentinn/PES6Patcher/issues/9)
 
-Les passes en hauteur (rond sur une manette PlayStation) sont souvent trop fortes : le ballon va trop loin. Leur puissance devrait être réglable, comme celle des tirs. Toutes les passes passent par la fonction de frappe : trouver l'appel de la passe en hauteur et réduire sa puissance pour les équipes humaines pourrait suffire.
+Les passes en hauteur (rond sur une manette PlayStation) sont souvent trop fortes : le ballon va trop loin. Leur puissance devrait être réglable, comme celle des tirs.
+
+Fait autrement : le jeu choisit le receveur d'après la jauge et le stick, puis donne au ballon la vitesse pour l'atteindre ; réduire la vitesse faisait seulement tomber le ballon trop court. **Passes en hauteur : l'appui règle la distance, le stick la direction** fait viser plus près sur un appui court et resserre le cône autour du stick. Les centres ne changent pas.
 
 ## Têtes : puissance et précision
 

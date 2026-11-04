@@ -438,4 +438,13 @@
   <data name="Log.LobPower" xml:space="preserve">
     <value>Lobs (L1 tenu au départ du ballon) : {0} % de la puissance du jeu, hauteur gardée (pas prise pour une erreur de visée).</value>
   </data>
+  <data name="Gameplay.LoftedAim" xml:space="preserve">
+    <value>Passes en hauteur : l'appui règle la distance, le stick la direction</value>
+  </data>
+  <data name="Hook.LoftedAim" xml:space="preserve">
+    <value>visée des passes en hauteur</value>
+  </data>
+  <data name="Log.LoftedAim" xml:space="preserve">
+    <value>Passes en hauteur : un appui court vise un coéquipier plus proche (même maximum), et le receveur est cherché à moins de 22,5 degrés du stick (45 dans le jeu).</value>
+  </data>
 </root>

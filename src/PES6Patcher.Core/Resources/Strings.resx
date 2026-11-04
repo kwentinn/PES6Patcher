@@ -438,4 +438,13 @@
   <data name="Log.LobPower" xml:space="preserve">
     <value>Lobs (L1 held when the ball leaves): {0} % of the game's power, height kept (not taken for an aim error).</value>
   </data>
+  <data name="Gameplay.LoftedAim" xml:space="preserve">
+    <value>Lofted passes: the press sets the distance, the stick the direction</value>
+  </data>
+  <data name="Hook.LoftedAim" xml:space="preserve">
+    <value>lofted pass aim</value>
+  </data>
+  <data name="Log.LoftedAim" xml:space="preserve">
+    <value>Lofted passes: a short press aims at a nearer team-mate (same maximum), and the receiver is looked for within 22.5 degrees of the stick (45 in the game).</value>
+  </data>
 </root>

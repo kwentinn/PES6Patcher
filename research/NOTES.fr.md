@@ -103,6 +103,16 @@ Mesuré avec `pes6turnlog.ps1` (une ligne à chaque changement des champs du por
 - **Virages plus francs en sprint** remplace le `push 1000h` par le virage maximum du porteur : 22,5° jusqu'à 65 en précision de dribble (celui du jeu), le maximum choisi (90° par défaut) à partir de 95, proportionnellement entre les deux. Une touche qui tourne le ballon de plus de 22,5° par rapport à sa direction actuelle (`[ballon+0x58]`) perd aussi jusqu'à 40 % de sa vitesse (atteint à 90°), à l'appel du relais (`0x5AFB32`), pour que le ballon reste plus près pendant que le joueur tourne. Testé en mémoire, puis validé en jeu.
 - Essayé puis abandonné : relever le `push 2Dh` (45°) d'autres foulées (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70` : elles ne servent jamais en dribble) ; relever les pas de 15° et 25° (sans effet : le code protégé les ignore) ; forcer la direction du joueur sur celle du stick (`0x4E2A7E` : le corps tourne, pas le ballon) ou sur celle de la touche (`0x4E2B04` : l'animation saute, et avec le changement du ballon le joueur ne tourne plus).
 
+### Passes en hauteur et centres
+
+Sonde de frappe avec étiquettes (avec bips, pavé numérique), puis points d'arrêt et lecture du code :
+
+- Une **passe en hauteur** (rond au milieu du terrain) est frappée depuis `0x56A585`, le passeur dans l'état 8 ; un **centre** (rond depuis une aile ou près de la surface) depuis `0x587C90`, dans l'état 9. Une autre frappe de l'état 8 vient de `0x50A420`.
+- La passe en hauteur est décidée par `0x5697B0` (appelée depuis le code de l'état autour de `0x56DA00`) : le **receveur** est l'octet `+0x48` du passeur, le **point visé** `+0x9C` / `+0xA0`, le genre `+0x4C`. `0x56A260`… calcule ensuite la frappe : vitesse tirée de la stat de puissance de frappe (`0x3BCF5B7`) et de la hauteur, plafonnée selon l'animation.
+- Le receveur est choisi par **`0x569020`** (passeur, direction du stick lue par `0x4B2F70`, qui prend l'angle précis du stick analogique) : la **jauge de passe** `+0x4D` (0 à `0x80`, plafonnée en `0x569821`) donne une **distance voulue** `0x800 + jauge / 8 × 0x380` (au moins `0xE00`) ; un coéquipier n'est gardé qu'à moins de `0x700` de cette distance et, pour un humain, à moins de **45°** du stick (`cmp word [esp+0x1C],0x20` en `0x56938F`) ; celui qui a le plus petit (écart d'angle + 1) × écart de distance l'emporte. Si personne n'est gardé, la passe part dans la direction du stick avec la force de la jauge. Juste avant la frappe, `0x45FFE0` revérifie le receveur dans le code protégé.
+- **Passes en hauteur : l'appui règle la distance, le stick la direction** fait croître la distance voulue avec le carré de la jauge (`0x800 + jauge² × 7 / 8` : le même maximum, environ 5600 au lieu de 9200 à mi-jauge), et resserre le cône à **22,5°**. Validé en jeu.
+- Abandonné : réduire la vitesse des frappes des états 8 et 9 (70 %, F9). Le ballon tombait avant le receveur choisi par le jeu, si bien que la visée semblait aléatoire, et les centres (état 9) étaient déréglés aussi.
+
 ### Pressing et tacles
 
 Mesuré avec un relevé du joueur contrôlé par l'humain (boutons tenus `+0xB0`) face au porteur, et des points d'arrêt d'exécution ou d'écriture :

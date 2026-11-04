@@ -324,6 +324,30 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Lofted_aim_squares_the_gauge_and_narrows_the_receiver_angle()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).LoftedAim);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { LoftedAim = true });
+        var image = new PeImage(with);
+
+        // measured in game: the gauge conversion at 0x5690F4 (12 bytes) and the angle byte of cmp word [esp+0x1C],0x20 at 0x569394
+        Assert.Equal(new byte[] { 0x0F, 0xB6, 0xC0, 0xC1, 0xE8, 0x03, 0x69, 0xC0, 0x80, 0x03, 0x00, 0x00 }, without[image.Offset(0x5690F4)..(image.Offset(0x5690F4) + 12)]);
+        Assert.Equal(CodeCaves.LoftedGaugeSquare, with[image.Offset(0x5690F4)..(image.Offset(0x5690F4) + 12)]);
+        Assert.Equal(0x20, without[image.Offset(0x569394)]);
+        Assert.Equal(CodeCaves.LoftedAngle, with[image.Offset(0x569394)]);
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i => Assert.True(i - image.Offset(0x5690F4) is >= 0 and < 12 || i == image.Offset(0x569394)));
+
+        // same distance as the game at a full gauge (0x80): 0x80 * 0x80 * 7 / 8 = 0x3800
+        Assert.Equal(0x3800, 0x80 * 0x80 * 7 / 8);
+    }
+
+    [Fact]
     public void Tackle_widens_the_pressing_challenge_reach_and_the_attempt_distance()
     {
         var original = Load("PES6.orig.exe");

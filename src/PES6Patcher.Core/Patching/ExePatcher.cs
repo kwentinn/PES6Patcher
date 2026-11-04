@@ -16,6 +16,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="ShotAccuracy">Human shots: share of the game's aim error (direction and height) kept, in % (100 = unchanged).</param>
 /// <param name="ShotAccuracyDebug">Test key: F4 in game changes <paramref name="ShotAccuracy"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="LobPower">With <paramref name="ShotAccuracy"/>, the speed of a lob (L1 held) in % of the game's; its height is kept (not taken for an error).</param>
+/// <param name="LoftedAim">Lofted passes follow the press and the stick more: the distance wanted grows with the square of the gauge (same maximum), and the receiver must be within 22.5 degrees of the stick (45 in the game).</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
 /// <param name="SpreadDebug">Test key: F5 in game changes <paramref name="Spread"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="SpeedGapDebug">Test key: F6 in game changes <paramref name="SpeedGap"/> by 25 % and shows it (through Kitserver).</param>
@@ -28,7 +29,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
-    int LobPower = 100)
+    int LobPower = 100, bool LoftedAim = false)
 {
     /// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
@@ -88,7 +89,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The pressing challenge reach can be widened.</summary>
     public bool Tackle { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle;
+    /// <summary>The lofted pass aim can be changed.</summary>
+    public bool LoftedAim { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -125,7 +129,7 @@ public static class ExePatcher
             {
                 CloseDribble = dribble != null, SkipIntro = intro != null, FreeKick = freeKick != null, ShotPower = shot != null,
                 Spread = ExeLocator.LocateSpread(exe) != null, SpeedGap = ExeLocator.LocateSpeed(exe) != null,
-                SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null, Tackle = ExeLocator.LocateTackle(exe) != null,
+                SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null, Tackle = ExeLocator.LocateTackle(exe) != null, LoftedAim = ExeLocator.LocateLoftedAim(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -366,6 +370,15 @@ public static class ExePatcher
                 plan.Add((sites.Range + 2, BitConverter.GetBytes(range)));
                 plan.Add((sites.Range + 9, [parameter]));
             }
+        }
+
+        // lofted pass aim: the distance wanted follows the square of the gauge (a short press aims nearer, the same
+        // maximum), and the receiver is looked for within 22.5 degrees of the stick instead of 45
+        if (options.LoftedAim)
+        {
+            var sites = ExeLocator.LocateLoftedAim(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.LoftedAim"), 0)]);
+            plan.Add((sites.Gauge, CodeCaves.LoftedGaugeSquare));
+            plan.Add((sites.Angle, [CodeCaves.LoftedAngle]));
         }
 
         foreach (var (va, bytes) in plan) image.Write(va, bytes);
