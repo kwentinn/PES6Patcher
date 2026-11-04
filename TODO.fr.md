@@ -91,7 +91,7 @@ Issue : [#11](https://github.com/kwentinn/PES6Patcher/issues/11)
 
 Quand on tourne brusquement le stick en dribblant, le joueur ne change pas de direction d'un coup : il tourne par paliers, touche après touche. Tourner en une fois (dans la limite de ce que permettent ses stats) rendrait le dribble beaucoup plus vif.
 
-Fait en sprint : **Virages plus francs en sprint, selon la précision de dribble** laisse le ballon tourner jusqu'à 90° par touche en sprint (le jeu : 22,5°) pour les meilleurs dribbleurs, et raccourcit une telle touche. Reste ouvert : le corps du joueur garde un moment le pas de virage du jeu (le forcer faisait sauter l'animation), et les foulées de course sans sprint n'ont pas été changées.
+Fait en sprint : **Virages plus francs en sprint, selon la précision de dribble** laisse le ballon tourner jusqu'à 90° par touche en sprint (le jeu : 22,5°) pour les meilleurs dribbleurs ; le joueur tourne avec le ballon à la touche de chaque pied, et à partir de 45° l'animation de virage du jeu se joue. Le joueur s'éloignait alors du ballon, sa course ne tournant que de 1,4° par image : **Le joueur tourne plus vite avec le ballon** relève ce pas (22° par image par défaut). Reste ouvert : les foulées de course sans sprint n'ont pas été changées.
 
 ## Joueurs humains : demi-vitesse de dribble
 
@@ -144,3 +144,7 @@ Suggestion de liqiao806 et SrBurrito sur Evo-Web : régler de combien chaque fl�
 ## Joueurs humains : pousser le ballon encore plus loin (R1 trois fois)
 
 Appuyer deux fois sur R1 en sprint pousse le ballon plus loin devant. Un troisième appui pourrait le pousser encore plus loin, pour partir dans l'espace. Il faut d'abord trouver où le double appui est détecté et à quelle distance il envoie le ballon.
+
+## Coups de pied arrêtés : stick trop sensible
+
+Sur les corners (et les coups francs aussi), le stick déplace trop la visée : une légère poussée l'envoie loin. Sans doute accentué par la zone morte du stick réduite. Trouver d'abord comment la visée des coups de pied arrêtés lit le stick, puis réduire sa sensibilité.

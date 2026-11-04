@@ -359,6 +359,28 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Carrier_turn_raises_the_two_turn_steps_with_the_ball()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).CarrierTurn);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { CarrierTurn = PatchOptions.DefaultCarrierTurn });
+        var image = new PeImage(with);
+
+        // measured in game (write breakpoint on the carrier's +0x28): push 100h at 0x4C2088, add ecx,100h at 0x4C25C9
+        int[] sites = [0x4C2089, 0x4C25CB];
+        Assert.Equal(0xFA5, CodeCaves.CarrierTurnStep(22));   // 22 degrees: about 16 times the game's 0x100 (1.4 degrees)
+        Assert.All(sites, va => Assert.Equal(0x100, BitConverter.ToInt32(without, image.Offset(va))));
+        Assert.All(sites, va => Assert.Equal(0xFA5, image.ReadInt32(va)));
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i => Assert.True(sites.Any(va => i - image.Offset(va) is >= 0 and < 4)));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { CarrierTurn = 46 }));
+    }
+
+    [Fact]
     public void Stick_dead_zone_lowers_the_four_axis_limits()
     {
         var original = Load("PES6.orig.exe");
@@ -438,7 +460,7 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Sprint_turns_raise_the_turn_limit_by_dribble_accuracy_and_shorten_the_turning_touch()
+    public void Sprint_turns_raise_the_turn_limit_turn_the_player_at_both_touches_and_play_the_turning_animation_sooner()
     {
         var original = Load("PES6.orig.exe");
         if (original == null) return;
@@ -457,16 +479,30 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Contains(BitConverter.GetBytes(CodeCaves.Angle(90)), Chunks(with, image.Offset(limit), 83));
         Assert.Equal(0x4E2AEB, image.Rel32Target(limit + 78));                      // back after the push
 
+        // both sprint touches (one per foot) turn the player with the ball
         Assert.Equal(0xE9, with[image.Offset(0x5AFB32)]);
         Assert.Equal(new byte[] { 0x90, 0x90 }, with[(image.Offset(0x5AFB32) + 5)..(image.Offset(0x5AFB32) + 7)]);
         int touch = image.Rel32Target(0x5AFB32);
         Assert.Equal(0xBCCE94, image.ReadInt32(touch + 4));                         // ball pointer
-        Assert.Equal(0x5AFB39, image.Rel32Target(touch + 76));                      // back after the 7 replaced bytes
+        Assert.Equal(new byte[] { 0x50, 0x33, 0xC0, 0x66, 0x8B, 0x47, 0x30 }, with[(image.Offset(touch) + 53)..(image.Offset(touch) + 60)]);
+        Assert.Equal(0x5AFB39, image.Rel32Target(touch + 60));                      // back after the 7 replaced bytes
 
-        // only the two entries and their caves change
+        Assert.Equal(0xE9, with[image.Offset(0x5AFE5C)]);
+        Assert.Equal(new byte[] { 0x90, 0x90, 0x90, 0x90 }, with[(image.Offset(0x5AFE5C) + 5)..(image.Offset(0x5AFE5C) + 9)]);
+        int other = image.Rel32Target(0x5AFE5C);
+        Assert.Equal(0xBCCE94, image.ReadInt32(other + 4));
+        Assert.Equal(new byte[] { 0x33, 0xC9, 0x66, 0x8B, 0x4F, 0x30, 0x83, 0xC4, 0x0C }, with[(image.Offset(other) + 53)..(image.Offset(other) + 62)]);
+        Assert.Equal(0x5AFE65, image.Rel32Target(other + 62));                      // back after the 9 replaced bytes
+
+        // the turning animation from 45 degrees (cmp ax,0x50 -> 0x20 at 0x4E287C)
+        Assert.Equal(0x50, without[image.Offset(0x4E287E)]);
+        Assert.Equal(0x20, with[image.Offset(0x4E287E)]);
+
+        // only the entries, their caves and the animation byte change
         var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
         Assert.All(changed, i => Assert.True(i - image.Offset(0x4E2AE6) is >= 0 and < 5 || i - image.Offset(0x5AFB32) is >= 0 and < 7
-            || i - image.Offset(limit) is >= 0 and < 83 || i - image.Offset(touch) is >= 0 and < 81));
+            || i - image.Offset(0x5AFE5C) is >= 0 and < 9 || i == image.Offset(0x4E287E)
+            || i - image.Offset(limit) is >= 0 and < 83 || i - image.Offset(touch) is >= 0 and < 65 || i - image.Offset(other) is >= 0 and < 67));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SprintTurn = 30 }));
 
         // with F7, the maximum is read from the test keys' state (+26), in degrees

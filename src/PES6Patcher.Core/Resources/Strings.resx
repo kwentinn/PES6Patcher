@@ -406,7 +406,7 @@
     <value>Sharper turns when sprinting, by dribble accuracy</value>
   </data>
   <data name="Log.SprintTurn" xml:space="preserve">
-    <value>Sprint turns: the ball may turn up to {0} degrees per sprint touch from 95 in dribble accuracy (the game's 22.5 up to 65, in proportion between); a touch turning more than 22.5 degrees is up to 40 % shorter.</value>
+    <value>Sprint turns: the ball may turn up to {0} degrees per sprint touch from 95 in dribble accuracy (the game's 22.5 up to 65, in proportion between); the player turns with a touch turning more than 22.5 degrees; the turning animation from 45 degrees (the game: 112).</value>
   </data>
   <data name="Overlay.SprintTurn" xml:space="preserve">
     <value>SPRINT TURN: {0} DEG MAX (F7)</value>
@@ -482,5 +482,29 @@
   </data>
   <data name="Gameplay.CheckAll" xml:space="preserve">
     <value>Check all</value>
+  </data>
+  <data name="Gameplay.CarrierTurn" xml:space="preserve">
+    <value>The player turns faster with the ball:</value>
+  </data>
+  <data name="Gameplay.CarrierTurnDegrees" xml:space="preserve">
+    <value>degrees max per frame (game: 1.4)</value>
+  </data>
+  <data name="Hook.CarrierTurn" xml:space="preserve">
+    <value>turn rate with the ball</value>
+  </data>
+  <data name="Log.CarrierTurn" xml:space="preserve">
+    <value>Turns with the ball: the player turns up to {0} degrees per frame (the game: 1.4), so he follows the ball after a sharp touch (both teams).</value>
+  </data>
+  <data name="Gameplay.Theme.Passing" xml:space="preserve">
+    <value>Passing</value>
+  </data>
+  <data name="Gameplay.Theme.Shooting" xml:space="preserve">
+    <value>Shooting</value>
+  </data>
+  <data name="Gameplay.Theme.Dribble" xml:space="preserve">
+    <value>Dribbling</value>
+  </data>
+  <data name="Gameplay.Theme.Other" xml:space="preserve">
+    <value>Other</value>
   </data>
 </root>

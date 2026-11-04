@@ -91,7 +91,7 @@ Issue: [#11](https://github.com/kwentinn/PES6Patcher/issues/11)
 
 When the stick is turned suddenly while dribbling, the player does not change direction at once: he turns in several steps, touch after touch. Turning in one go (within what the player's stats allow) would make dribbling much livelier.
 
-Done when sprinting: **Sharper turns when sprinting, by dribble accuracy** lets the ball turn up to 90° per sprint touch (the game: 22.5°) for the best dribblers, and shortens such a touch. Still open: the player's body keeps the game's turning step for a moment (forcing it made the animation jump), and the running strides without sprint were not changed.
+Done when sprinting: **Sharper turns when sprinting, by dribble accuracy** lets the ball turn up to 90° per sprint touch (the game: 22.5°) for the best dribblers; the player turns with the ball at either foot's touch, and from 45° the game's turning animation plays. The player then drifted away from the ball, his run turning only 1.4° per frame: **The player turns faster with the ball** raises that (22° per frame by default). Still open: the running strides without sprint were not changed.
 
 ## Human players: semi dribbling speed
 
@@ -144,3 +144,7 @@ Suggested by liqiao806 and SrBurrito on Evo-Web: set how much each condition arr
 ## Human players: push the ball even further (R1 three times)
 
 Pressing R1 twice while sprinting pushes the ball further ahead. A third press could push it even further, to run into space. First find where the double press is detected and how far it sends the ball.
+
+## Set pieces: stick too sensitive
+
+On corners (and free kicks too), the stick moves the aim too much: a slight push sends it far. Probably made worse by the smaller analog stick dead zone. First find how the set piece aim reads the stick, then lower its sensitivity.

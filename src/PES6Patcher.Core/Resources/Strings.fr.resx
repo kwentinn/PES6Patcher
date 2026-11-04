@@ -406,7 +406,7 @@
     <value>Virages plus francs en sprint, selon la précision de dribble</value>
   </data>
   <data name="Log.SprintTurn" xml:space="preserve">
-    <value>Virages en sprint : le ballon peut tourner jusqu'à {0} degrés par touche en sprint à partir de 95 en précision de dribble (les 22,5 du jeu jusqu'à 65, proportionnellement entre les deux) ; une touche qui tourne de plus de 22,5 degrés est jusqu'à 40 % plus courte.</value>
+    <value>Virages en sprint : le ballon peut tourner jusqu'à {0} degrés par touche en sprint à partir de 95 en précision de dribble (les 22,5 du jeu jusqu'à 65, proportionnellement entre les deux) ; le joueur tourne avec une touche qui tourne de plus de 22,5 degrés ; l'animation de virage à partir de 45 degrés (le jeu : 112).</value>
   </data>
   <data name="Overlay.SprintTurn" xml:space="preserve">
     <value>VIRAGE EN SPRINT : {0} DEG MAX (F7)</value>
@@ -482,5 +482,29 @@
   </data>
   <data name="Gameplay.CheckAll" xml:space="preserve">
     <value>Tout cocher</value>
+  </data>
+  <data name="Gameplay.CarrierTurn" xml:space="preserve">
+    <value>Le joueur tourne plus vite avec le ballon :</value>
+  </data>
+  <data name="Gameplay.CarrierTurnDegrees" xml:space="preserve">
+    <value>degrés max par image (jeu : 1,4)</value>
+  </data>
+  <data name="Hook.CarrierTurn" xml:space="preserve">
+    <value>virage avec le ballon</value>
+  </data>
+  <data name="Log.CarrierTurn" xml:space="preserve">
+    <value>Virages avec le ballon : le joueur tourne jusqu'à {0} degrés par image (le jeu : 1,4), pour suivre le ballon après une touche brusque (les deux équipes).</value>
+  </data>
+  <data name="Gameplay.Theme.Passing" xml:space="preserve">
+    <value>Passes</value>
+  </data>
+  <data name="Gameplay.Theme.Shooting" xml:space="preserve">
+    <value>Tirs</value>
+  </data>
+  <data name="Gameplay.Theme.Dribble" xml:space="preserve">
+    <value>Dribble</value>
+  </data>
+  <data name="Gameplay.Theme.Other" xml:space="preserve">
+    <value>Autres</value>
   </data>
 </root>

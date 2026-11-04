@@ -546,8 +546,11 @@ internal static class CodeCaves
     /// <summary>The game's sprint turn limit: 0x1000 = 22.5 degrees (an angle is 0x10000 for a full turn).</summary>
     public const int SprintTurnBase = 0x1000;
 
-    /// <summary>A sprint touch turning the ball 90 degrees or more loses this % of its speed (less in proportion from 22.5).</summary>
-    public const int SprintTouchShorter = 40;
+    /// <summary>
+    /// From this turn in 1/256 of a full turn (45 degrees; the game's is 0x50, 112), the sprint stride hands over to
+    /// the normal dribble stride, which plays the turning animation instead of a sharp sprint touch.
+    /// </summary>
+    public const byte SprintTurnAnimationAngle = 0x20;
 
     /// <summary>F7 changes the sprint turn maximum by 15 degrees.</summary>
     public const int SprintTurnStep = 15;
@@ -603,16 +606,16 @@ internal static class CodeCaves
     }
 
     /// <summary>
-    /// Sprint touch: a touch turning the ball more than 22.5 degrees from its current direction loses up to
-    /// <see cref="SprintTouchShorter"/> % of its speed (reached at 90 degrees), so the ball stays closer while the
-    /// player turns. The 7 replaced bytes are replayed.
+    /// Sprint touch (<paramref name="site"/>, <paramref name="replaced"/> = the bytes the jump replaces, replayed): a
+    /// touch turning the ball more than 22.5 degrees from its current direction also turns the player's run (+0x28)
+    /// and facing (+0x26, +0x42) to the touch direction, so he leaves with the ball at the touch instead of finishing
+    /// the stride on the old line.
     /// </summary>
-    public static Hook SprintTouch(int cave, SprintTurnSites sites)
+    public static Hook SprintTouch(int cave, int site, byte[] replaced, int ball)
     {
-        const int span = 0x4000 - SprintTurnBase;
         var bytes = new CodeBuilder(cave)
             .Bytes(0x51, 0x52)                                      // push ecx ; push edx
-            .Bytes([0x8B, 0x0D], sites.Ball)                        // mov ecx,[ball]
+            .Bytes([0x8B, 0x0D], ball)                              // mov ecx,[ball]
             .Bytes(0x0F, 0xB7, 0x49, 0x58)                          // movzx ecx,word [ecx+0x58] ; ball direction
             .Bytes(0x0F, 0xB7, 0x57, 0x30)                          // movzx edx,word [edi+0x30] ; touch direction
             .Bytes(0x2B, 0xD1, 0x0F, 0xBF, 0xD2)                    // sub edx,ecx ; movsx edx,dx
@@ -620,24 +623,25 @@ internal static class CodeCaves
             .Jump(0x79, "positive")                                 // jns positive
             .Bytes(0xF7, 0xDA)                                      // neg edx
             .Mark("positive")
-            .Bytes([0x81, 0xEA], SprintTurnBase)                    // sub edx,0x1000
+            .Bytes([0x81, 0xFA], SprintTurnBase)                    // cmp edx,0x1000
             .Jump(0x7E, "done")                                     // jle done             ; the game's turn
-            .Bytes([0x81, 0xFA], span)                              // cmp edx,span
-            .Jump(0x7E, "capped")                                   // jle capped
-            .Bytes([0xBA], span)                                    // mov edx,span
-            .Mark("capped")
-            .Bytes(0x8B, 0xCA, 0x50)                                // mov ecx,edx ; push eax
-            .Bytes(0x0F, 0xAF, 0xC1, 0x99)                          // imul eax,ecx ; cdq   ; speed * extra turn
-            .Bytes([0xB9], span * 100 / SprintTouchShorter)         // mov ecx,span*100/percent
-            .Bytes(0xF7, 0xF9)                                      // idiv ecx
-            .Bytes(0x8B, 0xC8, 0x58, 0x2B, 0xC1)                    // mov ecx,eax ; pop eax ; sub eax,ecx
+            .Bytes(0x66, 0x8B, 0x4F, 0x30)                          // mov cx,[edi+0x30]
+            .Bytes(0x66, 0x89, 0x4F, 0x28)                          // mov [edi+0x28],cx    ; run
+            .Bytes(0x66, 0x89, 0x4F, 0x26)                          // mov [edi+0x26],cx    ; facing
+            .Bytes(0x66, 0x89, 0x4F, 0x42)                          // mov [edi+0x42],cx
             .Mark("done")
             .Bytes(0x5A, 0x59)                                      // pop edx ; pop ecx
-            .Bytes(0x50, 0x33, 0xC0, 0x66, 0x8B, 0x47, 0x30)        // original: push eax ; xor eax,eax ; mov ax,[edi+0x30]
-            .JumpTo(sites.Touch + 7)                                // jmp back
+            .Bytes(replaced)                                        // the replaced bytes
+            .JumpTo(site + replaced.Length)                         // jmp back
             .Build();
-        return new Hook("Hook.SprintTurn", sites.Touch, CodeBuilder.JumpPatch(sites.Touch, cave, 7), cave, bytes);
+        return new Hook("Hook.SprintTurn", site, CodeBuilder.JumpPatch(site, cave, replaced.Length), cave, bytes);
     }
+
+    /// <summary>The first sprint touch's replaced bytes: push eax ; xor eax,eax ; mov ax,[edi+0x30].</summary>
+    public static readonly byte[] SprintTouchBytes = [0x50, 0x33, 0xC0, 0x66, 0x8B, 0x47, 0x30];
+
+    /// <summary>The other foot's: xor ecx,ecx ; mov cx,[edi+0x30] ; add esp,0xC.</summary>
+    public static readonly byte[] SprintOtherTouchBytes = [0x33, 0xC9, 0x66, 0x8B, 0x4F, 0x30, 0x83, 0xC4, 0x0C];
 
     /// <summary>
     /// Lofted pass aim: the gauge g (0 to 0x80) gives the distance wanted 0x800 + g * g * 7 / 8 instead of
@@ -910,6 +914,9 @@ internal static class CodeCaves
             .Build();
         return new Hook("Hook.ShotPower", sites.Entry, CodeBuilder.JumpPatch(sites.Entry, cave, 9), cave, bytes);
     }
+
+    /// <summary>The carrier's turn step per frame for an angle in degrees, in 1/65536 of a turn (the game's: 0x100, 1.4 degrees).</summary>
+    public static int CarrierTurnStep(int degrees) => (int)Math.Round(degrees * 65536 / 360.0);
 
     /// <summary>The pad reader's limit for a dead zone in % of the axis (127 from the centre): 6 % -> 8, the game's 29 % -> 37.</summary>
     public static byte StickDeadZoneLimit(int percent) => (byte)Math.Round(percent * 127 / 100.0);

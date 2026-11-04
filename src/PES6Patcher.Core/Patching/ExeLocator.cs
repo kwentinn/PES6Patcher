@@ -100,9 +100,12 @@ internal sealed record SpeedSites(int Entry, int Store);
 /// <summary>
 /// Sprint turns: <see cref="Limit"/> = push 0x1000, the most the ball's direction may turn towards the stick at a
 /// sprint stride (22.5 degrees); <see cref="Touch"/> = push eax (speed) ; xor eax,eax ; mov ax,[edi+0x30] (direction)
-/// before the sprint touch's relay call; <see cref="Ball"/> = pointer to the ball (direction at +0x58).
+/// before the first sprint touch's relay call; <see cref="OtherTouch"/> = xor ecx,ecx ; mov cx,[edi+0x30] ; add esp,0xC
+/// before the other foot's; <see cref="Ball"/> = pointer to the ball (direction at +0x58); <see cref="Animation"/> = the
+/// byte of cmp ax,0x50 in the sprint stride: a turn of 0x50/256 (112 degrees) or more is handed to the normal dribble
+/// stride, which plays the turning animation.
 /// </summary>
-internal sealed record SprintTurnSites(int Limit, int Touch, int Ball);
+internal sealed record SprintTurnSites(int Limit, int Touch, int OtherTouch, int Ball, int Animation);
 
 /// <summary>
 /// Pressing challenge: in the pressing state, <see cref="Range"/> = cmp edi,0xA0 ; jge <see cref="Fail"/> ; push 0x50, before the
@@ -130,6 +133,14 @@ internal sealed record PassLeadSites(int First, int Second);
 /// an axis therefore reads as exactly on it.
 /// </summary>
 internal sealed record StickDeadZoneSites(int[] Limits);
+
+/// <summary>
+/// Carrier turn rate: running with the ball, the facing and run direction (+0x26, +0x28) turn towards their target by at
+/// most a fixed step per frame (0x100 = 1.4 degrees), while a sharp touch sends the ball at once. <see cref="First"/> = the
+/// imm32 of push 100h before that turn (then +0x26, +0x28 and +0x42 are written); <see cref="Second"/> = the imm32 of
+/// add ecx,100h in another with-ball path (its step is halved in some animations).
+/// </summary>
+internal sealed record CarrierTurnSites(int First, int Second);
 
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
@@ -361,6 +372,18 @@ internal sealed class ExeLocator
         "8B 0D ?? ?? ?? ?? 33 D2 66 8B 57 2C 83 C4 08 50 51 52 57 E8 ?? ?? ?? ?? 83 C4 0C 50 33 C0 66 8B 47 30 50 57 E8";
 
     /// <summary>
+    /// The other foot's sprint touch: xor ecx,ecx ; mov cx,[edi+0x30] (direction) ; add esp,0xC ; push eax (speed) ;
+    /// push ecx ; push edi ; call relay.
+    /// </summary>
+    private const string SprintOtherTouch = "33 C9 66 8B 4F 30 83 C4 0C 50 51 57 E8 ?? ?? ?? ?? 8A 17 57 88 15";
+
+    /// <summary>
+    /// Sprint stride: cmp ax,8 ; jae ; pop edi ; xor eax,eax ; pop esi ; add esp,0x28 ; ret ; cmp ax,0x50 (byte at +16) ;
+    /// jb: from 0x50/256 of a turn, the normal dribble stride takes over (turning animation).
+    /// </summary>
+    private const string SprintTurnAnimation = "66 3D 08 00 73 08 5F 33 C0 5E 83 C4 28 C3 66 3D 50 00 72";
+
+    /// <summary>
     /// Pressing state: mov [esp+0x20],edi ; call (direction) ; add esp,0x10 ; cmp edi,0xA0 (at +12) ; jge fail ; push 0x50 ;
     /// push edi ; push esi ; call take-ball attempt.
     /// </summary>
@@ -386,6 +409,21 @@ internal sealed class ExeLocator
         var image = new PeImage(exe);
         var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(PassLead).FindAll(image, s)).ToList();
         return hits.Count == 1 ? new PassLeadSites(hits[0], hits[0] + 13) : null;
+    }
+
+    /// <summary>xor edx,edx ; mov dx,[esi+0x26] ; push 100h ; push edx ; push ebx ; call turn ; mov [esi+0x26],ax ; mov [esi+0x28],ax ; mov [esi+0x42],ax.</summary>
+    private const string CarrierTurnFirst = "33 D2 66 8B 56 26 68 00 01 00 00 52 53 E8 ?? ?? ?? ?? 66 89 46 26 66 89 46 28 66 89 46 42";
+
+    /// <summary>xor ecx,ecx ; cmp word [eax+0x30],0x16 ; mov al,[esi+0x63] ; setne cl ; dec ecx ; and ecx,0x80 ; add ecx,100h.</summary>
+    private const string CarrierTurnSecond = "33 C9 66 83 78 30 16 8A 46 63 0F 95 C1 49 81 E1 80 00 00 00 81 C1 00 01 00 00";
+
+    public static CarrierTurnSites? LocateCarrierTurn(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        List<int> Find(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
+        var first = Find(CarrierTurnFirst);
+        var second = Find(CarrierTurnSecond);
+        return first.Count == 1 && second.Count == 1 ? new CarrierTurnSites(first[0] + 7, second[0] + 22) : null;
     }
 
     /// <summary>One axis of the pad reader: neg eax (distance from 128) ; cmp eax,25h ; jle +12 ; movzx reg,dl ; sub reg,80h.</summary>
@@ -423,7 +461,11 @@ internal sealed class ExeLocator
         List<int> Find(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
         var limit = Find(SprintTurnLimit);
         var touch = Find(SprintTouch);
-        return limit.Count == 1 && touch.Count == 1 ? new SprintTurnSites(limit[0] + 26, touch[0] + 58, image.ReadInt32(touch[0] + 1)) : null;
+        var other = Find(SprintOtherTouch);
+        var animation = Find(SprintTurnAnimation);
+        return limit.Count == 1 && touch.Count == 1 && other.Count == 1 && animation.Count == 1
+            ? new SprintTurnSites(limit[0] + 26, touch[0] + 58, other[0], image.ReadInt32(touch[0] + 1), animation[0] + 16)
+            : null;
     }
 
     /// <summary>Player array: imul reg,reg,0x240 ; add reg,players (the most frequent base).</summary>
