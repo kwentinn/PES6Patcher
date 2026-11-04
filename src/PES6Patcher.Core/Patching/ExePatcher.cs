@@ -316,7 +316,7 @@ public static class ExePatcher
             plan.Add((hook.Entry, hook.EntryBytes));
             image.MakeWritable(image.SectionOf(shot!.HumanScores)!);
         }
-        // shot accuracy: the random gap in direction and height reduced, for human teams
+        // shot accuracy: the random gap in direction and height reduced, for human teams, set pieces excepted
         if (options.ShotAccuracy < 100)
         {
             var testKeys = accuracyKey ? freeKick : null;

@@ -223,8 +223,9 @@ public class PatcherTests(ITestOutputHelper output)
 
         // shot power: the shot function's entry jumps to code that scales the power, F3's percent first
         int shotCave = debugImage.Rel32Target(0x5B9130);
-        Assert.Equal(0x58CC16, debugImage.ReadInt32(shotCave + 14));         // set piece shots keep their power (after saving the direction asked)
-        Assert.Equal(debugCave + 44, debugImage.ReadInt32(shotCave + 21));   // and those through the free kick cave
+        Assert.Equal(new byte[] { 0xC6, 0x05 }, debug.AsSpan(debugImage.Offset(shotCave + 10), 2).ToArray());   // flags a set piece (after saving the direction asked)
+        Assert.Equal(0x58CC16, debugImage.ReadInt32(shotCave + 21));         // set piece shots keep their power
+        Assert.Equal(debugCave + 44, debugImage.ReadInt32(shotCave + 28));   // and those through the free kick cave
         // aim: the shot's kick call goes through code that brings the direction and height closer to the ones asked
         int kickCall = debugImage.Rel32Target(0x5BBC9A);
         Assert.NotEqual(0x478020, kickCall);
@@ -238,7 +239,10 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(0x478020, power.Rel32Target(0x5BBC9A));
         var accuracy = new PeImage(ExePatcher.Build(original, options with { ShotAccuracy = 50 }));
         Assert.NotEqual(0x478020, accuracy.Rel32Target(0x5BBC9A));
-        Assert.Equal(0x58CC16, accuracy.ReadInt32(accuracy.Rel32Target(0x5B9130) + 14));
+        Assert.Equal(0x58CC16, accuracy.ReadInt32(accuracy.Rel32Target(0x5B9130) + 21));
+        // a set piece (flagged by the entry) skips the accuracy: its kick call goes straight to the kick function
+        int accuracyCave = accuracy.Rel32Target(0x5BBC9A), flag = accuracy.ReadInt32(accuracy.Rel32Target(0x5B9130) + 12);
+        Assert.Equal(flag, accuracy.ReadInt32(accuracyCave + 22));   // after the human team check: cmp byte [set piece],0
 
         // a lob (L1 held, 0x400 in player+0xB0) keeps its height (95 %) and gets the lob power (70 %) on its speed
         var lob = ExePatcher.Build(original, options with { ShotAccuracy = 0, LobPower = 70 });

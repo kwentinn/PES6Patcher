@@ -863,17 +863,25 @@ internal static class CodeCaves
     /// Shots from the set piece's call (<see cref="ShotSites.SetPieceReturn"/>, or <paramref name="freeKickReturn"/>
     /// through the free kick cave) keep their power. The replaced 9 bytes are replayed.
     /// </summary>
+    /// <summary>
+    /// Bytes after the human team scores (<see cref="ShotSites.HumanScores"/>, 2 bytes): the direction asked (word) and
+    /// whether the current shot comes from a set piece (byte), both written by <see cref="ShotPower"/>.
+    /// </summary>
+    public const int AskedOffset = 2, SetPieceOffset = 4;
+
     public static Hook ShotPower(int cave, ShotSites sites, int percent, int freeKickReturn = 0, FreeKickSites? testKeys = null)
     {
         var code = new CodeBuilder(cave)
             .Bytes(0x8B, 0x44, 0x24, 0x0C)                          // mov eax,[esp+0xC]    ; direction asked
-            .Bytes([0x66, 0xA3], sites.HumanScores + 2)             // mov [asked],ax       ; for ShotAccuracy
+            .Bytes([0x66, 0xA3], sites.HumanScores + AskedOffset)   // mov [asked],ax       ; for ShotAccuracy
+            .Bytes([0xC6, 0x05, .. BitConverter.GetBytes(sites.HumanScores + SetPieceOffset), 0x01])   // mov byte [set piece],1
             .Bytes(0x8B, 0x04, 0x24)                                // mov eax,[esp]        ; return address
             .Bytes([0x3D], sites.SetPieceReturn)                    // cmp eax,set piece
             .Jump(0x74, "original");                                // je original
         if (freeKickReturn != 0)
             code.Bytes([0x3D], freeKickReturn)                      // cmp eax,set piece through the free kick cave
                 .Jump(0x74, "original");                            // je original
+        code.Bytes([0xC6, 0x05, .. BitConverter.GetBytes(sites.HumanScores + SetPieceOffset), 0x00]);   // mov byte [set piece],0
         // shooter of a team not controlled by a human (see EmitHumanTeams): the game's power
         code.Bytes(0x8B, 0x54, 0x24, 0x04)                          // mov edx,[esp+4]      ; player
             .Bytes(0x0F, 0xB6, 0x4A, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [edx+0x12] ; and ecx,1 ; team
@@ -921,7 +929,8 @@ internal static class CodeCaves
     /// above <see cref="ShotHeightPivot"/>. A shot from the weak foot (the game gives it a larger gap, always to the
     /// same side) keeps percent² / 100 instead: 25 % at 50 %. A lob (see <see cref="LobButton"/>) keeps its height
     /// and gets <paramref name="lobPower"/> % of its speed. Then the kick function is called as before. With the
-    /// test key, F4's percent is used once set.
+    /// test key, F4's percent is used once set. Set pieces (flagged by <see cref="ShotPower"/>) keep the game's shot:
+    /// with their height scaled down, free kicks could no longer clear the wall.
     /// </summary>
     public static Hook ShotAccuracy(int cave, ShotSites sites, int percent, FreeKickSites? testKeys = null, int lobPower = 100)
     {
@@ -929,8 +938,11 @@ internal static class CodeCaves
             .Bytes(0x8B, 0x54, 0x24, 0x04)                          // mov edx,[esp+4]      ; player
             .Bytes(0x0F, 0xB6, 0x4A, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [edx+0x12] ; and ecx,1 ; team
             .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(sites.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
-            .Jump(0x73, "human")                                    // jae human
-            .JumpTo(sites.KickEntry)                                // jmp kick function    ; AI: the game's shot
+            .Jump(0x72, "game")                                     // jb game              ; AI: the game's shot
+            .Bytes([0x80, 0x3D, .. BitConverter.GetBytes(sites.HumanScores + SetPieceOffset), 0x00])   // cmp byte [set piece],0
+            .Jump(0x74, "human")                                    // je human
+            .Mark("game")                                           // set pieces too: their height clears the wall
+            .JumpTo(sites.KickEntry)                                // jmp kick function
             .Mark("human");
         // the percent stays on the stack: the arguments move 4 bytes up
         if (testKeys != null)
@@ -957,7 +969,7 @@ internal static class CodeCaves
             .Bytes(0x89, 0x04, 0x24)                                // mov [esp],eax
             .Mark("favouredFoot")
             // direction: asked + (direction - asked) * percent / 100, on 16 bits
-            .Bytes([0x0F, 0xB7, 0x0D], sites.HumanScores + 2)       // movzx ecx,word [asked]
+            .Bytes([0x0F, 0xB7, 0x0D], sites.HumanScores + AskedOffset)   // movzx ecx,word [asked]
             .Bytes(0x8B, 0x44, 0x24, 0x0C)                          // mov eax,[esp+0xC]    ; direction
             .Bytes(0x2B, 0xC1, 0x98)                                // sub eax,ecx ; cwde   ; signed 16-bit gap
             .Bytes(0x0F, 0xAF, 0x04, 0x24)                          // imul eax,[esp]       ; percent
