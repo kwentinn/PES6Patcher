@@ -140,3 +140,7 @@ Suggestion de bukowski sur Evo-Web : les arbitres de PES6 sifflent trop peu de f
 Issue : [#19](https://github.com/kwentinn/PES6Patcher/issues/19)
 
 Suggestion de liqiao806 et SrBurrito sur Evo-Web : régler de combien chaque flèche de forme augmente ou baisse les stats. Les flèches changent les stats pendant le match, le code qui les applique devrait donc pouvoir être retrouvé à partir des stats.
+
+## Joueurs humains : pousser le ballon encore plus loin (R1 trois fois)
+
+Appuyer deux fois sur R1 en sprint pousse le ballon plus loin devant. Un troisième appui pourrait le pousser encore plus loin, pour partir dans l'espace. Il faut d'abord trouver où le double appui est détecté et à quelle distance il envoie le ballon.

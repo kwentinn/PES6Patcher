@@ -140,3 +140,7 @@ Suggested by bukowski on Evo-Web: PES6's referees whistle too few fouls, and pen
 Issue: [#19](https://github.com/kwentinn/PES6Patcher/issues/19)
 
 Suggested by liqiao806 and SrBurrito on Evo-Web: set how much each condition arrow raises or lowers the stats. The arrows change the stats during a match, so the code applying them should be findable from the stats.
+
+## Human players: push the ball even further (R1 three times)
+
+Pressing R1 twice while sprinting pushes the ball further ahead. A third press could push it even further, to run into space. First find where the double press is detected and how far it sends the ball.
