@@ -145,7 +145,15 @@ internal sealed class MainForm : Form
         _passLead.EnabledChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
         _passLead.CheckedChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
         // "check all": a click sets every available option; it shows as checked when they all are
-        _checkAll.Click += (_, _) => { foreach (var option in GameplayOptions.Where(o => o.Enabled)) option.Checked = _checkAll.Checked; };
+        _checkAll.Click += (_, _) =>
+        {
+            // each option's change updates this box: keep the value clicked until they are all set
+            bool value = _checkAll.Checked;
+            _settingAll = true;
+            foreach (var option in GameplayOptions.Where(o => o.Enabled)) option.Checked = value;
+            _settingAll = false;
+            UpdateCheckAll();
+        };
         foreach (var option in GameplayOptions)
         {
             option.CheckedChanged += (_, _) => UpdateCheckAll();
@@ -311,8 +319,11 @@ internal sealed class MainForm : Form
     private CheckBox[] GameplayOptions =>
         [_freeDirection, _stickDeadZone, _closeDribble, _freeKick, _shot, _accuracy, _spread, _speedGap, _sprintTurn, _tackle, _loftedAim, _passLead, _physicsMod];
 
+    private bool _settingAll;
+
     private void UpdateCheckAll()
     {
+        if (_settingAll) return;
         var available = GameplayOptions.Where(o => o.Enabled).ToList();
         _checkAll.Checked = available.Count > 0 && available.All(o => o.Checked);
         _checkAll.Enabled = available.Count > 0;
