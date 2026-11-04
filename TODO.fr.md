@@ -88,3 +88,21 @@ Fait en sprint : **Virages plus francs en sprint, selon la précision de dribble
 Issue : [#12](https://github.com/kwentinn/PES6Patcher/issues/12)
 
 Suggestion de H_G sur Evo-Web : dans PES5, maintenir R2 en dribblant donnait une vitesse plus lente et contrôlée, entre la marche et la course ; PES6 l'a retirée. Il faudrait d'abord savoir si PES6 a encore le code de cette vitesse, ou s'il a été complètement supprimé.
+
+## Ballon : plus d'effet
+
+Issue : [#13](https://github.com/kwentinn/PES6Patcher/issues/13)
+
+Suggestion de SrBurrito sur Evo-Web : plus de courbe sur les tirs et passes enveloppés. La rotation du ballon est dans ses données ; l'effet Magnus déjà trouvé n'agit que sur la hauteur, il faut donc d'abord trouver où la rotation fait dévier le ballon sur le côté.
+
+## Penalties : contrôle de la puissance
+
+Issue : [#14](https://github.com/kwentinn/PES6Patcher/issues/14)
+
+Suggestion de kovy sur Evo-Web : un contrôle de la puissance des penalties. Les penalties sont des coups de pied arrêtés et gardent la puissance du jeu ; il faut d'abord trouver comment elle est décidée.
+
+## Passes manuelles : plus d'angles
+
+Issue : [#15](https://github.com/kwentinn/PES6Patcher/issues/15)
+
+Suggestion de kovy sur Evo-Web : plus d'angles pour la passe manuelle (stick droit). Les passes passent par du code protégé ; il faut d'abord vérifier si la direction de la passe manuelle est arrondie à quelques secteurs, et où.

@@ -88,3 +88,21 @@ Done when sprinting: **Sharper turns when sprinting, by dribble accuracy** lets 
 Issue: [#12](https://github.com/kwentinn/PES6Patcher/issues/12)
 
 Suggested by H_G on Evo-Web: in PES5, holding R2 while dribbling gave a slower, controlled speed between walking and running; PES6 removed it. First find out whether PES6 still has the code for that speed, or whether it was removed completely.
+
+## Ball: more swerve
+
+Issue: [#13](https://github.com/kwentinn/PES6Patcher/issues/13)
+
+Suggested by SrBurrito on Evo-Web: more curve on curled shots and passes. The ball's spin is in its data; the spin lift already found only acts on the height, so first find where the spin bends the ball sideways.
+
+## Penalties: control of the power
+
+Issue: [#14](https://github.com/kwentinn/PES6Patcher/issues/14)
+
+Suggested by kovy on Evo-Web: some control of the penalty kick's power. Penalties are set pieces and keep the game's power; first find how it is decided.
+
+## Manual passes: more angles
+
+Issue: [#15](https://github.com/kwentinn/PES6Patcher/issues/15)
+
+Suggested by kovy on Evo-Web: more angles for manual passing (right stick). Passes go through protected code; first check whether the manual pass direction is rounded to a few sectors, and where.
