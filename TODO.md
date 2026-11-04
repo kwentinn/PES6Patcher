@@ -120,3 +120,21 @@ Suggested by kovy on Evo-Web: more angles for manual passing (right stick). Pass
 Issue: [#16](https://github.com/kwentinn/PES6Patcher/issues/16)
 
 Players with a great acceleration, like Messi, hardly stand out in the game: they should make the difference over the first steps, the way **Bigger speed gap** does for the top speed. Already known: every frame, `0x48FEF0` moves the running speed (`+0x1C`) towards the target speed with an acceleration time taken from the acceleration stat (`0x3BCF5B0`). First measure how much that time changes between a low and a high stat, then widen the gap the same way.
+
+## Widescreen: start screen shifted to the left (bug)
+
+Issue: [#17](https://github.com/kwentinn/PES6Patcher/issues/17)
+
+Reported by denton_ajax and rds084 on Evo-Web: with the widescreen display, the start screen ("Press Start") is shifted to the left, with or without Menu Server. It probably still assumes the original 512-wide 2D layer; first find which drawing call places it.
+
+## Referees: more fouls and penalties
+
+Issue: [#18](https://github.com/kwentinn/PES6Patcher/issues/18)
+
+Suggested by bukowski on Evo-Web: PES6's referees whistle too few fouls, and penalties are very rare. First find where a contact is judged a foul.
+
+## Condition arrows: adjustable effect
+
+Issue: [#19](https://github.com/kwentinn/PES6Patcher/issues/19)
+
+Suggested by liqiao806 and SrBurrito on Evo-Web: set how much each condition arrow raises or lowers the stats. The arrows change the stats during a match, so the code applying them should be findable from the stats.

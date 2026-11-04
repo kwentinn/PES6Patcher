@@ -120,3 +120,21 @@ Suggestion de kovy sur Evo-Web : plus d'angles pour la passe manuelle (stick dro
 Issue : [#16](https://github.com/kwentinn/PES6Patcher/issues/16)
 
 Les joueurs à forte accélération, comme Messi, se distinguent à peine dans le jeu : ils devraient faire la différence sur les premiers pas, comme le fait **Écart de vitesse plus marqué** pour la vitesse de pointe. Déjà connu : à chaque image, `0x48FEF0` rapproche la vitesse de course (`+0x1C`) de la vitesse visée, avec un temps d'accélération tiré de la stat d'accélération (`0x3BCF5B0`). Il faudrait d'abord mesurer de combien ce temps change entre une stat faible et une stat élevée, puis élargir l'écart de la même façon.
+
+## Écran large : écran de démarrage décalé à gauche (bug)
+
+Issue : [#17](https://github.com/kwentinn/PES6Patcher/issues/17)
+
+Signalé par denton_ajax et rds084 sur Evo-Web : en écran large, l'écran de démarrage (« Press Start ») est décalé vers la gauche, avec ou sans Menu Server. Il suppose sans doute encore la couche 2D d'origine, large de 512 ; il faut d'abord trouver quel appel de dessin le place.
+
+## Arbitres : plus de fautes et de penalties
+
+Issue : [#18](https://github.com/kwentinn/PES6Patcher/issues/18)
+
+Suggestion de bukowski sur Evo-Web : les arbitres de PES6 sifflent trop peu de fautes, et les penalties sont très rares. Il faut d'abord trouver où un contact est jugé fautif.
+
+## Flèches de forme : effet réglable
+
+Issue : [#19](https://github.com/kwentinn/PES6Patcher/issues/19)
+
+Suggestion de liqiao806 et SrBurrito sur Evo-Web : régler de combien chaque flèche de forme augmente ou baisse les stats. Les flèches changent les stats pendant le match, le code qui les applique devrait donc pouvoir être retrouvé à partir des stats.
