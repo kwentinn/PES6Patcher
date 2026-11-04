@@ -106,3 +106,9 @@ Suggestion de kovy sur Evo-Web : un contrôle de la puissance des penalties. Les
 Issue : [#15](https://github.com/kwentinn/PES6Patcher/issues/15)
 
 Suggestion de kovy sur Evo-Web : plus d'angles pour la passe manuelle (stick droit). Les passes passent par du code protégé ; il faut d'abord vérifier si la direction de la passe manuelle est arrondie à quelques secteurs, et où.
+
+## Écart d'accélération entre joueurs
+
+Issue : [#16](https://github.com/kwentinn/PES6Patcher/issues/16)
+
+Les joueurs à forte accélération, comme Messi, se distinguent à peine dans le jeu : ils devraient faire la différence sur les premiers pas, comme le fait **Écart de vitesse plus marqué** pour la vitesse de pointe. Déjà connu : à chaque image, `0x48FEF0` rapproche la vitesse de course (`+0x1C`) de la vitesse visée, avec un temps d'accélération tiré de la stat d'accélération (`0x3BCF5B0`). Il faudrait d'abord mesurer de combien ce temps change entre une stat faible et une stat élevée, puis élargir l'écart de la même façon.

@@ -106,3 +106,9 @@ Suggested by kovy on Evo-Web: some control of the penalty kick's power. Penaltie
 Issue: [#15](https://github.com/kwentinn/PES6Patcher/issues/15)
 
 Suggested by kovy on Evo-Web: more angles for manual passing (right stick). Passes go through protected code; first check whether the manual pass direction is rounded to a few sectors, and where.
+
+## Acceleration gap between players
+
+Issue: [#16](https://github.com/kwentinn/PES6Patcher/issues/16)
+
+Players with a great acceleration, like Messi, hardly stand out in the game: they should make the difference over the first steps, the way **Bigger speed gap** does for the top speed. Already known: every frame, `0x48FEF0` moves the running speed (`+0x1C`) towards the target speed with an acceleration time taken from the acceleration stat (`0x3BCF5B0`). First measure how much that time changes between a low and a high stat, then widen the gap the same way.
