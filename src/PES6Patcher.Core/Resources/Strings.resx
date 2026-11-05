@@ -507,4 +507,10 @@
   <data name="Gameplay.Theme.Other" xml:space="preserve">
     <value>Other</value>
   </data>
+  <data name="Log.SettingsDetected" xml:space="preserve">
+    <value>The options below are the ones {0} was patched with.</value>
+  </data>
+  <data name="Log.SettingsUnknown" xml:space="preserve">
+    <value>{0} is patched, but its options are not known (patched by a version before 1.19.0 or by another tool): the options below are the defaults. They are remembered from the next apply.</value>
+  </data>
 </root>

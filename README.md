@@ -48,7 +48,7 @@ The rest of the gameplay is unchanged.
 3. Check the game folder (detected automatically), the executable and the resolution (the screen's by default).
 4. Choose the options, then click **Apply**. Each group (**Display**, **Gameplay**) and **Skip the intro** can be unchecked: for example, to change only the gameplay, uncheck **Display** and `kload.cfg`, `lodmixer.dat` and `settings.dat` are left as they are.
 
-The exe is always rebuilt from the original backup, so the options can be changed and applied again at any time.
+The exe is always rebuilt from the original backup, so the options can be changed and applied again at any time. Each apply saves its options next to the exe (`PES6.exe.patcher.ini`, a plain list of `Name=value`): when the window opens on an exe patched that way, it shows the options that exe has, ready to be changed. An exe patched before version 1.19.0 shows the defaults until it is applied again.
 
 **Restore original** puts every file back as it was before the first apply.
 

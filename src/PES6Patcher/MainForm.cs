@@ -460,12 +460,65 @@ internal sealed class MainForm : Form
 
         if (File.Exists(game.Speeder) && SpeederConfig.Read(File.ReadAllText(game.Speeder)) is double speed)
             _speed.Value = Math.Clamp((decimal)speed, _speed.Minimum, _speed.Maximum);
+        // a patched exe: show the options it was patched with (only when the user picks a game, not after an apply)
+        var patchedWith = log && state is ExeState.Patched or ExeState.PatchedWithoutBackup ? PatchRecord.Load(game) : null;
+        if (patchedWith != null) ShowSettings(patchedWith);
         UpdateApply();
         if (log)
         {
             Log(Loc.T("Log.Game", game.Folder));
             if (!game.HasKitserver) Log(Loc.T("Log.NoKitserver"));
+            if (state is ExeState.Patched or ExeState.PatchedWithoutBackup)
+                Log(Loc.T(patchedWith != null ? "Log.SettingsDetected" : "Log.SettingsUnknown", exe));
         }
+    }
+
+    /// <summary>Fills the window with the settings of an apply (the physics mod and the speed stay as read from their files).</summary>
+    private void ShowSettings(InstallSettings s)
+    {
+        static void Set(NumericUpDown box, decimal value) => box.Value = Math.Clamp(value, box.Minimum, box.Maximum);
+        _display.Checked = s.Display;
+        if (s.Display)
+        {
+            Set(_width, s.Width);
+            Set(_height, s.Height);
+            _borderless.Checked = s.BorderlessWindow;
+        }
+        _gameplay.Checked = s.Gameplay;
+        _freeDirection.Checked = s.FreeDirection;
+        _stickDeadZone.Checked = s.StickDeadZone != PatchOptions.GameStickDeadZone;
+        if (_stickDeadZone.Checked) Set(_stickDeadZonePercent, s.StickDeadZone);
+        _closeDribble.Checked = s.CloseDribble;
+        _freeKick.Checked = s.FreeKick;
+        Set(_freeKickWeight, s.FreeKickWeight);
+        _freeKickDebug.Checked = s.FreeKickDebug;
+        _shot.Checked = s.ShotPower < 100;
+        if (_shot.Checked) Set(_shotPower, s.ShotPower);
+        _shotPowerDebug.Checked = s.ShotPowerDebug;
+        _accuracy.Checked = s.ShotAccuracy < 100;
+        if (_accuracy.Checked) Set(_shotAccuracy, s.ShotAccuracy);
+        _shotAccuracyDebug.Checked = s.ShotAccuracyDebug;
+        Set(_lobPower, s.LobPower);
+        _spread.Checked = s.Spread > 0;
+        if (_spread.Checked) Set(_spreadPercent, s.Spread);
+        _spreadDebug.Checked = s.SpreadDebug;
+        _speedGap.Checked = s.SpeedGap != 100;
+        if (_speedGap.Checked) Set(_speedGapPercent, s.SpeedGap);
+        _speedGapDebug.Checked = s.SpeedGapDebug;
+        _sprintTurn.Checked = s.SprintTurn > 0;
+        if (_sprintTurn.Checked) Set(_sprintTurnDegrees, s.SprintTurn);
+        _sprintTurnDebug.Checked = s.SprintTurnDebug;
+        _carrierTurn.Checked = s.CarrierTurn > 0;
+        if (_carrierTurn.Checked) Set(_carrierTurnDegrees, s.CarrierTurn);
+        _tackle.Checked = s.Tackle != 100;
+        if (_tackle.Checked) Set(_tacklePercent, s.Tackle);
+        _tackleDebug.Checked = s.TackleDebug;
+        _loftedAim.Checked = s.LoftedAim;
+        _passLead.Checked = s.PassLead < 100;
+        if (_passLead.Checked) Set(_passLeadPercent, s.PassLead);
+        _passLeadDebug.Checked = s.PassLeadDebug;
+        _skipIntro.Checked = s.SkipIntro;
+        UpdateFormatInfo();
     }
 
     private GameInstall? SelectedGame()

@@ -122,6 +122,9 @@ public static class Installer
 
         File.WriteAllBytes(game.Exe, patched);
         log(Loc.T("Log.ExeInstalled"));
+        // what this exe has, for the next opening of the window (an unpatched exe needs no record)
+        if (patched == original) PatchRecord.Delete(game);
+        else PatchRecord.Save(game, settings, patched);
 
         // physics mod: only its line in the DLL list, never the rest of kload.cfg
         bool? physicsMod = settings.Gameplay ? settings.PhysicsMod : null;
@@ -184,6 +187,7 @@ public static class Installer
             log(Loc.T("Log.Restored", Path.GetFileName(file)));
             restored++;
         }
+        PatchRecord.Delete(game);
         log(Loc.T(restored == 0 ? "Log.NothingToRestore" : "Log.RestoreDone"));
     }
 

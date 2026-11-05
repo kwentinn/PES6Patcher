@@ -48,7 +48,7 @@ Le reste du gameplay est inchangé.
 3. Vérifier le dossier du jeu (détecté automatiquement), l'exécutable et la résolution (celle de l'écran par défaut).
 4. Choisir les options, puis cliquer sur **Appliquer**. Chaque groupe (**Affichage**, **Gameplay**) et **Passer l'intro** peuvent être décochés : par exemple, pour ne modifier que le gameplay, décocher **Affichage**, et `kload.cfg`, `lodmixer.dat` et `settings.dat` restent tels quels.
 
-L'exe est toujours reconstruit à partir de la sauvegarde d'origine : on peut changer les options et réappliquer à tout moment.
+L'exe est toujours reconstruit à partir de la sauvegarde d'origine : on peut changer les options et réappliquer à tout moment. Chaque application enregistre ses options à côté de l'exe (`PES6.exe.patcher.ini`, une simple liste de `Nom=valeur`) : quand la fenêtre s'ouvre sur un exe patché ainsi, elle affiche les options de cet exe, prêtes à être modifiées. Un exe patché avant la version 1.19.0 affiche les options par défaut jusqu'à la prochaine application.
 
 **Restaurer l'original** remet tous les fichiers tels qu'ils étaient avant la première application.
 
