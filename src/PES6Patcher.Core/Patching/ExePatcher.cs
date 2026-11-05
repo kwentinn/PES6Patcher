@@ -441,6 +441,13 @@ public static class ExePatcher
             var sites = ExeLocator.LocateStickDeadZone(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.StickDeadZone"), 0)]);
             byte limit = CodeCaves.StickDeadZoneLimit(options.StickDeadZone);
             foreach (int site in sites.Limits) plan.Add((site, [limit]));
+            // with the smaller zone, a slight push sent the corner and free kick aims turning at full speed
+            foreach (int site in sites.Aims)
+            {
+                var aim = CodeCaves.SetPieceAim(Cave(CodeCaves.SetPieceAim(0, site).CaveBytes.Length), site);
+                plan.Add((aim.Cave, aim.CaveBytes));
+                plan.Add((aim.Entry, aim.EntryBytes));
+            }
         }
 
         // pass lead: the pass point is placed less far ahead of the receiver (through passes stay in play)

@@ -381,7 +381,7 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Stick_dead_zone_lowers_the_four_axis_limits()
+    public void Stick_dead_zone_lowers_the_four_axis_limits_and_eases_the_set_piece_aims()
     {
         var original = Load("PES6.orig.exe");
         if (original == null) return;
@@ -398,8 +398,26 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(0x25, CodeCaves.StickDeadZoneLimit(PatchOptions.GameStickDeadZone));
         Assert.All(sites, va => Assert.Equal(0x25, without[image.Offset(va)]));
         Assert.All(sites, va => Assert.Equal(8, with[image.Offset(va)]));
+        // measured in game: the corner (0x58EFE1) and free kick (0x58AEF6) aims, now hooked
+        int[] aims = [0x58AEF6, 0x58EFE1];
+        var caves = new List<int>();
+        foreach (int va in aims)
+        {
+            Assert.Equal(0x84, without[image.Offset(va)]);                       // test al,al
+            Assert.Equal(0xE9, with[image.Offset(va)]);                          // jmp cave
+            int cave = va + 5 + image.ReadInt32(va + 1);
+            caves.Add(cave);
+            var expected = CodeCaves.SetPieceAim(cave, va);
+            Assert.Equal(expected.EntryBytes, with.AsSpan(image.Offset(va), CodeCaves.SetPieceAimLength).ToArray());
+            Assert.Equal(expected.CaveBytes, with.AsSpan(image.Offset(cave), expected.CaveBytes.Length).ToArray());
+            Assert.Equal(va + CodeCaves.SetPieceAimLength, cave + expected.CaveBytes.Length + image.ReadInt32(cave + expected.CaveBytes.Length - 4));
+        }
         var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
-        Assert.Equal(sites.Select(image.Offset), changed);
+        int caveSize = CodeCaves.SetPieceAim(0, 0).CaveBytes.Length;
+        Assert.DoesNotContain(changed, i => !sites.Select(image.Offset).Contains(i)
+            && !aims.Any(va => i >= image.Offset(va) && i < image.Offset(va) + CodeCaves.SetPieceAimLength)
+            && !caves.Any(c => i >= image.Offset(c) && i < image.Offset(c) + caveSize));
+        Assert.All(sites, va => Assert.Contains(image.Offset(va), changed));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { StickDeadZone = 1 }));
     }
 

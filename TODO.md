@@ -149,7 +149,7 @@ Pressing R1 twice while sprinting pushes the ball further ahead. A third press c
 
 Issue: [#20](https://github.com/kwentinn/PES6Patcher/issues/20)
 
-On corners (and free kicks too), the stick moves the aim too much: a slight push sends it far. Probably made worse by the smaller analog stick dead zone. First find how the set piece aim reads the stick, then lower its sensitivity.
+Done: the corner and free kick aims turned at full speed as soon as the stick leaned right or left, whatever the push. With **Smaller analog stick dead zone**, they now ignore a push under 3/8 and turn by the push squared, up to the game's speed.
 
 ## AI: keeper going up for late corners
 

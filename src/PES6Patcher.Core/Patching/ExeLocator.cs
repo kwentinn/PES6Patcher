@@ -131,8 +131,10 @@ internal sealed record PassLeadSites(int First, int Second);
 /// Analog stick dead zone, in the pad reader: each of the 4 axis bytes (0-255, centre 128) is zeroed when its distance from the
 /// centre is at most 0x25; <see cref="Limits"/> = the imm8 of those 4 "cmp eax,25h". A stick held within about 16 degrees of
 /// an axis therefore reads as exactly on it.
+/// <see cref="Aims"/>: the corner and free kick waits turn the aim [player+0xA0] by 0x40 per frame as soon as the stick's
+/// right (0x80) or left (0x20) bit is set, whatever the push (the 22 bytes from "test al,al").
 /// </summary>
-internal sealed record StickDeadZoneSites(int[] Limits);
+internal sealed record StickDeadZoneSites(int[] Limits, int[] Aims);
 
 /// <summary>
 /// Carrier turn rate: running with the ball, the facing and run direction (+0x26, +0x28) turn towards their target by at
@@ -429,12 +431,17 @@ internal sealed class ExeLocator
     /// <summary>One axis of the pad reader: neg eax (distance from 128) ; cmp eax,25h ; jle +12 ; movzx reg,dl ; sub reg,80h.</summary>
     private const string StickAxis = "F7 D8 83 F8 25 7E 0C 66 0F B6 ?? 81 ?? 80 00 00 00";
 
+    /// <summary>Set piece aim: test al,al ; jns +7 ; add dword [esi+0xA0],0x40 ; test al,0x20 ; jz +7 ; add dword [esi+0xA0],-0x40.</summary>
+    private const string SetPieceAim = "84 C0 79 07 83 86 A0 00 00 00 40 A8 20 74 07 83 86 A0 00 00 00 C0";
+
     public static StickDeadZoneSites? LocateStickDeadZone(byte[] exe)
     {
         var image = new PeImage(exe);
         var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(StickAxis).FindAll(image, s)).Order().ToList();
         // the 4 axes follow one another in the same function
-        return hits.Count == 4 && hits[3] - hits[0] < 0x100 ? new StickDeadZoneSites([.. hits.Select(h => h + 4)]) : null;
+        var aims = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(SetPieceAim).FindAll(image, s)).Order().ToList();
+        return hits.Count == 4 && hits[3] - hits[0] < 0x100 && aims.Count == 2
+            ? new StickDeadZoneSites([.. hits.Select(h => h + 4)], [.. aims]) : null;
     }
 
     public static LoftedAimSites? LocateLoftedAim(byte[] exe)

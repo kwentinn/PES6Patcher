@@ -921,6 +921,39 @@ internal static class CodeCaves
     /// <summary>The pad reader's limit for a dead zone in % of the axis (127 from the centre): 6 % -> 8, the game's 29 % -> 37.</summary>
     public static byte StickDeadZoneLimit(int percent) => (byte)Math.Round(percent * 127 / 100.0);
 
+    /// <summary>Set piece aim: stick magnitudes (0-8) under this one leave the aim alone.</summary>
+    public const int SetPieceAimFloor = 3;
+
+    /// <summary>Length of the set piece aim code replaced by the hook (see <see cref="StickDeadZoneSites.Aims"/>).</summary>
+    public const int SetPieceAimLength = 22;
+
+    /// <summary>
+    /// Corner and free kick aim: instead of a fixed 0x40 per frame as soon as the stick leans right or left, the aim ignores
+    /// a push under <see cref="SetPieceAimFloor"/> (of 8) and then turns by the magnitude squared, up to the game's 0x40 at
+    /// full push. Validated in game.
+    /// </summary>
+    public static Hook SetPieceAim(int cave, int site)
+    {
+        var bytes = new CodeBuilder(cave)
+            .Bytes(0x0F, 0xB6, 0x8E, 0x01, 0x01, 0x00, 0x00)        // movzx ecx,byte [esi+0x101] ; stick magnitude 0-8
+            .Bytes(0x83, 0xF9, SetPieceAimFloor)                    // cmp ecx,floor
+            .Jump(0x73, "push")                                     // jae push
+            .Bytes(0x31, 0xC9)                                      // xor ecx,ecx
+            .Mark("push")
+            .Bytes(0x0F, 0xAF, 0xC9)                                // imul ecx,ecx            ; 9 .. 64 = 0x40
+            .Bytes(0x84, 0xC0)                                      // test al,al              ; right bit
+            .Jump(0x79, "left")                                     // jns left
+            .Bytes(0x01, 0x8E, 0xA0, 0x00, 0x00, 0x00)              // add [esi+0xA0],ecx
+            .Mark("left")
+            .Bytes(0xA8, 0x20)                                      // test al,0x20            ; left bit
+            .Jump(0x74, "done")                                     // jz done
+            .Bytes(0x29, 0x8E, 0xA0, 0x00, 0x00, 0x00)              // sub [esi+0xA0],ecx
+            .Mark("done")
+            .JumpTo(site + SetPieceAimLength)                       // jmp back (ecx is free: a call follows)
+            .Build();
+        return new Hook("Hook.StickDeadZone", site, CodeBuilder.JumpPatch(site, cave, SetPieceAimLength), cave, bytes);
+    }
+
     /// <summary>Shot height above which the excess is scaled by <see cref="ShotAccuracy"/>.</summary>
     public const int ShotHeightPivot = 20;
 
