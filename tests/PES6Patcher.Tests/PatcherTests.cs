@@ -392,12 +392,12 @@ public class PatcherTests(ITestOutputHelper output)
         var with = ExePatcher.Build(original, options with { StickDeadZone = PatchOptions.DefaultStickDeadZone });
         var image = new PeImage(with);
 
-        // measured in game: the imm8 of the 4 "cmp eax,25h" of the pad reader; 6 % of 127 -> 8
+        // measured in game: the imm8 of the 4 "cmp eax,25h" of the pad reader; 18 % of 127 -> 23
         int[] sites = [0x8B7D83, 0x8B7DAA, 0x8B7DD1, 0x8B7DFC];
-        Assert.Equal(8, CodeCaves.StickDeadZoneLimit(PatchOptions.DefaultStickDeadZone));
+        Assert.Equal(23, CodeCaves.StickDeadZoneLimit(PatchOptions.DefaultStickDeadZone));
         Assert.Equal(0x25, CodeCaves.StickDeadZoneLimit(PatchOptions.GameStickDeadZone));
         Assert.All(sites, va => Assert.Equal(0x25, without[image.Offset(va)]));
-        Assert.All(sites, va => Assert.Equal(8, with[image.Offset(va)]));
+        Assert.All(sites, va => Assert.Equal(23, with[image.Offset(va)]));
         // measured in game: the corner (0x58EFE1), free kick (0x58AEF6) and goal kick (0x5986FC, 0x598B5B) aims, now hooked
         (int Va, bool GoalKick)[] aims = [(0x58AEF6, false), (0x58EFE1, false), (0x5986FC, true), (0x598B5B, true)];
         var hooked = new List<(int Start, int Length)>();

@@ -918,7 +918,7 @@ internal static class CodeCaves
     /// <summary>The carrier's turn step per frame for an angle in degrees, in 1/65536 of a turn (the game's: 0x100, 1.4 degrees).</summary>
     public static int CarrierTurnStep(int degrees) => (int)Math.Round(degrees * 65536 / 360.0);
 
-    /// <summary>The pad reader's limit for a dead zone in % of the axis (127 from the centre): 6 % -> 8, the game's 29 % -> 37.</summary>
+    /// <summary>The pad reader's limit for a dead zone in % of the axis (127 from the centre): 18 % -> 23, the game's 29 % -> 37.</summary>
     public static byte StickDeadZoneLimit(int percent) => (byte)Math.Round(percent * 127 / 100.0);
 
     /// <summary>Set piece aim: stick magnitudes (0-8) under this one leave the aim alone.</summary>

@@ -43,7 +43,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     /// <summary>
     /// Analog stick dead zone of each axis, in % of the axis (the game's: 29 %, 37 of 127): default (tested in game) and limits.
     /// </summary>
-    public const int GameStickDeadZone = 29, DefaultStickDeadZone = 6, MinStickDeadZone = 2, MaxStickDeadZone = 20;
+    public const int GameStickDeadZone = 29, DefaultStickDeadZone = 18, MinStickDeadZone = 2, MaxStickDeadZone = 26;
 
     /// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;

@@ -83,7 +83,7 @@ Issue : [#8](https://github.com/kwentinn/PES6Patcher/issues/8)
 
 La direction libre suit l'angle précis du stick, mais certaines touches de dribble et certains gestes gardent les directions du jeu. Un joueur peut-il vraiment aller n'importe où ?
 
-Fait pour le stick : le jeu lisait un stick tenu à moins d'environ 16° d'un axe pile sur cet axe (une zone morte de 29 % par axe), si bien que le joueur continuait sur une ligne. **Zone morte du stick analogique réduite** l'abaisse (6 % par défaut). Reste ouvert : certains gestes de rotation envoient le ballon sur des multiples de 45° ou de 22,5°.
+Fait pour le stick : le jeu lisait un stick tenu à moins d'environ 16° d'un axe pile sur cet axe (une zone morte de 29 % par axe), si bien que le joueur continuait sur une ligne. **Zone morte du stick analogique réduite** l'abaisse (18 % par défaut). Reste ouvert : certains gestes de rotation envoient le ballon sur des multiples de 45° ou de 22,5°.
 
 ## Joueurs humains : changements de direction brusques balle au pied
 
