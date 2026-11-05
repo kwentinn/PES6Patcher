@@ -149,7 +149,7 @@ Pressing R1 twice while sprinting pushes the ball further ahead. A third press c
 
 Issue: [#20](https://github.com/kwentinn/PES6Patcher/issues/20)
 
-Done: the corner and free kick aims turned at full speed as soon as the stick leaned right or left, whatever the push. With **Smaller analog stick dead zone**, they now ignore a push under 3/8 and turn by the push squared, up to the game's speed.
+Done: the corner, free kick and goal kick aims turned at full speed as soon as the stick leaned right or left, whatever the push. With **Smaller analog stick dead zone**, they now ignore a push under 3/8 and turn by the push squared, up to the game's speed.
 
 ## AI: keeper going up for late corners
 

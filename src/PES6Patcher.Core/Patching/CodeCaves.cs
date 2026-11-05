@@ -927,13 +927,17 @@ internal static class CodeCaves
     /// <summary>Length of the set piece aim code replaced by the hook (see <see cref="StickDeadZoneSites.Aims"/>).</summary>
     public const int SetPieceAimLength = 22;
 
+    /// <summary>Length of the goal kick aim code replaced by the hook (see <see cref="StickDeadZoneSites.GoalKickAims"/>).</summary>
+    public const int GoalKickAimLength = 25;
+
     /// <summary>
-    /// Corner and free kick aim: instead of a fixed 0x40 per frame as soon as the stick leans right or left, the aim ignores
-    /// a push under <see cref="SetPieceAimFloor"/> (of 8) and then turns by the magnitude squared, up to the game's 0x40 at
-    /// full push. Validated in game.
+    /// Corner, free kick and goal kick aims: instead of a fixed step per frame (0x40, 0x80 for goal kicks) as soon as the
+    /// stick leans right or left, the aim ignores a push under <see cref="SetPieceAimFloor"/> (of 8) and then turns by the
+    /// magnitude squared (doubled for goal kicks), up to the game's step at full push. Validated in game.
     /// </summary>
-    public static Hook SetPieceAim(int cave, int site)
+    public static Hook SetPieceAim(int cave, int site, bool goalKick = false)
     {
+        int length = goalKick ? GoalKickAimLength : SetPieceAimLength;
         var bytes = new CodeBuilder(cave)
             .Bytes(0x0F, 0xB6, 0x8E, 0x01, 0x01, 0x00, 0x00)        // movzx ecx,byte [esi+0x101] ; stick magnitude 0-8
             .Bytes(0x83, 0xF9, SetPieceAimFloor)                    // cmp ecx,floor
@@ -941,6 +945,7 @@ internal static class CodeCaves
             .Bytes(0x31, 0xC9)                                      // xor ecx,ecx
             .Mark("push")
             .Bytes(0x0F, 0xAF, 0xC9)                                // imul ecx,ecx            ; 9 .. 64 = 0x40
+            .Bytes(goalKick ? [0xD1, 0xE1] : [])                    // shl ecx,1               ; goal kicks: up to 0x80
             .Bytes(0x84, 0xC0)                                      // test al,al              ; right bit
             .Jump(0x79, "left")                                     // jns left
             .Bytes(0x01, 0x8E, 0xA0, 0x00, 0x00, 0x00)              // add [esi+0xA0],ecx
@@ -949,9 +954,9 @@ internal static class CodeCaves
             .Jump(0x74, "done")                                     // jz done
             .Bytes(0x29, 0x8E, 0xA0, 0x00, 0x00, 0x00)              // sub [esi+0xA0],ecx
             .Mark("done")
-            .JumpTo(site + SetPieceAimLength)                       // jmp back (ecx is free: a call follows)
+            .JumpTo(site + length)                                  // jmp back (ecx is free: a call follows)
             .Build();
-        return new Hook("Hook.StickDeadZone", site, CodeBuilder.JumpPatch(site, cave, SetPieceAimLength), cave, bytes);
+        return new Hook("Hook.StickDeadZone", site, CodeBuilder.JumpPatch(site, cave, length), cave, bytes);
     }
 
     /// <summary>Shot height above which the excess is scaled by <see cref="ShotAccuracy"/>.</summary>

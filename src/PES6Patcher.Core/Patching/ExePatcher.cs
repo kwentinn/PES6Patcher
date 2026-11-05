@@ -441,10 +441,10 @@ public static class ExePatcher
             var sites = ExeLocator.LocateStickDeadZone(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.StickDeadZone"), 0)]);
             byte limit = CodeCaves.StickDeadZoneLimit(options.StickDeadZone);
             foreach (int site in sites.Limits) plan.Add((site, [limit]));
-            // with the smaller zone, a slight push sent the corner and free kick aims turning at full speed
-            foreach (int site in sites.Aims)
+            // with the smaller zone, a slight push sent the corner, free kick and goal kick aims turning at full speed
+            foreach (var (site, goalKick) in sites.Aims.Select(s => (s, false)).Concat(sites.GoalKickAims.Select(s => (s, true))))
             {
-                var aim = CodeCaves.SetPieceAim(Cave(CodeCaves.SetPieceAim(0, site).CaveBytes.Length), site);
+                var aim = CodeCaves.SetPieceAim(Cave(CodeCaves.SetPieceAim(0, site, goalKick).CaveBytes.Length), site, goalKick);
                 plan.Add((aim.Cave, aim.CaveBytes));
                 plan.Add((aim.Entry, aim.EntryBytes));
             }

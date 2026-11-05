@@ -133,8 +133,9 @@ internal sealed record PassLeadSites(int First, int Second);
 /// an axis therefore reads as exactly on it.
 /// <see cref="Aims"/>: the corner and free kick waits turn the aim [player+0xA0] by 0x40 per frame as soon as the stick's
 /// right (0x80) or left (0x20) bit is set, whatever the push (the 22 bytes from "test al,al").
+/// <see cref="GoalKickAims"/>: the same for the two phases of the goal kick wait, by 0x80 per frame (25 bytes).
 /// </summary>
-internal sealed record StickDeadZoneSites(int[] Limits, int[] Aims);
+internal sealed record StickDeadZoneSites(int[] Limits, int[] Aims, int[] GoalKickAims);
 
 /// <summary>
 /// Carrier turn rate: running with the ball, the facing and run direction (+0x26, +0x28) turn towards their target by at
@@ -434,14 +435,18 @@ internal sealed class ExeLocator
     /// <summary>Set piece aim: test al,al ; jns +7 ; add dword [esi+0xA0],0x40 ; test al,0x20 ; jz +7 ; add dword [esi+0xA0],-0x40.</summary>
     private const string SetPieceAim = "84 C0 79 07 83 86 A0 00 00 00 40 A8 20 74 07 83 86 A0 00 00 00 C0";
 
+    /// <summary>Goal kick aim: test al,al ; jns +10 ; add dword [esi+0xA0],0x80 ; test al,0x20 ; jz +7 ; add dword [esi+0xA0],-0x80.</summary>
+    private const string GoalKickAim = "84 C0 79 0A 81 86 A0 00 00 00 80 00 00 00 A8 20 74 07 83 86 A0 00 00 00 80";
+
     public static StickDeadZoneSites? LocateStickDeadZone(byte[] exe)
     {
         var image = new PeImage(exe);
         var hits = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(StickAxis).FindAll(image, s)).Order().ToList();
         // the 4 axes follow one another in the same function
         var aims = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(SetPieceAim).FindAll(image, s)).Order().ToList();
-        return hits.Count == 4 && hits[3] - hits[0] < 0x100 && aims.Count == 2
-            ? new StickDeadZoneSites([.. hits.Select(h => h + 4)], [.. aims]) : null;
+        var goalKicks = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(GoalKickAim).FindAll(image, s)).Order().ToList();
+        return hits.Count == 4 && hits[3] - hits[0] < 0x100 && aims.Count == 2 && goalKicks.Count == 2
+            ? new StickDeadZoneSites([.. hits.Select(h => h + 4)], [.. aims], [.. goalKicks]) : null;
     }
 
     public static LoftedAimSites? LocateLoftedAim(byte[] exe)

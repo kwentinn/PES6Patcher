@@ -149,7 +149,7 @@ Appuyer deux fois sur R1 en sprint pousse le ballon plus loin devant. Un troisi�
 
 Issue : [#20](https://github.com/kwentinn/PES6Patcher/issues/20)
 
-Fait : les visées des corners et des coups francs tournaient à pleine vitesse dès que le stick penchait à droite ou à gauche, quelle que soit la poussée. Avec **Zone morte du stick analogique réduite**, elles ignorent maintenant une poussée sous 3/8 et tournent selon le carré de la poussée, jusqu'à la vitesse du jeu.
+Fait : les visées des corners, des coups francs et des 6 mètres tournaient à pleine vitesse dès que le stick penchait à droite ou à gauche, quelle que soit la poussée. Avec **Zone morte du stick analogique réduite**, elles ignorent maintenant une poussée sous 3/8 et tournent selon le carré de la poussée, jusqu'à la vitesse du jeu.
 
 ## IA : le gardien monte sur les derniers corners
 
