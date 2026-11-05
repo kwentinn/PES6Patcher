@@ -938,13 +938,8 @@ internal static class CodeCaves
     public static Hook SetPieceAim(int cave, int site, bool goalKick = false)
     {
         int length = goalKick ? GoalKickAimLength : SetPieceAimLength;
-        var bytes = new CodeBuilder(cave)
-            .Bytes(0x0F, 0xB6, 0x8E, 0x01, 0x01, 0x00, 0x00)        // movzx ecx,byte [esi+0x101] ; stick magnitude 0-8
-            .Bytes(0x83, 0xF9, SetPieceAimFloor)                    // cmp ecx,floor
-            .Jump(0x73, "push")                                     // jae push
-            .Bytes(0x31, 0xC9)                                      // xor ecx,ecx
-            .Mark("push")
-            .Bytes(0x0F, 0xAF, 0xC9)                                // imul ecx,ecx            ; 9 .. 64 = 0x40
+        var bytes = StickStep(new CodeBuilder(cave)
+                .Bytes(0x0F, 0xB6, 0x8E, 0x01, 0x01, 0x00, 0x00))   // movzx ecx,byte [esi+0x101] ; stick magnitude 0-8
             .Bytes(goalKick ? [0xD1, 0xE1] : [])                    // shl ecx,1               ; goal kicks: up to 0x80
             .Bytes(0x84, 0xC0)                                      // test al,al              ; right bit
             .Jump(0x79, "left")                                     // jns left
@@ -958,6 +953,54 @@ internal static class CodeCaves
             .Build();
         return new Hook("Hook.StickDeadZone", site, CodeBuilder.JumpPatch(site, cave, length), cave, bytes);
     }
+
+    /// <summary>
+    /// ecx = stick magnitude (0-8) → ecx = step (0-64): 0 under <see cref="SetPieceAimFloor"/>, then the magnitude squared.
+    /// A magnitude of 0 with a direction bit set comes from the D-pad or the keyboard (the stick table only holds the
+    /// analog stick, and its centre zone clears the bits too): full step, as in the game.
+    /// </summary>
+    private static CodeBuilder StickStep(CodeBuilder code) => code
+        .Bytes(0x85, 0xC9)                                          // test ecx,ecx
+        .Jump(0x75, "analog")                                       // jnz analog
+        .Bytes(0xB1, 0x08)                                          // mov cl,8                ; D-pad: full step
+        .Mark("analog")
+        .Bytes(0x83, 0xF9, SetPieceAimFloor)                        // cmp ecx,floor
+        .Jump(0x73, "push")                                         // jae push
+        .Bytes(0x31, 0xC9)                                          // xor ecx,ecx
+        .Mark("push")
+        .Bytes(0x0F, 0xAF, 0xC9);                                   // imul ecx,ecx            ; 9 .. 64 = 0x40
+
+    /// <summary>Length of the ball placement code replaced by the hook: test bl,bl ; mov edi,-0x40.</summary>
+    public const int BallPlacementLength = 7;
+
+    /// <summary>
+    /// Training free kick ball placement: the ball moves by 0x40 per frame for each stick direction bit, whatever the push.
+    /// The hook sets edi (the game's -0x40) to minus the step of the most pushed stick of the 8 pads
+    /// (see <see cref="StickStep"/>); the two "+0x40" moves become "-edi" (<see cref="BallPlacementPlus"/>). Validated in game.
+    /// </summary>
+    public static Hook BallPlacement(int cave, int site, int stickTable)
+    {
+        var bytes = StickStep(new CodeBuilder(cave)
+            .Bytes(0x31, 0xC9)                                      // xor ecx,ecx
+            .Bytes([0xBA], stickTable + 2)                          // mov edx,magnitudes
+            .Mark("pad")
+            .Bytes(0x0F, 0xB6, 0x02)                                // movzx eax,byte [edx]
+            .Bytes(0x39, 0xC8)                                      // cmp eax,ecx
+            .Jump(0x76, "next")                                     // jbe next
+            .Bytes(0x89, 0xC1)                                      // mov ecx,eax
+            .Mark("next")
+            .Bytes(0x83, 0xC2, 0x04)                                // add edx,4
+            .Bytes([0x81, 0xFA], stickTable + 2 + 8 * 4)            // cmp edx,end             ; 8 pads
+            .Jump(0x72, "pad"))                                     // jb pad
+            .Bytes(0x89, 0xCF, 0xF7, 0xDF)                          // mov edi,ecx ; neg edi
+            .Bytes(0x84, 0xDB)                                      // test bl,bl              ; replaced
+            .JumpTo(site + BallPlacementLength)                     // jmp back (eax, ecx, edx are reloaded after)
+            .Build();
+        return new Hook("Hook.StickDeadZone", site, CodeBuilder.JumpPatch(site, cave, BallPlacementLength), cave, bytes);
+    }
+
+    /// <summary>"add word [position],0x40" (8 bytes) → "sub word [position],di ; nop": the same step as the minus moves.</summary>
+    public static byte[] BallPlacementPlus(int position) => [0x66, 0x29, 0x3D, .. BitConverter.GetBytes(position), 0x90];
 
     /// <summary>Shot height above which the excess is scaled by <see cref="ShotAccuracy"/>.</summary>
     public const int ShotHeightPivot = 20;

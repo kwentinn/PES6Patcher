@@ -448,6 +448,12 @@ public static class ExePatcher
                 plan.Add((aim.Cave, aim.CaveBytes));
                 plan.Add((aim.Entry, aim.EntryBytes));
             }
+            // the same for the training free kick ball placement
+            var placement = CodeCaves.BallPlacement(Cave(CodeCaves.BallPlacement(0, sites.Placement, sites.StickTable).CaveBytes.Length), sites.Placement, sites.StickTable);
+            plan.Add((placement.Cave, placement.CaveBytes));
+            plan.Add((placement.Entry, placement.EntryBytes));
+            plan.Add((sites.PlusX, CodeCaves.BallPlacementPlus(image.ReadInt32(sites.PlusX + 3))));
+            plan.Add((sites.PlusZ, CodeCaves.BallPlacementPlus(image.ReadInt32(sites.PlusZ + 3))));
         }
 
         // pass lead: the pass point is placed less far ahead of the receiver (through passes stay in play)

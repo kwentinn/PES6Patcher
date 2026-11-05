@@ -134,8 +134,15 @@ internal sealed record PassLeadSites(int First, int Second);
 /// <see cref="Aims"/>: the corner and free kick waits turn the aim [player+0xA0] by 0x40 per frame as soon as the stick's
 /// right (0x80) or left (0x20) bit is set, whatever the push (the 22 bytes from "test al,al").
 /// <see cref="GoalKickAims"/>: the same for the two phases of the goal kick wait, by 0x80 per frame (25 bytes).
+/// <see cref="Placement"/>: training free kick ball placement, "test bl,bl ; mov edi,-0x40" before the 4 moves of the ball
+/// position by 0x40 per frame per direction bit; the two "add word [position],0x40" at <see cref="PlusX"/> and
+/// <see cref="PlusZ"/>. <see cref="StickTable"/>: the analog stick table (angle, magnitude, bits, 4 bytes per pad).
 /// </summary>
-internal sealed record StickDeadZoneSites(int[] Limits, int[] Aims, int[] GoalKickAims);
+internal sealed record StickDeadZoneSites(int[] Limits, int[] Aims, int[] GoalKickAims, int Placement, int StickTable)
+{
+    public int PlusX => Placement + 0x26;
+    public int PlusZ => Placement + 0x60;
+}
 
 /// <summary>
 /// Carrier turn rate: running with the ball, the facing and run direction (+0x26, +0x28) turn towards their target by at
@@ -438,6 +445,15 @@ internal sealed class ExeLocator
     /// <summary>Goal kick aim: test al,al ; jns +10 ; add dword [esi+0xA0],0x80 ; test al,0x20 ; jz +7 ; add dword [esi+0xA0],-0x80.</summary>
     private const string GoalKickAim = "84 C0 79 0A 81 86 A0 00 00 00 80 00 00 00 A8 20 74 07 83 86 A0 00 00 00 80";
 
+    /// <summary>
+    /// Training free kick ball placement: test bl,bl ; mov edi,-0x40 ; then for bits 0x80, 0x20, 0x10, 0x40 of bl:
+    /// add word [x],di / add word [x],0x40 / add word [z],di / add word [z],0x40, each followed by a call.
+    /// </summary>
+    private const string BallPlacement = "84 DB BF C0 FF FF FF 79 18 66 01 3D ?? ?? ?? ?? 8B CB 81 E1 F0 00 00 00 51 E8 ?? ?? ?? ?? 83 C4 04 "
+        + "F6 C3 20 74 19 66 83 05 ?? ?? ?? ?? 40 8B D3 81 E2 F0 00 00 00 52 E8 ?? ?? ?? ?? 83 C4 04 "
+        + "F6 C3 10 74 17 66 01 3D ?? ?? ?? ?? 8B C3 25 F0 00 00 00 50 E8 ?? ?? ?? ?? 83 C4 04 "
+        + "F6 C3 40 74 17 66 83 05 ?? ?? ?? ?? 40";
+
     public static StickDeadZoneSites? LocateStickDeadZone(byte[] exe)
     {
         var image = new PeImage(exe);
@@ -445,8 +461,10 @@ internal sealed class ExeLocator
         // the 4 axes follow one another in the same function
         var aims = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(SetPieceAim).FindAll(image, s)).Order().ToList();
         var goalKicks = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(GoalKickAim).FindAll(image, s)).Order().ToList();
-        return hits.Count == 4 && hits[3] - hits[0] < 0x100 && aims.Count == 2 && goalKicks.Count == 2
-            ? new StickDeadZoneSites([.. hits.Select(h => h + 4)], [.. aims], [.. goalKicks]) : null;
+        var placements = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(BallPlacement).FindAll(image, s)).ToList();
+        var sticks = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(StickTableReader).FindAll(image, s)).ToList();
+        return hits.Count == 4 && hits[3] - hits[0] < 0x100 && aims.Count == 2 && goalKicks.Count == 2 && placements.Count == 1 && sticks.Count == 1
+            ? new StickDeadZoneSites([.. hits.Select(h => h + 4)], [.. aims], [.. goalKicks], placements[0], image.ReadInt32(sticks[0] + 1) - 2) : null;
     }
 
     public static LoftedAimSites? LocateLoftedAim(byte[] exe)

@@ -415,6 +415,22 @@ public class PatcherTests(ITestOutputHelper output)
             hooked.Add((image.Offset(cave), expected.CaveBytes.Length));
         }
         Assert.Equal(2, CodeCaves.SetPieceAim(0, 0, goalKick: true).CaveBytes.Length - CodeCaves.SetPieceAim(0, 0).CaveBytes.Length);   // shl ecx,1
+
+        // measured in game: the training free kick ball placement (0x4AF58E) and its two "+0x40" moves (x 0x3BCE926, z 0x3BCE928)
+        const int placement = 0x4AF58E;
+        Assert.Equal(new byte[] { 0x84, 0xDB, 0xBF, 0xC0, 0xFF, 0xFF, 0xFF }, without.AsSpan(image.Offset(placement), CodeCaves.BallPlacementLength).ToArray());
+        int placementCave = placement + 5 + image.ReadInt32(placement + 1);
+        var placementHook = CodeCaves.BallPlacement(placementCave, placement, 0x1016680);
+        Assert.Equal(placementHook.EntryBytes, with.AsSpan(image.Offset(placement), CodeCaves.BallPlacementLength).ToArray());
+        Assert.Equal(placementHook.CaveBytes, with.AsSpan(image.Offset(placementCave), placementHook.CaveBytes.Length).ToArray());
+        hooked.Add((image.Offset(placement), CodeCaves.BallPlacementLength));
+        hooked.Add((image.Offset(placementCave), placementHook.CaveBytes.Length));
+        foreach (var (va, position) in new[] { (0x4AF5B4, 0x3BCE926), (0x4AF5EE, 0x3BCE928) })
+        {
+            Assert.Equal((byte[])[0x66, 0x83, 0x05, .. BitConverter.GetBytes(position), 0x40], without.AsSpan(image.Offset(va), 8).ToArray());
+            Assert.Equal((byte[])[0x66, 0x29, 0x3D, .. BitConverter.GetBytes(position), 0x90], with.AsSpan(image.Offset(va), 8).ToArray());
+            hooked.Add((image.Offset(va), 8));
+        }
         var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
         Assert.DoesNotContain(changed, i => !sites.Select(image.Offset).Contains(i) && !hooked.Any(h => i >= h.Start && i < h.Start + h.Length));
         Assert.All(sites, va => Assert.Contains(image.Offset(va), changed));
