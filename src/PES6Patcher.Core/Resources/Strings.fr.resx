@@ -525,4 +525,46 @@
   <data name="Overlay.CloseDribbleStrength" xml:space="preserve">
     <value>DRIBBLE RESSERRE : {0} % (F10)</value>
   </data>
+  <data name="Gameplay.Mode" xml:space="preserve">
+    <value>Réglages :</value>
+  </data>
+  <data name="Gameplay.ModeSimple" xml:space="preserve">
+    <value>Simple</value>
+  </data>
+  <data name="Gameplay.ModeDetailed" xml:space="preserve">
+    <value>Détaillé</value>
+  </data>
+  <data name="Preset.Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Preset.Pro" xml:space="preserve">
+    <value>Pro</value>
+  </data>
+  <data name="Preset.Hardcore" xml:space="preserve">
+    <value>Hardcore</value>
+  </data>
+  <data name="Preset.Info.Normal" xml:space="preserve">
+    <value>Plus d'aide, pour découvrir</value>
+  </data>
+  <data name="Preset.Info.Pro" xml:space="preserve">
+    <value>Les réglages testés en match</value>
+  </data>
+  <data name="Preset.Info.Hardcore" xml:space="preserve">
+    <value>Moins d'aide, plus au joueur</value>
+  </data>
+  <data name="Preset.Summary.Normal" xml:space="preserve">
+    <value>Toutes les options : tirs plus précis et plus doux, ballon plus près des pieds, passes plus près du receveur.</value>
+  </data>
+  <data name="Preset.Summary.Pro" xml:space="preserve">
+    <value>Toutes les options, aux valeurs testées en match.</value>
+  </data>
+  <data name="Preset.Summary.Hardcore" xml:space="preserve">
+    <value>Toutes les options, avec moins d'aide : tirs moins précis et plus forts, dribble resserré de la première version, virages plus courts, passes plus loin devant.</value>
+  </data>
+  <data name="Preset.Custom" xml:space="preserve">
+    <value>Réglages personnalisés : ils ne correspondent à aucun profil (voir le mode détaillé).</value>
+  </data>
+  <data name="Preset.ShowDetails" xml:space="preserve">
+    <value>Voir le détail</value>
+  </data>
 </root>

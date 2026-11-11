@@ -26,6 +26,12 @@ internal sealed class MainForm : Form
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Increment = 10, Width = 80 };
     private readonly Label _formatInfo = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
+    // simple mode (presets) or detailed mode (every option)
+    private readonly RadioButton _simpleMode = ModeButton(Loc.T("Gameplay.ModeSimple"));
+    private readonly RadioButton _detailedMode = ModeButton(Loc.T("Gameplay.ModeDetailed"));
+    private readonly Dictionary<GameplayPreset, RadioButton> _presets = GameplayPresets.All.ToDictionary(p => p, PresetButton);
+    private readonly Label _presetInfo = new() { AutoSize = true, MaximumSize = new Size(740, 0), Margin = new Padding(3, 6, 3, 3) };
+    private readonly LinkLabel _showDetails = new() { Text = Loc.T("Preset.ShowDetails"), AutoSize = true, Margin = new Padding(3, 0, 3, 6) };
     private readonly CheckBox _checkAll = new() { Text = Loc.T("Gameplay.CheckAll"), AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Italic) };
     private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
     private readonly CheckBox _stickDeadZone = new() { Text = Loc.T("Gameplay.StickDeadZone"), AutoSize = true, Checked = true };
@@ -195,7 +201,7 @@ internal sealed class MainForm : Form
             Flow(LabelText(Loc.T("Display.Resolution")), _width, LabelText("×"), _height, screen),
             _formatInfo,
             _borderless);
-        var gameplay = Group(_gameplay,
+        var details = Stack(
             _checkAll,
             Theme("Gameplay.Theme.Dribble"),
             _freeDirection,
@@ -224,7 +230,16 @@ internal sealed class MainForm : Form
             Flow(_tackle, _tacklePercent, LabelText(Loc.T("Gameplay.TacklePercent"))),
             _tackleDebug,
             Flow(_speedGap, _speedGapPercent, LabelText(Loc.T("Gameplay.SpeedGapPercent"))),
-            _speedGapDebug,
+            _speedGapDebug);
+        // each preset: its button, its one-line description under it
+        var simple = Stack(Flow([.. _presets.Select(p => Stack(p.Value, new Label
+        {
+            Text = Loc.T("Preset.Info." + p.Key), AutoSize = true, MaximumSize = new Size(240, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(3, 2, 3, 3),
+        }))]), _presetInfo, _showDetails);
+        var gameplay = Group(_gameplay,
+            Flow(LabelText(Loc.T("Gameplay.Mode")), _simpleMode, _detailedMode),
+            simple,
+            details,
             _physicsMod,
             _physicsCredit,
             Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
@@ -243,6 +258,22 @@ internal sealed class MainForm : Form
         for (int i = 0; i < layout.Controls.Count - 1; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));
         Controls.Add(layout);
+
+        // the mode: the presets, or every option; a preset fills the options, any option changed shows which preset they match
+        _simpleMode.CheckedChanged += (_, _) =>
+        {
+            simple.Visible = _simpleMode.Checked;
+            details.Visible = !_simpleMode.Checked;
+            ViewPreference.SaveDetailed(!_simpleMode.Checked);
+        };
+        _showDetails.LinkClicked += (_, _) => _detailedMode.Checked = true;
+        foreach (var (preset, button) in _presets)
+            button.Click += (_, _) => ApplyPreset(preset);
+        foreach (var control in Descendants(details))
+        {
+            if (control is CheckBox box && box != _checkAll) box.CheckedChanged += (_, _) => UpdatePreset();
+            if (control is NumericUpDown number) number.ValueChanged += (_, _) => UpdatePreset();
+        }
 
         FillLanguages();
         ActiveControl = _folder;
@@ -303,6 +334,12 @@ internal sealed class MainForm : Form
             _speed.Value = previous.Speed;   // keep the user's value over the one read from speeder.cfg
             UpdateFormatInfo();
         }
+        // a new window (no options read from a patched exe) starts from the Pro preset
+        if (previous == null && !_recordShown) ApplyPreset(GameplayPreset.Pro);
+        UpdatePreset();
+        (ViewPreference.LoadDetailed() ? _detailedMode : _simpleMode).Checked = true;
+        simple.Visible = _simpleMode.Checked;
+        details.Visible = !_simpleMode.Checked;
     }
 
     private void FillLanguages()
@@ -348,7 +385,54 @@ internal sealed class MainForm : Form
     private CheckBox[] GameplayOptions =>
         [_freeDirection, _stickDeadZone, _closeDribble, _freeKick, _shot, _accuracy, _spread, _speedGap, _sprintTurn, _carrierTurn, _tackle, _loftedAim, _passLead, _physicsMod];
 
-    private bool _settingAll;
+    private bool _settingAll, _recordShown, _applyingPreset;
+
+    /// <summary>Sets the gameplay options to <paramref name="preset"/>'s (the options the exe cannot have stay off).</summary>
+    private void ApplyPreset(GameplayPreset preset)
+    {
+        _applyingPreset = true;
+        try { ShowSettings(GameplayPresets.Apply(CurrentSettings(), preset)); }
+        finally { _applyingPreset = false; }
+        UpdatePreset(preset);
+    }
+
+    /// <summary>Selects the preset the options match (<paramref name="applied"/>: the one just applied), or none for custom options.</summary>
+    private void UpdatePreset(GameplayPreset? applied = null)
+    {
+        if (_applyingPreset) return;
+        var preset = applied ?? GameplayPresets.Detect(CurrentSettings());
+        foreach (var (p, button) in _presets) button.Checked = p == preset;
+        _presetInfo.Text = preset is GameplayPreset p2 ? Loc.T("Preset.Summary." + p2) : Loc.T("Preset.Custom");
+    }
+
+    private static RadioButton ModeButton(string text) => new()
+    {
+        Text = text, Appearance = Appearance.Button, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, MinimumSize = new Size(90, 0),
+    };
+
+    private static RadioButton PresetButton(GameplayPreset preset)
+    {
+        var button = new RadioButton
+        {
+            Text = Loc.T("Preset." + preset), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
+            Appearance = Appearance.Button, AutoSize = false, Size = new Size(240, 38), TextAlign = ContentAlignment.MiddleCenter,
+            FlatStyle = FlatStyle.Flat, AutoCheck = false,
+        };
+        button.FlatAppearance.CheckedBackColor = Color.FromArgb(204, 228, 247);
+        button.FlatAppearance.BorderColor = SystemColors.ControlDark;
+        return button;
+    }
+
+    private static IEnumerable<Control> Descendants(Control parent) =>
+        parent.Controls.Cast<Control>().SelectMany(c => Descendants(c).Prepend(c));
+
+    /// <summary>Rows stacked top-down (a part of a group shown or hidden as one).</summary>
+    private static FlowLayoutPanel Stack(params Control[] rows)
+    {
+        var panel = new FlowLayoutPanel { FlowDirection = FlowDirection.TopDown, AutoSize = true, WrapContents = false, Margin = new Padding(0) };
+        panel.Controls.AddRange(rows);
+        return panel;
+    }
 
     private void UpdateCheckAll()
     {
@@ -476,6 +560,7 @@ internal sealed class MainForm : Form
         // a patched exe: show the options it was patched with (only when the user picks a game, not after an apply)
         var patchedWith = log && state is ExeState.Patched or ExeState.PatchedWithoutBackup ? PatchRecord.Load(game) : null;
         if (patchedWith != null) ShowSettings(patchedWith);
+        _recordShown |= patchedWith != null;
         UpdateApply();
         if (log)
         {

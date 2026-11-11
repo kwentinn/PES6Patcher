@@ -46,7 +46,20 @@ Le reste du gameplay est inchangé.
 1. Fermer PES6 et `settings.exe`.
 2. Lancer `PES6Patcher.exe`. Il demande les droits administrateur, car le jeu est installé dans `Program Files`.
 3. Vérifier le dossier du jeu (détecté automatiquement), l'exécutable et la résolution (celle de l'écran par défaut).
-4. Choisir les options, puis cliquer sur **Appliquer**. Chaque groupe (**Affichage**, **Gameplay**) et **Passer l'intro** peuvent être décochés : par exemple, pour ne modifier que le gameplay, décocher **Affichage**, et `kload.cfg`, `lodmixer.dat` et `settings.dat` restent tels quels.
+4. Choisir les options (voir ci-dessous), puis cliquer sur **Appliquer**. Chaque groupe (**Affichage**, **Gameplay**) et **Passer l'intro** peuvent être décochés : par exemple, pour ne modifier que le gameplay, décocher **Affichage**, et `kload.cfg`, `lodmixer.dat` et `settings.dat` restent tels quels.
+
+Les options de gameplay ont deux modes, retenus d'une ouverture à l'autre :
+
+- **Simple** : trois profils règlent toutes les options d'un coup. **Pro** (choisi au départ) correspond aux valeurs par défaut du patcher, testées en match ; **Normal** aide davantage, **Hardcore** moins. Quand les options ne correspondent à aucun profil (modifiées en mode détaillé), la fenêtre indique qu'elles sont personnalisées.
+- **Détaillé** : chaque option et sa valeur, avec les cases **Test**. Choisir d'abord un profil, puis ajuster quelques valeurs ici, est le moyen le plus rapide de régler le jeu.
+
+| Profil | Dribble resserré | Virages en sprint | Rotation balle au pied | Coups francs | Puissance des tirs | Écart de visée gardé | Avance des passes |
+|---|---|---|---|---|---|---|---|
+| Normal | 150 % | 90° | 22° | +70 % | 75 % | 30 % | 50 % |
+| Pro | 125 % | 90° | 22° | +50 % | 80 % | 50 % | 60 % |
+| Hardcore | 100 % | 45° | 11° | +30 % | 90 % | 75 % | 80 % |
+
+Les autres options sont les mêmes dans tous les profils : directions libres, zone morte du stick 18 %, passes en hauteur, lobs 70 %, écartement 20 %, portée des tacles 180 %, écart de vitesse 300 %.
 
 L'exe est toujours reconstruit à partir de la sauvegarde d'origine : on peut changer les options et réappliquer à tout moment. Chaque application enregistre ses options à côté de l'exe (`PES6.exe.patcher.ini`, une simple liste de `Nom=valeur`) : quand la fenêtre s'ouvre sur un exe patché ainsi, elle affiche les options de cet exe, prêtes à être modifiées. Un exe patché avant la version 1.19.0 affiche les options par défaut jusqu'à la prochaine application.
 

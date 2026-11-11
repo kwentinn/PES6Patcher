@@ -46,7 +46,20 @@ The rest of the gameplay is unchanged.
 1. Close PES6 and `settings.exe`.
 2. Run `PES6Patcher.exe`. It asks for administrator rights, because the game is installed in `Program Files`.
 3. Check the game folder (detected automatically), the executable and the resolution (the screen's by default).
-4. Choose the options, then click **Apply**. Each group (**Display**, **Gameplay**) and **Skip the intro** can be unchecked: for example, to change only the gameplay, uncheck **Display** and `kload.cfg`, `lodmixer.dat` and `settings.dat` are left as they are.
+4. Choose the options (see below), then click **Apply**. Each group (**Display**, **Gameplay**) and **Skip the intro** can be unchecked: for example, to change only the gameplay, uncheck **Display** and `kload.cfg`, `lodmixer.dat` and `settings.dat` are left as they are.
+
+The gameplay options have two modes, kept from one opening to the next:
+
+- **Simple**: three presets set every option at once. **Pro** (selected at first) is the patcher's defaults, tested in matches; **Normal** gives more help, **Hardcore** less. When the options match no preset (changed in the detailed mode), the window says they are custom.
+- **Detailed**: every option and its value, with the **Test** boxes. Choosing a preset first, then adjusting a few values here, is the quickest way to tune the game.
+
+| Preset | Close dribbling | Sprint turns | Turn with the ball | Free kicks | Shot power | Aim error kept | Pass lead |
+|---|---|---|---|---|---|---|---|
+| Normal | 150 % | 90° | 22° | +70 % | 75 % | 30 % | 50 % |
+| Pro | 125 % | 90° | 22° | +50 % | 80 % | 50 % | 60 % |
+| Hardcore | 100 % | 45° | 11° | +30 % | 90 % | 75 % | 80 % |
+
+The other options are the same in every preset: free direction, stick dead zone 18 %, lofted passes, lobs 70 %, spread 20 %, challenge reach 180 %, speed gap 300 %.
 
 The exe is always rebuilt from the original backup, so the options can be changed and applied again at any time. Each apply saves its options next to the exe (`PES6.exe.patcher.ini`, a plain list of `Name=value`): when the window opens on an exe patched that way, it shows the options that exe has, ready to be changed. An exe patched before version 1.19.0 shows the defaults until it is applied again.
 

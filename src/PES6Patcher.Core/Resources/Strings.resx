@@ -525,4 +525,46 @@
   <data name="Overlay.CloseDribbleStrength" xml:space="preserve">
     <value>CLOSE DRIBBLING: {0} % (F10)</value>
   </data>
+  <data name="Gameplay.Mode" xml:space="preserve">
+    <value>Settings:</value>
+  </data>
+  <data name="Gameplay.ModeSimple" xml:space="preserve">
+    <value>Simple</value>
+  </data>
+  <data name="Gameplay.ModeDetailed" xml:space="preserve">
+    <value>Detailed</value>
+  </data>
+  <data name="Preset.Normal" xml:space="preserve">
+    <value>Normal</value>
+  </data>
+  <data name="Preset.Pro" xml:space="preserve">
+    <value>Pro</value>
+  </data>
+  <data name="Preset.Hardcore" xml:space="preserve">
+    <value>Hardcore</value>
+  </data>
+  <data name="Preset.Info.Normal" xml:space="preserve">
+    <value>More help, to get started</value>
+  </data>
+  <data name="Preset.Info.Pro" xml:space="preserve">
+    <value>The settings tested in matches</value>
+  </data>
+  <data name="Preset.Info.Hardcore" xml:space="preserve">
+    <value>Less help, more left to you</value>
+  </data>
+  <data name="Preset.Summary.Normal" xml:space="preserve">
+    <value>Every option on: more accurate and gentler shots, the ball closer to the feet, passes closer to the receiver.</value>
+  </data>
+  <data name="Preset.Summary.Pro" xml:space="preserve">
+    <value>Every option on, at the values tested in matches.</value>
+  </data>
+  <data name="Preset.Summary.Hardcore" xml:space="preserve">
+    <value>Every option on, with less help: less accurate and stronger shots, the first close dribbling, smaller turns, passes further ahead.</value>
+  </data>
+  <data name="Preset.Custom" xml:space="preserve">
+    <value>Custom settings: they match none of the presets (see the detailed mode).</value>
+  </data>
+  <data name="Preset.ShowDetails" xml:space="preserve">
+    <value>Show the details</value>
+  </data>
 </root>
