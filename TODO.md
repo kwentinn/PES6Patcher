@@ -19,7 +19,7 @@ A first try (November 2026) was shelved, because no change was visible in play. 
 
 A fast player with the ball almost never gets past a chasing defender, so beating a defender on the wing is nearly impossible. Speed with the ball should reward pace more.
 
-Done: **Bigger speed gap between fast and slow players** makes the top speed stat weigh up to 4 times more on the maximum running speed (300 % feels right in game). The acceleration (stat at `0x3BCF5B0`) and the dribble touches are left as they are.
+Done: **Bigger speed gap between fast and slow players** makes the top speed stat weigh up to 4 times more on the maximum running speed (300 % feels right in game). The dribble touches are left as they are; the acceleration has its own option (see below).
 
 ## Player positions
 
@@ -121,7 +121,9 @@ Suggested by kovy on Evo-Web: more angles for manual passing (right stick). Pass
 
 Issue: [#16](https://github.com/kwentinn/PES6Patcher/issues/16)
 
-Players with a great acceleration, like Messi, hardly stand out in the game: they should make the difference over the first steps, the way **Bigger speed gap** does for the top speed. Already known: every frame, `0x48FEF0` moves the running speed (`+0x1C`) towards the target speed with an acceleration time taken from the acceleration stat (`0x3BCF5B0`). First measure how much that time changes between a low and a high stat, then widen the gap the same way.
+Players with a great acceleration, like Messi, hardly stand out in the game: they should make the difference over the first steps, the way **Bigger speed gap** does for the top speed. Already known: every frame, `0x48FEF0` moves the running speed (`+0x1C`) towards the target speed with an acceleration time taken from the acceleration stat (`0x3BCF5AF`). Measured: the stat only takes 0 to 9 off an acceleration time of 28 to 48.
+
+Done: **Bigger acceleration gap between players** makes the stat count twice as much (four times made the best players cross the pitch at once).
 
 ## Widescreen: start screen shifted to the left (bug)
 

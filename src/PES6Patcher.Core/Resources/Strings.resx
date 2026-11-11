@@ -567,4 +567,13 @@
   <data name="Preset.ShowDetails" xml:space="preserve">
     <value>Show the details</value>
   </data>
+  <data name="Gameplay.AccelerationGap" xml:space="preserve">
+    <value>Bigger acceleration gap between players (the acceleration stat counts twice as much)</value>
+  </data>
+  <data name="Hook.AccelerationGap" xml:space="preserve">
+    <value>acceleration gap</value>
+  </data>
+  <data name="Log.AccelerationGap" xml:space="preserve">
+    <value>Acceleration gap: the acceleration stat weighs twice as much on the time to reach a speed.</value>
+  </data>
 </root>

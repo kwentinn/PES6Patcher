@@ -87,9 +87,15 @@ Each option is a hook: a few bytes of the game replaced by a jump to added code 
 
 ### Speed gap
 
-- The running speed is `[player+0x1C]`. Every frame, `0x48FEF0` moves it towards a target speed given by the caller (sprinting with the ball: `0x4C20F9`), with an acceleration time from stat `0x3BCF5B0`.
+- The running speed is `[player+0x1C]`. Every frame, `0x48FEF0` moves it towards a target speed given by the caller (sprinting with the ball: `0x4C20F9`), with an acceleration time from stat `0x3BCF5AF`.
 - The **maximum speed** `[player+0x58]` is computed, and recomputed during the match, at `0x447BF52` (`.rld` section of the protection, plain code): 7542 + 12 × (top speed − 40) × 100 / 60 − 16 × `[player+0x5C]`. The top speed stat is the byte `0x3BCF5AE` (correlation 1.00 with `+0x58` over 22 players). One stat point is only worth 20 units: 68 → 8094, 97 → 8682.
 - The added code scales the stat's part around a player at 75. As the value is recomputed during the match, F6 applies at once.
+
+### Acceleration gap
+
+- `0x48FEF0` is a jump into the protection (`0x44B6A20`); its 70-odd callers pass (player, target speed, acceleration time). Every one computes that time the same way: a base (`0x1C`, `0x1E`, `0x28` or `0x30`) + a player field (`+0x5C` or `+0x5E`) − `0x483E10`(acceleration stat `0x3BCF5AF`, 50) / 10. `0x483E10`(a, b) = (a − b) × 100 / (100 − b) above b, else 0, so the stat only takes 0 to 9 off a time of about 28 to 48.
+- The /10 is `mov eax,66666667h ; imul ecx ; sar edx,2`. In memory, `sar edx,1` at the 55 places that follow a read of the stat (x 2) felt right; `sar edx,0` (x 4) made the times of the best players negative: a player crossed the pitch at once.
+- **Bigger acceleration gap** writes `sar edx,1` there. The anchor is the sprint with the ball (`0x4C20C4`), which also gives the stat's address.
 
 ### Sharp turns when sprinting
 
@@ -157,7 +163,7 @@ F2 to F9 change a value during a match and show it through Kitserver, like F1. T
 | Player: buttons held, pressed | `+0xB0`, `+0xB4` |
 | Ball carrier id | `0x3BE09CC` |
 | Ball | `[0xBCCE94]`: position `+0x10/+0x14/+0x18`, vertical speed `+0x30`, speed `+0x50`, direction `+0x58`, spin `+0x6A/+0x6C/+0x74` |
-| Stats | `0x3BCF5A8` + (team × 32 + slot) × `0x348`, 7 bits per stat: `+0x0` bit 0 favoured foot, `+0x6` top speed, `+0x8` (read for the acceleration), `+0x18` dribble accuracy |
+| Stats | `0x3BCF5A8` + (team × 32 + slot) × `0x348`, 7 bits per stat: `+0x0` bit 0 favoured foot, `+0x6` top speed, `+0x7` acceleration, `+0x18` dribble accuracy |
 | Analog sticks | `0x1016680` + pad × 4: angle (word), magnitude, direction bits |
 | Animation (`[player+4]`) | `+0x28` playback rate (float, set from the global frame step, or as a % by `0x65D9B0`), `+0x30` animation, `+0x34` frame count, `+0x38` time (float); advanced by `0x65D870`, set by `0x65D7D0` |
 | Ball physics constants | 10 floats at `0xB8AE68` (see below) |

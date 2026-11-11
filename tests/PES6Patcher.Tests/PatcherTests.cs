@@ -189,6 +189,27 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Acceleration_gap_halves_the_divisor_of_the_acceleration_stat_everywhere()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).AccelerationGap);
+        var sites = ExeLocator.LocateAcceleration(original)!;
+        Assert.Equal(0x3BCF5AF, sites.Stat);   // found in game: the byte after the top speed
+        Assert.Equal(55, sites.Shifts.Length);
+        Assert.Contains(0x4C20C4 + 28, sites.Shifts);   // sprinting with the ball: sar edx,2 at 0x4C20DE
+
+        var options = new PatchOptions(398, FreeDirection: false, Display: false, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { AccelerationGap = true });
+        var image = new PeImage(with);
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.Equal(sites.Shifts.Select(image.Offset).Order(), changed);
+        Assert.All(sites.Shifts, s => Assert.Equal((0xC1, 0xFA, 1), (with[image.Offset(s) - 2], with[image.Offset(s) - 1], with[image.Offset(s)])));
+    }
+
+    [Fact]
     public void Close_dribble_alone_is_detected_as_patched()
     {
         var original = Load("PES6.orig.exe");

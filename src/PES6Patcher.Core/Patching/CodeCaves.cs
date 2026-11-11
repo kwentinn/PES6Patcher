@@ -29,6 +29,9 @@ internal static class CodeCaves
     /// </summary>
     public const byte MinAccuracy = 65, MaxAccuracy = 95;
 
+    /// <summary>Acceleration gap: the shift count of "sar edx,2" (/10 with the multiply before it) becomes 1 (/5).</summary>
+    public const byte AccelerationGapShift = 1;
+
     /// <summary>F10 changes the close dribbling strength by 25 %.</summary>
     public const byte CloseDribbleStrengthKey = 0x79;   // VK_F10
     public const int CloseDribbleStrengthStep = 25;

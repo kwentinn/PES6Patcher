@@ -152,6 +152,9 @@ internal sealed record StickDeadZoneSites(int[] Limits, int[] Aims, int[] GoalKi
 /// </summary>
 internal sealed record CarrierTurnSites(int First, int Second);
 
+/// <summary>Acceleration stat (<see cref="Stat"/>) and the shift count of each "sar edx,2" dividing its part of an acceleration time by 10.</summary>
+internal sealed record AccelerationSites(int Stat, int[] Shifts);
+
 /// <summary>Conditional jumps (je, 2 bytes) that, made inactive, skip the opening movie and the logos.</summary>
 internal sealed record IntroSites(int[] Jumps);
 
@@ -434,6 +437,41 @@ internal sealed class ExeLocator
         var first = Find(CarrierTurnFirst);
         var second = Find(CarrierTurnSecond);
         return first.Count == 1 && second.Count == 1 ? new CarrierTurnSites(first[0] + 7, second[0] + 22) : null;
+    }
+
+    /// <summary>
+    /// Sprinting with the ball, the acceleration time passed to the speed ramp: xor eax,eax ; mov al,[ecx+acceleration] ;
+    /// and eax,7Fh ; push eax ; call map ; mov ecx,eax ; mov eax,66666667h ; imul ecx ; sar edx,2 (/10) ; ... ; add edx,30h.
+    /// </summary>
+    private const string AccelerationAnchor =
+        "33 C0 8A 81 ?? ?? ?? ?? 83 E0 7F 50 E8 ?? ?? ?? ?? 8B C8 B8 67 66 66 66 F7 E9 C1 FA 02 8B CA C1 E9 1F 03 CA 0F B6 56 5E 2B D1 83 C2 30";
+
+    /// <summary>
+    /// The acceleration stat's weight: every read of the stat (address taken from <see cref="AccelerationAnchor"/>) in the
+    /// code section followed by the /10 (imul 66666667h ; ... ; sar edx,2): the shift counts of those sar.
+    /// </summary>
+    private static readonly byte[] Divide = [0x67, 0x66, 0x66, 0x66, 0xF7, 0xE9], Shift = [0xC1, 0xFA, 0x02];   // end of mov eax,66666667h ; imul ecx — sar edx,2
+
+    public static AccelerationSites? LocateAcceleration(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        var code = image.Code;
+        var anchors = new Signature(AccelerationAnchor).FindAll(image, code);
+        if (anchors.Count != 1) return null;
+        int stat = image.ReadInt32(anchors[0] + 4);
+        byte[] data = image.Bytes, address = BitConverter.GetBytes(stat);
+        var shifts = new List<int>();
+        int start = code.RawOffset, end = code.RawOffset + code.MappedSize - 64;
+        for (int p = start; p < end; p++)
+        {
+            if (!data.AsSpan(p, 4).SequenceEqual(address)) continue;
+            int divide = data.AsSpan(p + 4, 36).IndexOf(Divide);
+            if (divide < 0) continue;
+            int at = p + 4 + divide + 6;
+            int sar = data.AsSpan(at, 10).IndexOf(Shift);
+            if (sar >= 0) shifts.Add(at + sar + 2 - code.RawOffset + code.Va);
+        }
+        return shifts.Count > 0 ? new AccelerationSites(stat, [.. shifts]) : null;
     }
 
     /// <summary>One axis of the pad reader: neg eax (distance from 128) ; cmp eax,25h ; jle +12 ; movzx reg,dl ; sub reg,80h.</summary>

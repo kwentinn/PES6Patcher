@@ -38,7 +38,7 @@ public static class GameplayPresets
             CloseDribble = true, CloseDribbleStrength = closeDribble, SprintTurn = sprintTurn, CarrierTurn = carrierTurn,
             FreeKick = true, FreeKickWeight = freeKick, ShotPower = shotPower, ShotAccuracy = shotAccuracy, LobPower = PatchOptions.DefaultLobPower,
             LoftedAim = true, PassLead = passLead,
-            Spread = PatchOptions.DefaultSpread, Tackle = PatchOptions.DefaultTackle, SpeedGap = PatchOptions.DefaultSpeedGap,
+            Spread = PatchOptions.DefaultSpread, Tackle = PatchOptions.DefaultTackle, SpeedGap = PatchOptions.DefaultSpeedGap, AccelerationGap = true,
         };
     }
 

@@ -29,6 +29,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="SprintTurnDebug">Test key: F7 in game changes <paramref name="SprintTurn"/> by 15 degrees and shows it (through Kitserver).</param>
 /// <param name="Tackle">Pressing challenge reach: how far from the ball a pressing player tries to win it, in % of the game's (100 = unchanged).</param>
 /// <param name="TackleDebug">Test key: F8 in game changes <paramref name="Tackle"/> by 20 % (back to 100 % after the maximum) and shows it (through Kitserver).</param>
+/// <param name="AccelerationGap">Acceleration gap between players: the acceleration stat weighs twice as much on the time to reach a speed.</param>
 /// <param name="CloseDribbleStrength">With <paramref name="CloseDribble"/>, how much the touches are shortened, in % of the first version's reduction.</param>
 /// <param name="CloseDribbleStrengthDebug">Test key: F10 in game changes <paramref name="CloseDribbleStrength"/> by 25 % and shows it (through Kitserver).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
@@ -36,7 +37,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
     int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
-    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false)
+    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false)
 {
     /// <summary>
     /// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -127,7 +128,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The carrier can turn faster with the ball.</summary>
     public bool CarrierTurn { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn;
+    /// <summary>The acceleration gap between players can be widened.</summary>
+    public bool AccelerationGap { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -166,7 +170,7 @@ public static class ExePatcher
                 Spread = ExeLocator.LocateSpread(exe) != null, SpeedGap = ExeLocator.LocateSpeed(exe) != null,
                 SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null, Tackle = ExeLocator.LocateTackle(exe) != null, LoftedAim = ExeLocator.LocateLoftedAim(exe) != null,
                 PassLead = ExeLocator.LocatePassLead(exe) != null, StickDeadZone = ExeLocator.LocateStickDeadZone(exe) != null,
-                CarrierTurn = ExeLocator.LocateCarrierTurn(exe) != null,
+                CarrierTurn = ExeLocator.LocateCarrierTurn(exe) != null, AccelerationGap = ExeLocator.LocateAcceleration(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -450,6 +454,14 @@ public static class ExePatcher
             byte[] step = BitConverter.GetBytes(CodeCaves.CarrierTurnStep(options.CarrierTurn));
             plan.Add((sites.First, step));
             plan.Add((sites.Second, step));
+        }
+
+        // acceleration gap: the acceleration stat's part of every acceleration time is divided by 5 instead of 10 (x 2; x 4
+        // made the times of the best players negative: they crossed the pitch at once)
+        if (options.AccelerationGap)
+        {
+            var sites = ExeLocator.LocateAcceleration(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.AccelerationGap"), 0)]);
+            foreach (int shift in sites.Shifts) plan.Add((shift, [CodeCaves.AccelerationGapShift]));
         }
 
         // analog stick dead zone: each axis is zeroed near the centre; a smaller zone lets a stick held near an axis

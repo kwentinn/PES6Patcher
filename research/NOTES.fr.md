@@ -87,9 +87,15 @@ Chaque option est un détournement : quelques octets du jeu remplacés par un sa
 
 ### Écart de vitesse
 
-- La vitesse de course est `[joueur+0x1C]`. À chaque image, `0x48FEF0` la rapproche d'une vitesse visée donnée par l'appelant (sprint balle au pied : `0x4C20F9`), avec un temps d'accélération tiré de la stat `0x3BCF5B0`.
+- La vitesse de course est `[joueur+0x1C]`. À chaque image, `0x48FEF0` la rapproche d'une vitesse visée donnée par l'appelant (sprint balle au pied : `0x4C20F9`), avec un temps d'accélération tiré de la stat `0x3BCF5AF`.
 - La **vitesse maximale** `[joueur+0x58]` est calculée, et recalculée pendant le match, en `0x447BF52` (section `.rld` de la protection, code en clair) : 7542 + 12 × (vitesse de pointe − 40) × 100 / 60 − 16 × `[joueur+0x5C]`. La stat de vitesse de pointe est l'octet `0x3BCF5AE` (corrélation de 1,00 avec `+0x58` sur 22 joueurs). Un point de stat ne vaut que 20 unités : 68 → 8094, 97 → 8682.
 - Le code ajouté multiplie la part de la stat autour d'un joueur à 75. Comme la valeur est recalculée pendant le match, F6 s'applique tout de suite.
+
+### Écart d'accélération
+
+- `0x48FEF0` est un saut vers la protection (`0x44B6A20`) ; ses quelque 70 appelants passent (joueur, vitesse visée, temps d'accélération). Tous calculent ce temps de la même façon : une base (`0x1C`, `0x1E`, `0x28` ou `0x30`) + un champ du joueur (`+0x5C` ou `+0x5E`) − `0x483E10`(stat d'accélération `0x3BCF5AF`, 50) / 10. `0x483E10`(a, b) = (a − b) × 100 / (100 − b) au-dessus de b, 0 sinon : la stat ne retire donc que 0 à 9 d'un temps d'environ 28 à 48.
+- Le /10 est `mov eax,66666667h ; imul ecx ; sar edx,2`. En mémoire, `sar edx,1` aux 55 endroits qui suivent une lecture de la stat (x 2) a semblé juste ; `sar edx,0` (x 4) rendait négatifs les temps des meilleurs joueurs : un joueur traversait le terrain d'un coup.
+- **Écart d'accélération plus marqué** y écrit `sar edx,1`. Le repère est le sprint balle au pied (`0x4C20C4`), qui donne aussi l'adresse de la stat.
 
 ### Virages francs en sprint
 
@@ -157,7 +163,7 @@ F2 à F9 changent une valeur en match et l'affichent par Kitserver, comme F1. Le
 | Joueur : touches tenues, appuyées | `+0xB0`, `+0xB4` |
 | Id du porteur du ballon | `0x3BE09CC` |
 | Ballon | `[0xBCCE94]` : position `+0x10/+0x14/+0x18`, vitesse verticale `+0x30`, vitesse `+0x50`, direction `+0x58`, effet `+0x6A/+0x6C/+0x74` |
-| Stats | `0x3BCF5A8` + (équipe × 32 + poste) × `0x348`, 7 bits par stat : `+0x0` bit 0 pied fort, `+0x6` vitesse de pointe, `+0x8` (lue pour l'accélération), `+0x18` précision de dribble |
+| Stats | `0x3BCF5A8` + (équipe × 32 + poste) × `0x348`, 7 bits par stat : `+0x0` bit 0 pied fort, `+0x6` vitesse de pointe, `+0x7` accélération, `+0x18` précision de dribble |
 | Sticks analogiques | `0x1016680` + manette × 4 : angle (mot), amplitude, bits de direction |
 | Animation (`[joueur+4]`) | `+0x28` vitesse de lecture (flottant, tirée du pas d'image global, ou en % par `0x65D9B0`), `+0x30` animation, `+0x34` nombre d'images, `+0x38` temps (flottant) ; avancée par `0x65D870`, lancée par `0x65D7D0` |
 | Constantes physiques du ballon | 10 flottants en `0xB8AE68` (voir ci-dessous) |
