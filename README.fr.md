@@ -132,7 +132,7 @@ Pour ajouter une langue : copier `src/PES6Patcher.Core/Resources/Strings.resx` e
 ```powershell
 dotnet build
 dotnet test
-dotnet publish src/PES6Patcher -c Release -o publish
+dotnet publish src/PES6Patcher -c Release -o publish -p:PublishSingleFile=true --self-contained false
 ```
 
 Les tests comparent l'exe produit avec des exe validés en jeu. Ces fichiers viennent du jeu et ne sont donc pas dans le dépôt : sans eux, ces tests passent sans rien vérifier.
