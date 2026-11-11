@@ -166,7 +166,7 @@
     <value>touches de dribble</value>
   </data>
   <data name="Log.CloseDribble" xml:space="preserve">
-    <value>Dribble resserré : touches jusqu'à x 0,875 en course, x 0,81 en sprint, selon la précision de dribble.</value>
+    <value>Dribble resserré à {0} % : à 100 %, touches jusqu'à x 0,875 en course, x 0,81 en sprint, selon la précision de dribble.</value>
   </data>
   <data name="Gameplay.Shot" xml:space="preserve">
     <value>Tirs plus doux pour les joueurs (ceux de l'IA ne changent pas)</value>
@@ -512,5 +512,17 @@
   </data>
   <data name="Log.SettingsUnknown" xml:space="preserve">
     <value>{0} est patché, mais ses options ne sont pas connues (patché par une version antérieure à 1.19.0 ou par un autre outil) : les options ci-dessous sont celles par défaut. Elles seront retenues à partir du prochain patch.</value>
+  </data>
+  <data name="Gameplay.CloseDribbleStrength" xml:space="preserve">
+    <value>% d'intensité (100 = la première version pour les meilleurs dribbleurs)</value>
+  </data>
+  <data name="Gameplay.CloseDribbleStrengthDebug" xml:space="preserve">
+    <value>Test : F10 en match la change (+25 %)</value>
+  </data>
+  <data name="Log.CloseDribbleStrengthDebug" xml:space="preserve">
+    <value>Touche de test de l'intensité du dribble resserré : F10 en match ajoute 25 % (retour à 50 % après 200 %), affiché à l'écran.</value>
+  </data>
+  <data name="Overlay.CloseDribbleStrength" xml:space="preserve">
+    <value>DRIBBLE RESSERRE : {0} % (F10)</value>
   </data>
 </root>

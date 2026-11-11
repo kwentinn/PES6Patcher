@@ -174,3 +174,11 @@ Suggestion de Tinker sur Evo-Web : en défense, les défenseurs se regroupent, l
 Issue : [#24](https://github.com/kwentinn/PES6Patcher/issues/24)
 
 Suggestion de bukowski sur Evo-Web : la boutique PES déverrouille une vitesse de jeu x2. Comprendre comment elle marche pourrait montrer où le jeu règle sa vitesse, pour un vrai réglage de vitesse (Speeder ralentit tout le moteur).
+
+## Dribble resserré : plus serré pour les meilleurs dribbleurs
+
+Issue : [#29](https://github.com/kwentinn/PES6Patcher/issues/29)
+
+Suggestion de kanzi123 sur Evo-Web, qui préférait le premier dribble resserré : le ballon doit rester d'autant plus près des pieds que la note de dribble est haute. La première version (× 14/16 en course, × 13/16 en sprint pour tous) est déjà ce qu'a un joueur noté 95 ou plus.
+
+Fait : un réglage d'**intensité** multiplie la réduction (125 % par défaut, 100 % = la première version pour les meilleurs dribbleurs, jusqu'à 200 % : au-delà, le joueur marche sur le ballon), avec F10 pour comparer en match.

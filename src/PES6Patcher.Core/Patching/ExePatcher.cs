@@ -29,12 +29,21 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="SprintTurnDebug">Test key: F7 in game changes <paramref name="SprintTurn"/> by 15 degrees and shows it (through Kitserver).</param>
 /// <param name="Tackle">Pressing challenge reach: how far from the ball a pressing player tries to win it, in % of the game's (100 = unchanged).</param>
 /// <param name="TackleDebug">Test key: F8 in game changes <paramref name="Tackle"/> by 20 % (back to 100 % after the maximum) and shows it (through Kitserver).</param>
+/// <param name="CloseDribbleStrength">With <paramref name="CloseDribble"/>, how much the touches are shortened, in % of the first version's reduction.</param>
+/// <param name="CloseDribbleStrengthDebug">Test key: F10 in game changes <paramref name="CloseDribbleStrength"/> by 25 % and shows it (through Kitserver).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
-    int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0)
+    int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
+    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false)
 {
+    /// <summary>
+    /// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
+    /// accuracy) applies, in % (100 = the first version's touches for the best dribblers): default (tested in game) and limits.
+    /// </summary>
+    public const int DefaultCloseDribbleStrength = 125, MinCloseDribbleStrength = 50, MaxCloseDribbleStrength = 200;   // above 200 %, the touches are too short: the player treads on the ball
+
     /// <summary>
     /// Carrier turn rate, in degrees per frame (the game's: 1.4): default (22, about 16 times the game's: tested in game) and limits.
     /// </summary>
@@ -207,9 +216,13 @@ public static class ExePatcher
         // ball kick relay (allocated last, so the other caves stay where they were): the free direction
         // also covers the dribble touch rounded to 22.5 degrees; close dribbling shortens the touches
         bool dribbleDirection = options.FreeDirection && dribble != null;
+        bool strengthKey = options.CloseDribble && options.CloseDribbleStrengthDebug;
+        if (options.CloseDribble && options.CloseDribbleStrength is < PatchOptions.MinCloseDribbleStrength or > PatchOptions.MaxCloseDribbleStrength)
+            throw new ArgumentOutOfRangeException(nameof(options), options.CloseDribbleStrength, null);
+        if (strengthKey && freeKick == null) throw new PatchException(problems);
         if (dribbleDirection || options.CloseDribble)
         {
-            int size = CodeCaves.KickRelaySize(dribbleDirection, options.CloseDribble);
+            int size = CodeCaves.KickRelaySize(dribbleDirection, options.CloseDribble, strengthKey);
             int relayCave = Cave(size);
             int switchSetUp = 0;
             if (options.CloseDribble)
@@ -221,7 +234,8 @@ public static class ExePatcher
                 plan.Add((switchSetUp, CodeCaves.SwitchMessage(switchSetUp, dribble!, on, off)));
                 image.MakeWritable(image.SectionOf(dribble!.SwitchState)!);
             }
-            var hook = CodeCaves.KickRelay(relayCave, dribble!, dribbleDirection ? direction : null, options.CloseDribble, switchSetUp);
+            var hook = CodeCaves.KickRelay(relayCave, dribble!, dribbleDirection ? direction : null, options.CloseDribble, switchSetUp,
+                options.CloseDribbleStrength, strengthKey ? CodeCaves.CloseDribbleStrengthAddress(freeKick!) : 0);
             if (hook.CaveBytes.Length != size) throw new InvalidOperationException("Added code size does not match its reserved space.");
             plan.Add((hook.Cave, hook.CaveBytes));
             plan.Add((hook.Entry, hook.EntryBytes));
@@ -238,7 +252,7 @@ public static class ExePatcher
             speedKey = options.SpeedGap != 100 && options.SpeedGapDebug, sprintKey = options.SprintTurn > 0 && options.SprintTurnDebug,
             tackleKey = options.Tackle != 100 && options.TackleDebug,
             passLeadKey = options.PassLead < 100 && options.PassLeadDebug;
-        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey) && freeKick == null) throw new PatchException(problems);
+        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey || strengthKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key, int step = CodeCaves.TestKeyStep)
         {
@@ -287,6 +301,11 @@ public static class ExePatcher
         {
             var (texts, stride) = KeyTexts(PatchOptions.MaxPassLead, "Overlay.PassLead");
             keys.Add(CodeCaves.PassLeadTestKey(options.PassLead, texts, stride));
+        }
+        if (strengthKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxCloseDribbleStrength, "Overlay.CloseDribbleStrength", CodeCaves.CloseDribbleStrengthStep);
+            keys.Add(CodeCaves.CloseDribbleStrengthTestKey(options.CloseDribbleStrength, texts, stride));
         }
         int testKeysSetUp = 0;
         if (keys.Count > 0)

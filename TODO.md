@@ -174,3 +174,11 @@ Suggested by Tinker on Evo-Web: when defending, the defenders bunch together, th
 Issue: [#24](https://github.com/kwentinn/PES6Patcher/issues/24)
 
 Suggested by bukowski on Evo-Web: the PES Shop unlocks a x2 game speed. Finding how it works may show where the game sets its speed, for a real speed setting (Speeder slows the whole engine).
+
+## Close dribbling: tighter for top dribblers
+
+Issue: [#29](https://github.com/kwentinn/PES6Patcher/issues/29)
+
+Suggested by kanzi123 on Evo-Web, who preferred the first close dribbling: the ball should stay closer to the feet the higher the dribble rating. The first version (× 14/16 running, × 13/16 sprinting for everyone) is what a player rated 95 or more already gets.
+
+Done: a **strength** setting scales the reduction (125 % by default, 100 % = the first version for the best dribblers, up to 200 %: beyond, the player treads on the ball), with F10 to compare in a match.

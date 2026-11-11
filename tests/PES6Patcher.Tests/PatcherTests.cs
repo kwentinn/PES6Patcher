@@ -160,6 +160,35 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Close_dribble_strength_scales_the_reduction_and_F10_reads_it_at_run_time()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true);
+        int size = CodeCaves.KickRelaySize(direction: true, closeDribble: true);
+        int cave = AssertSameExceptKickRelay(ExePatcher.Build(original, options), ExePatcher.Build(original, options with { CloseDribbleStrength = 200 }), size);
+
+        // imul eax,eax,strength ; imul dword [esp+0xC] ; mov ecx,16*30*100
+        byte[] Scale(int strength) => [0x69, 0xC0, .. BitConverter.GetBytes(strength), 0xF7, 0x6C, 0x24, 0x0C, 0xB9, .. BitConverter.GetBytes(48000)];
+        var image = new PeImage(ExePatcher.Build(original, options with { CloseDribbleStrength = 200 }));
+        Assert.True(image.Bytes.AsSpan(cave, size).IndexOf(Scale(200)) >= 0);
+        var game = new PeImage(ExePatcher.Build(original, options));
+        Assert.True(game.Bytes.AsSpan(cave, size).IndexOf(Scale(100)) >= 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { CloseDribbleStrength = 225 }));
+
+        // F10: the cave reads the strength word in the close dribbling switch state, the test keys know the key
+        var debug = new PeImage(ExePatcher.Build(original, options with { CloseDribbleStrength = 150, CloseDribbleStrengthDebug = true }));
+        int debugSize = CodeCaves.KickRelaySize(direction: true, closeDribble: true, strengthKey: true);
+        var (_, _, dribble, _, _, _, _, _) = ExeLocator.Locate(original);
+        int state = dribble!.SwitchState + 12;
+        byte[] read = [0x0F, 0xB7, 0x0D, .. BitConverter.GetBytes(state), 0x85, 0xC9, 0x75, 0x05, 0xB9, .. BitConverter.GetBytes(150)];
+        Assert.True(debug.Bytes.AsSpan(cave, debugSize).IndexOf(read) >= 0);
+        byte[] key = [0x6A, CodeCaves.CloseDribbleStrengthKey, 0xFF, 0x15];   // push VK_F10 ; call [GetAsyncKeyState]
+        Assert.True(debug.Bytes.AsSpan().IndexOf(key) >= 0);
+    }
+
+    [Fact]
     public void Close_dribble_alone_is_detected_as_patched()
     {
         var original = Load("PES6.orig.exe");

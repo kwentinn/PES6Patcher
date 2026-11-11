@@ -166,7 +166,7 @@
     <value>dribble touches</value>
   </data>
   <data name="Log.CloseDribble" xml:space="preserve">
-    <value>Close dribbling: dribble touches up to x 0.875 when running, x 0.81 when sprinting, depending on dribble accuracy.</value>
+    <value>Close dribbling at {0} %: at 100 %, dribble touches up to x 0.875 when running, x 0.81 when sprinting, depending on dribble accuracy.</value>
   </data>
   <data name="Gameplay.Shot" xml:space="preserve">
     <value>Gentler shots for players (the AI's are unchanged)</value>
@@ -512,5 +512,17 @@
   </data>
   <data name="Log.SettingsUnknown" xml:space="preserve">
     <value>{0} is patched, but its options are not known (patched by a version before 1.19.0 or by another tool): the options below are the defaults. They are remembered from the next apply.</value>
+  </data>
+  <data name="Gameplay.CloseDribbleStrength" xml:space="preserve">
+    <value>% strength (100 = the first version for the best dribblers)</value>
+  </data>
+  <data name="Gameplay.CloseDribbleStrengthDebug" xml:space="preserve">
+    <value>Test: F10 in a match changes it (+25 %)</value>
+  </data>
+  <data name="Log.CloseDribbleStrengthDebug" xml:space="preserve">
+    <value>Close dribbling strength test key: F10 in a match adds 25 % (back to 50 % after 200 %), shown on screen.</value>
+  </data>
+  <data name="Overlay.CloseDribbleStrength" xml:space="preserve">
+    <value>CLOSE DRIBBLING: {0} % (F10)</value>
   </data>
 </root>

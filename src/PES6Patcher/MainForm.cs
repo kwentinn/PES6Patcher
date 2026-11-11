@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, decimal CloseDribbleStrength, bool CloseDribbleStrengthDebug, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -83,6 +83,12 @@ internal sealed class MainForm : Form
         Value = PatchOptions.DefaultSprintTurn, Width = 60, Enabled = false,
     };
     private readonly CheckBox _sprintTurnDebug = new() { Text = Loc.T("Gameplay.SprintTurnDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
+    private readonly NumericUpDown _closeDribbleStrength = new()
+    {
+        Minimum = PatchOptions.MinCloseDribbleStrength, Maximum = PatchOptions.MaxCloseDribbleStrength, Increment = 25,
+        Value = PatchOptions.DefaultCloseDribbleStrength, Width = 60, Enabled = false, Margin = new Padding(22, 3, 3, 3),
+    };
+    private readonly CheckBox _closeDribbleStrengthDebug = new() { Text = Loc.T("Gameplay.CloseDribbleStrengthDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
     private readonly CheckBox _carrierTurn = new() { Text = Loc.T("Gameplay.CarrierTurn"), AutoSize = true };
     private readonly NumericUpDown _carrierTurnDegrees = new()
     {
@@ -146,6 +152,8 @@ internal sealed class MainForm : Form
         _sprintTurn.CheckedChanged += (_, _) => _sprintTurnDegrees.Enabled = _sprintTurnDebug.Enabled = _sprintTurn.Enabled && _sprintTurn.Checked;
         _tackle.EnabledChanged += (_, _) => _tacklePercent.Enabled = _tackleDebug.Enabled = _tackle.Enabled && _tackle.Checked;
         _tackle.CheckedChanged += (_, _) => _tacklePercent.Enabled = _tackleDebug.Enabled = _tackle.Enabled && _tackle.Checked;
+        _closeDribble.EnabledChanged += (_, _) => _closeDribbleStrength.Enabled = _closeDribbleStrengthDebug.Enabled = _closeDribble.Enabled && _closeDribble.Checked;
+        _closeDribble.CheckedChanged += (_, _) => _closeDribbleStrength.Enabled = _closeDribbleStrengthDebug.Enabled = _closeDribble.Enabled && _closeDribble.Checked;
         _carrierTurn.EnabledChanged += (_, _) => _carrierTurnDegrees.Enabled = _carrierTurn.Enabled && _carrierTurn.Checked;
         _carrierTurn.CheckedChanged += (_, _) => _carrierTurnDegrees.Enabled = _carrierTurn.Enabled && _carrierTurn.Checked;
         _stickDeadZone.EnabledChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
@@ -193,6 +201,8 @@ internal sealed class MainForm : Form
             _freeDirection,
             Flow(_stickDeadZone, _stickDeadZonePercent, LabelText(Loc.T("Gameplay.StickDeadZonePercent"))),
             _closeDribble,
+            Flow(_closeDribbleStrength, LabelText(Loc.T("Gameplay.CloseDribbleStrength"))),
+            _closeDribbleStrengthDebug,
             Flow(_sprintTurn, _sprintTurnDegrees, LabelText(Loc.T("Gameplay.SprintTurnDegrees"))),
             _sprintTurnDebug,
             Flow(_carrierTurn, _carrierTurnDegrees, LabelText(Loc.T("Gameplay.CarrierTurnDegrees"))),
@@ -285,6 +295,8 @@ internal sealed class MainForm : Form
             _stickDeadZonePercent.Value = previous.StickDeadZonePercent;
             _carrierTurn.Checked = previous.CarrierTurn;
             _carrierTurnDegrees.Value = previous.CarrierTurnDegrees;
+            _closeDribbleStrength.Value = previous.CloseDribbleStrength;
+            _closeDribbleStrengthDebug.Checked = previous.CloseDribbleStrengthDebug;
             _skipIntro.Checked = previous.SkipIntro;
             _log.Text = previous.Log;
             RefreshState(log: false);
@@ -310,13 +322,14 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
     private InstallSettings CurrentSettings() =>
         new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value,
             Display: _display.Enabled && _display.Checked, Gameplay: _gameplay.Checked, CloseDribble: _closeDribble.Enabled && _closeDribble.Checked,
+            CloseDribbleStrength: (int)_closeDribbleStrength.Value, CloseDribbleStrengthDebug: _closeDribbleStrengthDebug.Checked,
             SkipIntro: _skipIntro.Enabled && _skipIntro.Checked, PhysicsMod: _physicsMod.Enabled ? _physicsMod.Checked : null,
             FreeKick: _freeKick.Enabled && _freeKick.Checked, FreeKickWeight: (int)_freeKickWeight.Value,
             FreeKickDebug: _freeKickDebug.Checked, ShotPower: _shot.Enabled && _shot.Checked ? (int)_shotPower.Value : 100,
@@ -489,6 +502,8 @@ internal sealed class MainForm : Form
         _stickDeadZone.Checked = s.StickDeadZone != PatchOptions.GameStickDeadZone;
         if (_stickDeadZone.Checked) Set(_stickDeadZonePercent, s.StickDeadZone);
         _closeDribble.Checked = s.CloseDribble;
+        Set(_closeDribbleStrength, s.CloseDribbleStrength);
+        _closeDribbleStrengthDebug.Checked = s.CloseDribbleStrengthDebug;
         _freeKick.Checked = s.FreeKick;
         Set(_freeKickWeight, s.FreeKickWeight);
         _freeKickDebug.Checked = s.FreeKickDebug;

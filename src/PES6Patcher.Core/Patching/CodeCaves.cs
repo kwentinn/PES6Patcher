@@ -12,13 +12,13 @@ internal static class CodeCaves
     public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156;
 
     /// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
-    public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 180, RelayTailSize = 11;
+    public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 184, RelayStrengthKeySize = 13, RelayTailSize = 11;
 
     /// <summary>Key that switches close dribbling on and off in game.</summary>
     public const byte CloseDribbleSwitchKey = 0x70;   // VK_F1
 
-    public static int KickRelaySize(bool direction, bool closeDribble) =>
-        (direction ? RelayDirectionSize : 0) + (closeDribble ? RelayCloseDribbleSize : 0) + RelayTailSize;
+    public static int KickRelaySize(bool direction, bool closeDribble, bool strengthKey = false) =>
+        (direction ? RelayDirectionSize : 0) + (closeDribble ? RelayCloseDribbleSize + (strengthKey ? RelayStrengthKeySize : 0) : 0) + RelayTailSize;
 
     /// <summary>Close dribbling: touch speed x 14/16 while running, x 13/16 while sprinting (tuned in game).</summary>
     public const byte RunTouchSixteenths = 14, SprintTouchSixteenths = 13;
@@ -28,6 +28,14 @@ internal static class CodeCaves
     /// (the game's own touches), full from <see cref="MaxAccuracy"/>, in proportion between.
     /// </summary>
     public const byte MinAccuracy = 65, MaxAccuracy = 95;
+
+    /// <summary>F10 changes the close dribbling strength by 25 %.</summary>
+    public const byte CloseDribbleStrengthKey = 0x79;   // VK_F10
+    public const int CloseDribbleStrengthStep = 25;
+
+    public static TestKey CloseDribbleStrengthTestKey(int percent, int texts, int stride) =>
+        new(CloseDribbleStrengthKey, CloseDribbleStrengthState, percent, PatchOptions.MinCloseDribbleStrength, PatchOptions.MaxCloseDribbleStrength,
+            texts, stride, CloseDribbleStrengthStep);
 
     /// <summary>
     /// clip(x0, y0, x1, y1) converts the 2D clip rectangle to pixels with x * screenWidth / 512.
@@ -136,11 +144,13 @@ internal static class CodeCaves
     /// rounded to 22.5 degrees (by virtualised code). For the pad whose rounded angle is that direction
     /// (or its opposite: attacking side), the cave adds back what the rounding removed. The AI's touches
     /// match no pad, so they are left alone.</item>
-    /// <item>close dribbling: for the dribble touches, scales the speed argument down (shorter touches).</item>
+    /// <item>close dribbling: for the dribble touches, scales the speed argument down (shorter touches), by
+    /// <paramref name="strength"/> % of the reduction (or the F10 value read at <paramref name="strengthState"/>, when not 0).</item>
     /// </list>
     /// Then it replays the 6 replaced bytes (mov ecx,[esp+0xC] ; mov eax,ecx). Passes and shots are left alone.
     /// </summary>
-    public static Hook KickRelay(int cave, DribbleSites sites, DirectionSites? direction, bool closeDribble, int switchSetUp = 0)
+    public static Hook KickRelay(int cave, DribbleSites sites, DirectionSites? direction, bool closeDribble, int switchSetUp = 0,
+        int strength = 100, int strengthState = 0)
     {
         int state = sites.SwitchState;
         byte[] StateByte(byte op, int offset, byte value) =>   // op byte [state+offset],value
@@ -201,7 +211,7 @@ internal static class CodeCaves
                 code.Bytes([0x3D], touch).Jump(0x74, "sprint");     // cmp eax,touch ; je sprint
             // the scaling lives after the original bytes, within short jump range of everything
             Original(code)
-                // speed -= speed * (16 - sixteenths) / 16 * (accuracy - min) / (max - min), accuracy capped at max
+                // speed -= speed * (16 - sixteenths) / 16 * (accuracy - min) / (max - min) * strength / 100, accuracy capped at max
                 .Mark("run")
                 .Bytes(0x6A, 16 - RunTouchSixteenths, 0x59)         // push ; pop ecx      ; full reduction
                 .Jump(0xEB, "scale")                                // jmp scale
@@ -221,10 +231,18 @@ internal static class CodeCaves
                 .Jump(0x7E, "capped")                               // jle capped
                 .Bytes([0xB8], MaxAccuracy - MinAccuracy)           // mov eax,max-min
                 .Mark("capped")
-                .Bytes(0x0F, 0xAF, 0xC1)                            // imul eax,ecx
-                .Bytes(0x0F, 0xAF, 0x44, 0x24, 0x0C)                // imul eax,[esp+0xC]   ; speed
-                .Bytes(0x99)                                        // cdq
-                .Bytes([0xB9], 16 * (MaxAccuracy - MinAccuracy))    // mov ecx,16*(max-min)
+                .Bytes(0x0F, 0xAF, 0xC1);                           // imul eax,ecx
+            if (strengthState != 0)
+                code.Bytes([0x0F, 0xB7, 0x0D], strengthState)       // movzx ecx,word [strength]
+                    .Bytes(0x85, 0xC9)                              // test ecx,ecx
+                    .Jump(0x75, "strengthSet")                      // jne strengthSet
+                    .Bytes([0xB9], strength)                        // mov ecx,strength     ; from the patcher
+                    .Mark("strengthSet")
+                    .Bytes(0x0F, 0xAF, 0xC1);                       // imul eax,ecx
+            else
+                code.Bytes([0x69, 0xC0], strength);                 // imul eax,eax,strength
+            code.Bytes(0xF7, 0x6C, 0x24, 0x0C)                      // imul dword [esp+0xC] ; edx:eax = share * speed
+                .Bytes([0xB9], 16 * (MaxAccuracy - MinAccuracy) * 100)   // mov ecx,16*(max-min)*100
                 .Bytes(0xF7, 0xF9)                                  // idiv ecx
                 .Bytes(0x29, 0x44, 0x24, 0x0C)                      // sub [esp+0xC],eax
                 .Jump(0xEB, "original");                            // jmp original
@@ -252,9 +270,13 @@ internal static class CodeCaves
     /// +12 KDrawText, +16 shot power percent (word, 0 = the patcher's), +18 test key shown, +20 shot aim error
     /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's), +24 speed gap percent (word, 0 = the patcher's),
     /// +26 sprint turn maximum in degrees (word, 0 = the patcher's), +28 challenge reach percent (word, 0 = the patcher's), +30 pass lead percent (word, 0 = the patcher's).
+    /// The close dribbling switch state follows (<see cref="DribbleSites.SwitchState"/> = +32): +44 close dribbling strength percent (word, 0 = the patcher's).
     /// </summary>
     private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28, PassLeadState = 30;
+        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28, PassLeadState = 30, CloseDribbleStrengthState = 44;
+
+    /// <summary>Close dribbling strength percent read at run time (F10), in the close dribbling switch state.</summary>
+    public static int CloseDribbleStrengthAddress(FreeKickSites testKeys) => testKeys.State + CloseDribbleStrengthState;
 
     /// <summary>
     /// Easier free kicks: a free kick shot dips sooner after the wall. In one cave:
