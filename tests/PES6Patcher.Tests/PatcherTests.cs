@@ -259,7 +259,10 @@ public class PatcherTests(ITestOutputHelper output)
         var debugImage = new PeImage(debug);
         int debugCave = debugImage.Rel32Target(0x58CC11);   // after the texts and test keys caves
         Assert.Equal(debugCave + 56, debugImage.Rel32Target(0x478020));
-        Assert.Equal(debugCave + 228, debugImage.Rel32Target(0x475EEF));   // the kick part also learns the human teams
+        Assert.Equal(debugCave + 244, debugImage.Rel32Target(0x475EEF));   // the kick part also learns the human teams
+        // by the active player's team (+0x12), which the teams keep when they change ends at half-time
+        byte[] teamRead = [0x0F, 0xB6, 0xA8, .. BitConverter.GetBytes(0x3BDC980 + 0x12)];
+        Assert.True(debug.AsSpan(debugImage.Offset(debugCave), 244).IndexOf(teamRead) > 0);
         int setUp = debugImage.Rel32Target(debugCave + 56 + 10);
         var text = System.Text.Encoding.ASCII.GetString(debug, debugImage.Offset(setUp), 600);
         Assert.Contains("kload.dll\0KDrawText\0HookFunction\0", text);
@@ -298,9 +301,13 @@ public class PatcherTests(ITestOutputHelper output)
         var lob = ExePatcher.Build(original, options with { ShotAccuracy = 0, LobPower = 70 });
         var lobImage = new PeImage(lob);
         int lobCave = lobImage.Offset(lobImage.Rel32Target(0x5BBC9A));
-        Assert.True(lob.AsSpan(lobCave, 200).IndexOf(new byte[] { 0xF7, 0x80, 0xB0, 0, 0, 0, 0x00, 0x04, 0, 0 }) > 0);
-        Assert.True(lob.AsSpan(lobCave, 200).IndexOf(new byte[] { 0x8B, 0x44, 0x24, 0x10, 0x6B, 0xC0, 70 }) > 0);
-        Assert.True(lob.AsSpan(lobCave, 200).IndexOf(new byte[] { 0x8B, 0x44, 0x24, 0x14, 0x6B, 0xC0, CodeCaves.LobHeight }) > 0);
+        Assert.True(lob.AsSpan(lobCave, 300).IndexOf(new byte[] { 0xF7, 0x80, 0xB0, 0, 0, 0, 0x00, 0x04, 0, 0 }) > 0);
+        Assert.True(lob.AsSpan(lobCave, 300).IndexOf(new byte[] { 0x8B, 0x44, 0x24, 0x10, 0x6B, 0xC0, 70 }) > 0);
+        Assert.True(lob.AsSpan(lobCave, 300).IndexOf(new byte[] { 0x8B, 0x44, 0x24, 0x14, 0x6B, 0xC0, CodeCaves.LobHeight }) > 0);
+        // the share follows the shooter's shot accuracy (stat +0x12): movzx eax,byte [eax+stats+0x12], floor 20 %
+        byte[] accuracyRead = [0x0F, 0xB6, 0x80, .. BitConverter.GetBytes(0x3BCF5A8 + CodeCaves.ShotAccuracyStat)];
+        Assert.True(lob.AsSpan(lobCave, 300).IndexOf(accuracyRead) > 0);
+        Assert.True(lob.AsSpan(lobCave, 300).IndexOf(new byte[] { 0x83, 0xF8, CodeCaves.AccuracyFloor }) > 0);
 
         // alone, it makes .rdata writable and is detected as patched
         var alone = ExePatcher.Build(original, new PatchOptions(398, false, Display: false, FreeKick: true));

@@ -390,9 +390,17 @@ internal static class CodeCaves
     public const byte HumanScore = 32, MaxHumanScore = 64;
 
     /// <summary>
-    /// Human teams, learnt at every kick: for each pad whose stick is pushed, each team's active player gets +1 when
-    /// its input direction is the stick's (or the opposite one: attacking side), -2 otherwise (an AI defender often runs A human-controlled
+    /// Score gained when a team's active player follows a pad's stick (a miss costs 2). At 3, a human team is known
+    /// after about a dozen kicks (at 1, the first shots of a match were not corrected: measured, a shot left at twice
+    /// the usual height in the first minute); an AI team, matching a stick about one time in four, still loses ground.
+    /// </summary>
+    public const byte HumanGain = 3;
+
+    /// <summary>
+    /// Human teams, learnt at every kick: for each pad whose stick is pushed, each team's active player gets <see cref="HumanGain"/> when
+    /// its input direction is the stick's (or the opposite one: attacking side), -2 otherwise (an AI defender often runs
     /// along or against the human's stick while chasing the ball). A human-controlled team follows its stick nearly always.
+    /// The score is the active player's team's (+0x12, as the shots read it), not its slot's: the slots follow the ends.
     /// </summary>
     private static void EmitHumanTeams(CodeBuilder code, ShotSites sites)
     {
@@ -413,26 +421,32 @@ internal static class CodeCaves
             .Bytes(0x83, 0xF8, 0x20)                                // cmp eax,32
             .Jump(0x73, "humanNextTeam")                            // jae humanNextTeam     ; none
             .Bytes([0x69, 0xC0], 0x240)                             // imul eax,eax,0x240
+            // the score is the active player's team's (+0x12), as the shots read it: the slots of the active players
+            // follow the sides of the pitch, which the teams swap at half-time
+            .Bytes([0x0F, 0xB6, 0xA8], sites.Players + 0x12)        // movzx ebp,byte [eax+players+0x12]
+            .Bytes(0x83, 0xE5, 0x01)                                // and ebp,1
             .Bytes([0x0F, 0xB6, 0x88], sites.Players + 0xB0)        // movzx ecx,byte [eax+players+0xB0]
             .Bytes(0x80, 0xE1, 0xF0)                                // and cl,0xF0
             .Bytes(0x3B, 0xCB)                                      // cmp ecx,ebx
             .Jump(0x74, "humanMatch")                               // je humanMatch
             .Bytes(0x3B, 0xCA)                                      // cmp ecx,edx
             .Jump(0x74, "humanMatch")                               // je humanMatch
-            .Bytes([0x80, 0xAF, .. Addr(sites.HumanScores), 0x02])  // sub byte [edi+scores],2 ; a miss costs 2
+            .Bytes([0x80, 0xAD, .. Addr(sites.HumanScores), 0x02])  // sub byte [ebp+scores],2 ; a miss costs 2
             .Jump(0x73, "humanNextTeam")                            // jae humanNextTeam
-            .Bytes([0xC6, 0x87, .. Addr(sites.HumanScores), 0x00])  // mov byte [edi+scores],0 ; not below 0
+            .Bytes([0xC6, 0x85, .. Addr(sites.HumanScores), 0x00])  // mov byte [ebp+scores],0 ; not below 0
             .Jump(0xEB, "humanNextTeam")                            // jmp humanNextTeam
             .Mark("humanMatch")
-            .Bytes([0x80, 0xBF, .. Addr(sites.HumanScores), MaxHumanScore])   // cmp byte [edi+scores],max
+            .Bytes([0x80, 0xBD, .. Addr(sites.HumanScores), MaxHumanScore])   // cmp byte [ebp+scores],max
             .Jump(0x73, "humanNextTeam")                            // jae humanNextTeam
-            .Bytes([0xFE, 0x87], sites.HumanScores)                 // inc byte [edi+scores]
+            .Bytes([0x80, 0x85, .. Addr(sites.HumanScores), HumanGain])   // add byte [ebp+scores],gain
             .Mark("humanNextTeam")
             .Bytes(0x47, 0x83, 0xFF, 0x02)                          // inc edi ; cmp edi,2
             .Jump(0x7C, "humanTeam")                                // jl humanTeam
             .Mark("humanNextPad")
             .Bytes(0x46, 0x83, 0xFE, 0x08)                          // inc esi ; cmp esi,8
-            .Jump(0x7C, "humanPad")                                 // jl humanPad
+            .Jump(0x7D, "humanDone")                                // jge humanDone
+            .JumpTo("humanPad")                                     // jmp humanPad          ; too far for a short jump
+            .Mark("humanDone")
             .Bytes(0x61);                                           // popad
     }
 
@@ -1039,6 +1053,15 @@ internal static class CodeCaves
     public const byte LobHeight = 95;
 
     /// <summary>
+    /// Shot accuracy stat (7 bits, byte at this offset of a player's stats: 98 for a top striker, 46 for a keeper).
+    /// The game draws its misses against it, those under pressure included (0x545C20, 0x5B9CB1). Up to 75 the
+    /// accuracy share is kept; above, it shrinks by 4 % a point (50 % at 88, 20 % at 95), never below
+    /// <see cref="AccuracyFloor"/> %: a top striker under pressure no longer sends the ball into the stands.
+    /// </summary>
+    public const int ShotAccuracyStat = 0x12;
+    public const byte AccuracyFloor = 20;
+
+    /// <summary>
     /// Shot accuracy: the shot function's "call kick" goes through here. For a team controlled by a human (see
     /// <see cref="EmitHumanTeams"/>), the gap between the direction asked (saved by <see cref="ShotPower"/>) and the
     /// direction after the game's random penalties is scaled to <paramref name="percent"/>, and so is the height
@@ -1084,6 +1107,26 @@ internal static class CodeCaves
             .Bytes(0x6A, 0x64, 0x59, 0x99, 0xF7, 0xF9)              // push 100 ; pop ecx ; cdq ; idiv ecx
             .Bytes(0x89, 0x04, 0x24)                                // mov [esp],eax
             .Mark("favouredFoot")
+            // the shooter's shot accuracy (the stat the game draws its misses against, pressure included): up to
+            // AccuracyFull the share is kept; above, it shrinks by 4 % a point, down to AccuracyFloor %
+            .Bytes(0x8B, 0x54, 0x24, 0x08)                          // mov edx,[esp+8]      ; player
+            .Bytes(0x0F, 0xB6, 0x42, 0x12, 0xC1, 0xE0, 0x05)        // movzx eax,byte [edx+0x12] ; shl eax,5
+            .Bytes(0x0F, 0xB6, 0x52, 0x11, 0x03, 0xC2)              // movzx edx,byte [edx+0x11] ; add eax,edx
+            .Bytes([0x69, 0xC0], 0x348)                             // imul eax,eax,0x348
+            .Bytes([0x0F, 0xB6, 0x80], sites.FavouredFoot + ShotAccuracyStat)   // movzx eax,byte [eax+shot accuracy]
+            .Bytes(0x83, 0xE0, 0x7F, 0xF7, 0xD8, 0x83, 0xC0, 0x64)  // and eax,0x7F ; neg eax ; add eax,100
+            .Bytes(0xC1, 0xE0, 0x02)                                // shl eax,2            ; 4 * (100 - accuracy)
+            .Bytes(0x83, 0xF8, 0x64)                                // cmp eax,100
+            .Jump(0x7E, "belowFull")                                // jle belowFull
+            .Bytes(0x6A, 0x64, 0x58)                                // push 100 ; pop eax
+            .Mark("belowFull")
+            .Bytes(0x83, 0xF8, AccuracyFloor)                       // cmp eax,floor
+            .Jump(0x7D, "aboveFloor")                               // jge aboveFloor
+            .Bytes(0x6A, AccuracyFloor, 0x58)                       // push floor ; pop eax
+            .Mark("aboveFloor")
+            .Bytes(0x0F, 0xAF, 0x04, 0x24)                          // imul eax,[esp]       ; percent
+            .Bytes(0x6A, 0x64, 0x59, 0x99, 0xF7, 0xF9)              // push 100 ; pop ecx ; cdq ; idiv ecx
+            .Bytes(0x89, 0x04, 0x24)                                // mov [esp],eax
             // direction: asked + (direction - asked) * percent / 100, on 16 bits
             .Bytes([0x0F, 0xB7, 0x0D], sites.HumanScores + AskedOffset)   // movzx ecx,word [asked]
             .Bytes(0x8B, 0x44, 0x24, 0x0C)                          // mov eax,[esp+0xC]    ; direction
