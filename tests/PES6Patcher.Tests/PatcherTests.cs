@@ -423,7 +423,7 @@ public class PatcherTests(ITestOutputHelper output)
 
         Assert.True(ExePatcher.Analyze(original).ShotPower);   // the same sites (human teams, kick function) as the shots
         var options = new PatchOptions(398, FreeDirection: false, Display: false);
-        // mov esi,[esp+0x24] ; movzx eax,byte [esi+0x16] ; cmp al,30: the header states seen with the kick probe are 30, 34 and 48
+        // mov esi,[esp+0x24] ; movzx eax,byte [esi+0x16] ; cmp al,30: the header states seen with the kick probe are 30 and 34 (48 is the corner kick)
         byte[] states = [0x8B, 0x74, 0x24, 0x24, 0x0F, 0xB6, 0x46, 0x16, 0x3C, 30, 0x74];
         byte[] scale = [0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB];   // imul eax,ecx ; cdq ; idiv ebx
         Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(states) < 0);
@@ -432,8 +432,8 @@ public class PatcherTests(ITestOutputHelper output)
         int at = built.AsSpan().IndexOf(states);
         Assert.True(at > 0);
         var body = built.AsSpan(at, 100);
-        Assert.True(body.IndexOf(new byte[] { 0x3C, 34, 0x74 }) > 0);                   // cmp al,34 ; je
-        Assert.True(body.IndexOf(new byte[] { 0x3C, 48, 0x75 }) > 0);                   // cmp al,48 ; jne
+        Assert.True(body.IndexOf(new byte[] { 0x3C, 34, 0x75 }) > 0);                   // cmp al,34 ; jne
+        Assert.True(body.IndexOf(new byte[] { 0x3C, 48 }) < 0);                         // corners (state 48) are left alone
         Assert.True(body.IndexOf(new byte[] { 0xB9, 70, 0, 0, 0 }) > 0);                // mov ecx,70
         Assert.Equal(1, body.Count(scale));                                             // the height only: the speed keeps the game's power
         Assert.Equal(0xE9, built[new PeImage(built).Offset(0x478020)]);                 // the kick function's entry jumps to the cave

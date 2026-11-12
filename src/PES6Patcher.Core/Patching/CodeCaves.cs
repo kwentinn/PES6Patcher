@@ -292,8 +292,8 @@ internal static class CodeCaves
     /// <summary>Headers of the human teams: <see cref="Percent"/> % of the game's height; <see cref="StateAddress"/> is the F11 word (0 = no test key).</summary>
     public sealed record HeaderFix(int Percent, int StateAddress);
 
-    /// <summary>Player states (+0x16) of the headers (seen in the kick probe: standing, jumping, diving).</summary>
-    private const byte HeaderStateA = 30, HeaderStateB = 34, HeaderStateC = 48;
+    /// <summary>Player states (+0x16) of the headers (kick probe). State 48 is not one: it is the corner kick, which follows the corner wait (47).</summary>
+    private const byte HeaderStateA = 30, HeaderStateB = 34;
 
     /// <summary>
     /// Headers of a human team (see <see cref="EmitHumanTeams"/>): at the kick function's entry (player, direction, speed,
@@ -305,8 +305,7 @@ internal static class CodeCaves
             .Bytes(0x8B, 0x74, 0x24, 0x24)                          // mov esi,[esp+0x24]    ; player
             .Bytes(0x0F, 0xB6, 0x46, 0x16)                          // movzx eax,byte [esi+0x16] ; state
             .Bytes(0x3C, HeaderStateA).Jump(0x74, "headerState")    // cmp al,30 ; je headerState
-            .Bytes(0x3C, HeaderStateB).Jump(0x74, "headerState")    // cmp al,34 ; je headerState
-            .Bytes(0x3C, HeaderStateC).Jump(0x75, "headerDone")     // cmp al,48 ; jne headerDone
+            .Bytes(0x3C, HeaderStateB).Jump(0x75, "headerDone")     // cmp al,34 ; jne headerDone
             .Mark("headerState")
             .Bytes(0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [esi+0x12] ; and ecx,1 ; team
             .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
