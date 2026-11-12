@@ -1,6 +1,6 @@
 # PES6 Patcher
 
-*[English](README.md) | Français*
+*[English](README.md) | Français* · [Site web](https://kwentinn.github.io/PES6Patcher/fr/)
 
 Patch pour **Pro Evolution Soccer 6 (PC)** : affichage écran large sans étirement (16:9, 21:9, 32:9…), déplacement libre au stick analogique (dribble compris), dribble resserré en option, coups francs plus faciles, tirs plus doux et plus précis, et plus d'intro au démarrage.
 
