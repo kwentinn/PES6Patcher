@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PES6 Patcher : écran large et gameplay moderne pour PES 6</title>
+<meta name="description" content="Patch gratuit pour Pro Evolution Soccer 6 sur PC : écran large sans étirement, déplacement libre au stick analogique, dribble resserré, coups francs plus faciles, tirs plus doux et plus précis.">
+<meta property="og:title" content="PES6 Patcher">
+<meta property="og:description" content="Écran large sans étirement et options de gameplay modernes pour Pro Evolution Soccer 6 sur PC.">
+<meta property="og:image" content="https://kwentinn.github.io/PES6Patcher/app.fr.png">
+<meta property="og:type" content="website">
+<link rel="alternate" hreflang="en" href="https://kwentinn.github.io/PES6Patcher/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f8a45'/%3E%3Ccircle cx='16' cy='16' r='7' fill='none' stroke='white' stroke-width='2'/%3E%3Cpath d='M16 3v26' stroke='white' stroke-width='2'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" fill="var(--accent)"/><circle cx="16" cy="16" r="7" fill="none" stroke="var(--accent-ink)" stroke-width="2"/><path d="M16 4v24" stroke="var(--accent-ink)" stroke-width="2"/></svg>
+      PES6 Patcher
+    </a>
+    <nav aria-label="Principal">
+      <a class="hide-sm" href="#features">Fonctions</a>
+      <a class="hide-sm" href="#presets">Profils</a>
+      <a href="#install">Installation</a>
+      <a class="hide-sm" href="#compat">Compatibilité</a>
+      <a class="lang" href="../" hreflang="en">English</a>
+      <a href="https://github.com/kwentinn/PES6Patcher">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+
+<div class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <p class="eyebrow">Pro Evolution Soccer 6 · PC</p>
+      <h1>Écran large et gameplay moderne pour PES 6</h1>
+      <p class="lead">Un patch pour Pro Evolution Soccer 6 sur PC. Il supprime l'étirement sur les écrans 16:9, 21:9 et 32:9, laisse le joueur suivre l'angle exact du stick, et ajoute des changements de gameplay en option : dribble resserré, coups francs plus faciles, tirs plus doux et plus précis, et plus d'intro au démarrage.</p>
+      <div class="cta">
+        <a class="btn primary" data-download href="https://github.com/kwentinn/PES6Patcher/releases/latest">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-5-5m5 5l5-5M5 21h14"/></svg>
+          <span>Télécharger la v<span data-version>dernière</span></span>
+        </a>
+        <a class="btn" href="https://github.com/kwentinn/PES6Patcher">Voir sur GitHub</a>
+      </div>
+      <p class="meta"><b>Gratuit</b> · licence MIT · Windows 10/11 · demande le <a href="https://dotnet.microsoft.com/download/dotnet/10.0">.NET 10 Desktop Runtime</a> et Kitserver 6</p>
+    </div>
+    <figure class="shot">
+      <img src="../app.fr.png" width="818" height="1538" alt="La fenêtre de PES6 Patcher avec les options d'affichage et de gameplay">
+    </figure>
+  </div>
+</div>
+
+<section id="features">
+  <div class="wrap">
+    <h2>Ce qu'il change</h2>
+    <p class="sub">Chaque option est indépendante et peut être désactivée. La plupart des options de gameplay sont réglées et testées en match ; plusieurs ont une touche de test pour trouver la valeur qui vous convient.</p>
+
+    <h3 class="group">Affichage</h3>
+    <div class="cards">
+      <div class="card"><span class="tag">Écran large</span><h3>Fini l'étirement</h3><p>Les menus, les listes, l'interface (score, chrono, radar, noms) et le curseur de joueur gardent leurs proportions d'origine, centrés à l'écran. L'image 3D suit votre format grâce à LOD Mixer.</p></div>
+      <div class="card"><span class="tag">Tous formats</span><h3>16:9, 21:9, 32:9…</h3><p>Au-dessus de 1920 × 1080 (1440p et écrans ultra larges), le jeu s'ouvre dans une fenêtre sans bordure qui couvre tout l'écran.</p></div>
+    </div>
+
+    <h3 class="group">Déplacement et dribble</h3>
+    <div class="cards">
+      <div class="card"><span class="tag">Stick</span><h3>Directions libres au stick analogique</h3><p>Le joueur suit l'angle précis du stick au lieu des 8 directions d'origine, en course comme en dribble. La croix directionnelle, le clavier et l'IA ne changent pas.</p></div>
+      <div class="card"><span class="tag">Stick</span><h3>Zone morte réduite</h3><p>Le jeu ignore le stick dans les 29 % de chaque axe, donc le joueur court en ligne droite. Le patch la ramène à 18 % par défaut : un léger mouvement oriente le joueur. Augmentez-la si votre manette dérive.</p></div>
+      <div class="card"><span class="tag">Dribble</span><h3>Dribble resserré</h3><p>Des touches de balle plus courtes, selon la précision de dribble du joueur : les bons dribbleurs gardent la balle plus près que les faibles. On l'active et le désactive avec F1 en match.</p></div>
+      <div class="card"><span class="tag">Dribble</span><h3>Virage plus rapide avec le ballon</h3><p>Le jeu tourne le joueur de 1,4° par image, alors qu'une touche franche envoie la balle au loin. Désormais jusqu'à 22° par image par défaut : il suit la balle.</p></div>
+      <div class="card"><span class="tag">Sprint</span><h3>Virages plus francs en sprint</h3><p>L'angle dont un dribbleur en sprint peut tourner la balle à chaque touche suit sa précision de dribble : les stars changent de direction net, les faibles gardent les virages du jeu.</p></div>
+    </div>
+
+    <h3 class="group">Tirs et coups de pied arrêtés</h3>
+    <div class="cards">
+      <div class="card"><span class="tag">Coups francs</span><h3>Coups francs plus faciles</h3><p>Après un tir de coup franc direct avec le stick gauche vers le haut, le ballon est plus lourd jusqu'à la touche suivante : il retombe plus tôt après le mur.</p></div>
+      <div class="card"><span class="tag">Tirs</span><h3>Tirs plus doux</h3><p>La puissance au-dessus du tir le plus léger est réduite pour les équipes des joueurs. Les tirs de l'IA ne changent pas.</p></div>
+      <div class="card"><span class="tag">Tirs</span><h3>Tirs plus précis</h3><p>L'erreur de visée du jeu est réduite pour les équipes des joueurs, selon la précision de tir du tireur : un grand attaquant n'envoie plus le ballon dans les tribunes, un joueur moyen rate encore. Les lobs gardent leur hauteur.</p></div>
+      <div class="card"><span class="tag">Passes</span><h3>Passes en hauteur et en profondeur</h3><p>Passes en hauteur : l'appui règle la distance, le stick la direction. Les passes en profondeur sont visées moins loin devant le receveur, donc elles restent en jeu sur les ailes.</p></div>
+    </div>
+
+    <h3 class="group">Jeu collectif</h3>
+    <div class="cards">
+      <div class="card"><span class="tag">Tactique</span><h3>Joueurs plus écartés</h3><p>Les joueurs qui se placent s'éloignent du centre de leur équipe en largeur, ce qui laisse plus de place pour dribbler et passer.</p></div>
+      <div class="card"><span class="tag">Stats</span><h3>Écarts de vitesse et d'accélération</h3><p>Dans PES 6, la vitesse de pointe pèse très peu : un 97 n'est qu'environ 7 % plus rapide qu'un 68. Ces options font compter la vitesse et l'accélération : un ailier rapide peut déborder un défenseur plus lent.</p></div>
+      <div class="card"><span class="tag">Défense</span><h3>Pressing plus mordant</h3><p>Au pressing, les joueurs tentent de prendre le ballon de plus loin, au lieu de courir à côté du porteur sans jamais le contester.</p></div>
+    </div>
+
+    <h3 class="group">Et aussi</h3>
+    <div class="cards">
+      <div class="card"><h3>Passer l'intro</h3><p>Plus de film d'ouverture ni de logos au démarrage. Le choix de la langue et le fichier d'options sont conservés.</p></div>
+      <div class="card"><h3>Vitesse du jeu</h3><p>Réglable grâce au module Speeder de Kitserver.</p></div>
+      <div class="card"><h3>Mod de physique de PityCharly</h3><p>En option, à télécharger séparément : le patch l'active ou le désactive pour vous dans <code>kload.cfg</code>.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="presets">
+  <div class="wrap">
+    <h2>Trois profils, ou tout régler</h2>
+    <p class="sub">En mode <b>Simple</b>, un profil règle toutes les options de gameplay d'un coup. <b>Pro</b> est le profil par défaut, testé en match ; <b>Normal</b> aide davantage et <b>Hardcore</b> moins. Le mode <b>Détaillé</b> montre chaque option et sa valeur.</p>
+    <div class="table">
+      <table>
+        <thead><tr><th>Profil</th><th>Dribble resserré</th><th>Virages en sprint</th><th>Rotation balle au pied</th><th>Coups francs</th><th>Puissance des tirs</th><th>Écart de visée gardé</th><th>Avance des passes</th></tr></thead>
+        <tbody>
+          <tr><td>Normal</td><td>150 %</td><td>90°</td><td>22°</td><td>+70 %</td><td>75 %</td><td>30 %</td><td>50 %</td></tr>
+          <tr class="pro"><td>Pro</td><td>125 %</td><td>90°</td><td>22°</td><td>+50 %</td><td>80 %</td><td>50 %</td><td>60 %</td></tr>
+          <tr><td>Hardcore</td><td>100 %</td><td>45°</td><td>11°</td><td>+30 %</td><td>90 %</td><td>75 %</td><td>80 %</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="sub" style="margin-top:14px">Les autres options sont identiques dans tous les profils : directions libres, zone morte du stick à 18 %, passes en hauteur, lobs à 70 %, écartement à 20 %, portée du pressing à 180 %, écart de vitesse à 300 %, écart d'accélération plus marqué.</p>
+  </div>
+</section>
+
+<section id="install">
+  <div class="wrap">
+    <h2>Installé en une minute</h2>
+    <p class="sub">Il vous faut PES 6 sur PC avec un exécutable non protégé (un <code>PES6.exe</code> no-DVD 1.00 / 1.10, ou l'exe d'un patch communautaire) et <a href="https://www.evoweb.uk/">Kitserver 6</a> avec les modules LOD Mixer et Speeder.</p>
+    <div class="two">
+      <ol class="steps">
+        <li><b>Fermez</b> PES 6 et <code>settings.exe</code>.</li>
+        <li><b>Lancez</b> <code>PES6Patcher.exe</code>. Il demande les droits d'administrateur, car le jeu est souvent installé dans <code>Program Files</code>.</li>
+        <li><b>Vérifiez</b> le dossier du jeu (détecté automatiquement), l'exécutable et la résolution.</li>
+        <li><b>Choisissez</b> vos options, puis cliquez sur <b>Appliquer</b>.</li>
+      </ol>
+      <div>
+        <h3>Vos fichiers restent en sécurité</h3>
+        <ul class="check">
+          <li>Chaque fichier modifié est d'abord sauvegardé (<code>PES6.exe.orig</code>, <code>kload.cfg.orig</code>…).</li>
+          <li><b>Restaurer l'original</b> remet tout comme avant la première application.</li>
+          <li>L'exe est toujours reconstruit depuis la sauvegarde d'origine : vous pouvez changer les options et réappliquer à tout moment.</li>
+          <li>Aucun fichier du jeu n'est fourni : le patch ne modifie que l'installation présente sur votre machine.</li>
+        </ul>
+        <p class="note" style="margin-top:18px"><b>Après l'application,</b> ne rouvrez pas <code>settings.exe</code> : il ne connaît pas les résolutions au-dessus de 1920 × 1080 et remettrait l'ancienne valeur. Restez en mode fenêtré dans le jeu.</p>
+      </div>
+    </div>
+    <div class="cta" style="margin-top:28px">
+      <a class="btn primary" data-download href="https://github.com/kwentinn/PES6Patcher/releases/latest"><span>Télécharger la v<span data-version>dernière</span></span></a>
+      <a class="btn" href="https://github.com/kwentinn/PES6Patcher/blob/main/README.fr.md">Documentation complète</a>
+    </div>
+  </div>
+</section>
+
+<section id="compat">
+  <div class="wrap">
+    <h2>Quels exécutables fonctionnent ?</h2>
+    <p class="sub">Le patch ne s'appuie pas sur des adresses fixes. Il trouve chaque emplacement grâce au code qui l'entoure et recoupe le résultat : toute version ayant le même code de jeu est patchée de la même façon, y compris les exécutables des patchs communautaires.</p>
+    <div class="cards">
+      <div class="card"><span class="tag">Testée en jeu</span><h3>Fonctionne, c'est vérifié</h3><p>Le patch a été éprouvé en match avec cette version.</p></div>
+      <div class="card"><span class="tag">Pas encore testée</span><h3>Devrait fonctionner</h3><p>Tous les emplacements ont été trouvés. Dites-nous comment ça se passe.</p></div>
+      <div class="card"><span class="tag">Non prise en charge</span><h3>Rien n'est modifié</h3><p>Certains emplacements n'ont pas été trouvés, souvent parce qu'une protection DVD garde une partie du code chiffrée. Utilisez un exécutable no-DVD.</p></div>
+    </div>
+    <p class="note" style="margin-top:20px"><b>Aidez à confirmer d'autres versions :</b> cliquez sur <b>Copier le rapport</b> dans le patch (nom du fichier, SHA-256, ce qui peut être appliqué) et partagez-le dans le <a href="https://evoweb.uk/threads/pes6-gameplay-patcher.107639/">fil Evo-Web</a> ou sur <a href="https://github.com/kwentinn/PES6Patcher/issues">GitHub</a>.</p>
+  </div>
+</section>
+
+<section id="about">
+  <div class="wrap two">
+    <div>
+      <h2>Communauté</h2>
+      <p class="sub" style="margin-bottom:12px">Questions, retours et signalements de bugs sont les bienvenus dans le <a href="https://evoweb.uk/threads/pes6-gameplay-patcher.107639/">fil du forum Evo-Web</a> et dans les <a href="https://github.com/kwentinn/PES6Patcher/issues">issues GitHub</a>. L'application existe en anglais et en français ; les traductions sont les bienvenues en pull request.</p>
+    </div>
+    <div>
+      <h2>Crédits</h2>
+      <p class="sub" style="margin-bottom:12px">Mod de Física Original creado por PityCharly (<a href="https://github.com/angelballay/pes6_game_physics_mod">pes6_game_physics_mod</a>). <a href="https://www.evoweb.uk/">Kitserver</a> par juce et l'équipe Kitserver.</p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Projet non officiel, sans lien avec Konami. Aucun fichier du jeu n'est fourni : l'application ne modifie que l'installation présente sur la machine, après l'avoir sauvegardée. À utiliser à vos risques.</p>
+    <p><a href="https://github.com/kwentinn/PES6Patcher">Code source</a> · <a href="https://github.com/kwentinn/PES6Patcher/blob/main/LICENSE">Licence MIT</a> · <a href="../">English</a></p>
+  </div>
+</footer>
+
+<script src="../site.js" defer></script>
+</body>
+</html>
