@@ -25,19 +25,19 @@ public static class GameplayPresets
     /// </summary>
     public static InstallSettings Apply(InstallSettings settings, GameplayPreset preset)
     {
-        var (closeDribble, sprintTurn, carrierTurn, freeKick, shotPower, shotAccuracy, passLead) = preset switch
+        var (closeDribble, sprintTurn, carrierTurn, freeKick, shotPower, shotAccuracy, passLead, headers) = preset switch
         {
-            GameplayPreset.Normal => (150, 90, 22, 70, 75, 30, 50),
-            GameplayPreset.Hardcore => (100, 45, 11, 30, 90, 75, 80),
+            GameplayPreset.Normal => (150, 90, 22, 70, 75, 30, 50, 60),
+            GameplayPreset.Hardcore => (100, 45, 11, 30, 90, 75, 80, 80),
             _ => (PatchOptions.DefaultCloseDribbleStrength, PatchOptions.DefaultSprintTurn, PatchOptions.DefaultCarrierTurn,
-                PatchOptions.DefaultFreeKickWeight, PatchOptions.DefaultShotPower, PatchOptions.DefaultShotAccuracy, PatchOptions.DefaultPassLead),
+                PatchOptions.DefaultFreeKickWeight, PatchOptions.DefaultShotPower, PatchOptions.DefaultShotAccuracy, PatchOptions.DefaultPassLead, PatchOptions.DefaultHeaders),
         };
         return settings with
         {
             FreeDirection = true, StickDeadZone = PatchOptions.DefaultStickDeadZone,
             CloseDribble = true, CloseDribbleStrength = closeDribble, SprintTurn = sprintTurn, CarrierTurn = carrierTurn,
             FreeKick = true, FreeKickWeight = freeKick, ShotPower = shotPower, ShotAccuracy = shotAccuracy, LobPower = PatchOptions.DefaultLobPower,
-            LoftedAim = true, PassLead = passLead,
+            LoftedAim = true, PassLead = passLead, Headers = headers,
             Spread = PatchOptions.DefaultSpread, Tackle = PatchOptions.DefaultTackle, SpeedGap = PatchOptions.DefaultSpeedGap, AccelerationGap = true,
         };
     }

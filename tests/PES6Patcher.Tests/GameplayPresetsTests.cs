@@ -16,6 +16,7 @@ public class GameplayPresetsTests
         Assert.Equal(PatchOptions.DefaultCloseDribbleStrength, pro.CloseDribbleStrength);
         Assert.Equal(PatchOptions.DefaultShotAccuracy, pro.ShotAccuracy);
         Assert.Equal(PatchOptions.DefaultPassLead, pro.PassLead);
+        Assert.Equal(PatchOptions.DefaultHeaders, pro.Headers);
         Assert.Equal(PatchOptions.DefaultTackle, pro.Tackle);
     }
 
@@ -48,6 +49,7 @@ public class GameplayPresetsTests
             Assert.InRange(s.ShotPower, PatchOptions.MinShotPower, PatchOptions.MaxShotPower - 1);
             Assert.InRange(s.ShotAccuracy, PatchOptions.MinShotAccuracy, PatchOptions.MaxShotAccuracy - 1);
             Assert.InRange(s.PassLead, PatchOptions.MinPassLead, PatchOptions.MaxPassLead - 1);
+            Assert.InRange(s.Headers, PatchOptions.MinHeaders, PatchOptions.MaxHeaders - 1);
         }
     }
 }

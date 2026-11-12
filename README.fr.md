@@ -55,11 +55,11 @@ Les options de gameplay ont deux modes, retenus d'une ouverture à l'autre :
 - **Simple** : trois profils règlent toutes les options d'un coup. **Pro** (choisi au départ) correspond aux valeurs par défaut du patcher, testées en match ; **Normal** aide davantage, **Hardcore** moins. Quand les options ne correspondent à aucun profil (modifiées en mode détaillé), la fenêtre indique qu'elles sont personnalisées.
 - **Détaillé** : chaque option et sa valeur, avec les cases **Test**. Choisir d'abord un profil, puis ajuster quelques valeurs ici, est le moyen le plus rapide de régler le jeu.
 
-| Profil | Dribble resserré | Virages en sprint | Rotation balle au pied | Coups francs | Puissance des tirs | Écart de visée gardé | Avance des passes |
-|---|---|---|---|---|---|---|---|
-| Normal | 150 % | 90° | 22° | +70 % | 75 % | 30 % | 50 % |
-| Pro | 125 % | 90° | 22° | +50 % | 80 % | 50 % | 60 % |
-| Hardcore | 100 % | 45° | 11° | +30 % | 90 % | 75 % | 80 % |
+| Profil | Dribble resserré | Virages en sprint | Rotation balle au pied | Coups francs | Puissance des tirs | Écart de visée gardé | Avance des passes | Têtes |
+|---|---|---|---|---|---|---|---|---|
+| Normal | 150 % | 90° | 22° | +70 % | 75 % | 30 % | 50 % | 60 % |
+| Pro | 125 % | 90° | 22° | +50 % | 80 % | 50 % | 60 % | 70 % |
+| Hardcore | 100 % | 45° | 11° | +30 % | 90 % | 75 % | 80 % | 80 % |
 
 Les autres options sont les mêmes dans tous les profils : directions libres, zone morte du stick 18 %, passes en hauteur, lobs 70 %, écartement 20 %, portée des tacles 180 %, écart de vitesse 300 %, écart d'accélération plus marqué.
 

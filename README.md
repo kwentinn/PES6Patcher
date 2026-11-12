@@ -55,11 +55,11 @@ The gameplay options have two modes, kept from one opening to the next:
 - **Simple**: three presets set every option at once. **Pro** (selected at first) is the patcher's defaults, tested in matches; **Normal** gives more help, **Hardcore** less. When the options match no preset (changed in the detailed mode), the window says they are custom.
 - **Detailed**: every option and its value, with the **Test** boxes. Choosing a preset first, then adjusting a few values here, is the quickest way to tune the game.
 
-| Preset | Close dribbling | Sprint turns | Turn with the ball | Free kicks | Shot power | Aim error kept | Pass lead |
-|---|---|---|---|---|---|---|---|
-| Normal | 150 % | 90° | 22° | +70 % | 75 % | 30 % | 50 % |
-| Pro | 125 % | 90° | 22° | +50 % | 80 % | 50 % | 60 % |
-| Hardcore | 100 % | 45° | 11° | +30 % | 90 % | 75 % | 80 % |
+| Preset | Close dribbling | Sprint turns | Turn with the ball | Free kicks | Shot power | Aim error kept | Pass lead | Headers |
+|---|---|---|---|---|---|---|---|---|
+| Normal | 150 % | 90° | 22° | +70 % | 75 % | 30 % | 50 % | 60 % |
+| Pro | 125 % | 90° | 22° | +50 % | 80 % | 50 % | 60 % | 70 % |
+| Hardcore | 100 % | 45° | 11° | +30 % | 90 % | 75 % | 80 % | 80 % |
 
 The other options are the same in every preset: free direction, stick dead zone 18 %, lofted passes, lobs 70 %, spread 20 %, challenge reach 180 %, speed gap 300 %, bigger acceleration gap.
 
