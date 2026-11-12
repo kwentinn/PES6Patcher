@@ -299,26 +299,36 @@ internal static class CodeCaves
     /// <summary>Super shot of the human teams: <see cref="Percent"/> % of the shot's speed; <see cref="StateAddress"/> is the F12 word (0 = no test key).</summary>
     public sealed record SuperShotFix(int Percent, int StateAddress);
 
-    /// <summary>Buttons held in the player (+0xB0): L1 and R1 (measured on the pad: L1 0x400, R1 0x488000, of which 0x8000 is enough).</summary>
-    public const int SuperShotButtons = 0x8400;
+    /// <summary>Buttons held in the player (+0xB0): R1 and R2 (measured on the pad: R1 0x488000, of which 0x8000 is enough; R2 0x2000200, of which 0x200 is enough).</summary>
+    public const int SuperShotButtons = 0x8200;
 
     /// <summary>
     /// Super shot (prototype): at the kick function's entry, a shot (player state 4) of a human team whose shooter holds
-    /// L1 and R1 gets <see cref="SuperShotFix.Percent"/> % of its speed. The height is left alone.
+    /// R1 and R2 gets <see cref="SuperShotFix.Percent"/> % of its speed. The height is left alone.
     /// </summary>
     private static void EmitSuperShot(CodeBuilder code, ShotSites humans, SuperShotFix fix)
     {
+        // with the test key, a byte at state+3 collects what was seen at the shots, for a diagnosis: 1 a shot, 8 R2 held,
+        // 16 R1 held, 2 both, 4 both and a human team
+        byte[] Flag(byte bit) => [0x80, 0x0D, .. BitConverter.GetBytes(fix.StateAddress - SuperShotState + 3), bit];   // or byte [flags],bit
+        bool diagnosis = fix.StateAddress != 0;
         code.Bytes(0x60)                                            // pushad                ; the arguments are at esp+0x24...
             .Bytes(0x8B, 0x74, 0x24, 0x24)                          // mov esi,[esp+0x24]    ; player
             .Bytes(0x80, 0x7E, 0x16, 0x04)                          // cmp byte [esi+0x16],4 ; a shot
-            .Jump(0x75, "superDone")                                // jne superDone
-            .Bytes(0x8B, 0x86, 0xB0, 0x00, 0x00, 0x00)              // mov eax,[esi+0xB0]    ; buttons held
-            .Bytes([0x25], SuperShotButtons)                        // and eax,L1|R1
-            .Bytes([0x3D], SuperShotButtons)                        // cmp eax,L1|R1
-            .Jump(0x75, "superDone")                                // jne superDone
-            .Bytes(0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [esi+0x12] ; and ecx,1 ; team
+            .Jump(0x75, "superDone");                               // jne superDone
+        if (diagnosis) code.Bytes(Flag(1));
+        code.Bytes(0x8B, 0x86, 0xB0, 0x00, 0x00, 0x00);             // mov eax,[esi+0xB0]    ; buttons held
+        if (diagnosis)
+            code.Bytes([0xA9], 0x200).Jump(0x74, "noR2").Bytes(Flag(8)).Mark("noR2")        // test eax,R2
+                .Bytes([0xA9], 0x8000).Jump(0x74, "noR1").Bytes(Flag(16)).Mark("noR1");     // test eax,R1
+        code.Bytes([0x25], SuperShotButtons)                        // and eax,R1|R2
+            .Bytes([0x3D], SuperShotButtons)                        // cmp eax,R1|R2
+            .Jump(0x75, "superDone");                               // jne superDone
+        if (diagnosis) code.Bytes(Flag(2));
+        code.Bytes(0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [esi+0x12] ; and ecx,1 ; team
             .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
             .Jump(0x72, "superDone");                               // jb superDone          ; not a human team
+        if (diagnosis) code.Bytes(Flag(4));
         if (fix.StateAddress != 0)
             code.Bytes([0x0F, 0xB7, 0x0D], fix.StateAddress)        // movzx ecx,word [percent]
                 .Bytes(0x85, 0xC9)                                  // test ecx,ecx
