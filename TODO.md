@@ -77,7 +77,7 @@ Issue: [#10](https://github.com/kwentinn/PES6Patcher/issues/10)
 
 Headers are often very inaccurate, like the shots were, and when the button is held too long the ball goes well over the bar. They may not go through the shot function that the shot options hook: find their path, then bring their power and aim error down the same way.
 
-In test: **Gentler headers** scales the height of the human teams' headers at the kick function's entry (70 % by default, F11 to compare in a match). To confirm in game before it counts as done.
+Done: **Gentler headers** scales the height of the human teams' headers at the kick function's entry (70 % by default, F11 to compare in a match). Tested in a match; in the three presets (60, 70 and 80 %).
 
 ## Human players: dribbling in any direction
 

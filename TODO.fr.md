@@ -77,7 +77,7 @@ Issue : [#10](https://github.com/kwentinn/PES6Patcher/issues/10)
 
 Les têtes sont souvent très imprécises, comme l'étaient les tirs, et si on appuie trop longtemps, le ballon part bien au-dessus de la barre. Elles ne passent peut-être pas par la fonction de tir que modifient les options de tir : trouver leur chemin, puis réduire leur puissance et leur écart de visée de la même façon.
 
-En test : **Têtes plus douces** réduit la hauteur des têtes des équipes humaines à l'entrée de la fonction de frappe (70 % par défaut, F11 pour comparer en match). À confirmer en jeu avant de compter comme fait.
+Fait : **Têtes plus douces** réduit la hauteur des têtes des équipes humaines à l'entrée de la fonction de frappe (70 % par défaut, F11 pour comparer en match). Testé en match ; dans les trois profils (60, 70 et 80 %).
 
 ## Joueurs humains : dribbler dans n'importe quelle direction
 
