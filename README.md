@@ -105,7 +105,7 @@ The game draws its menus in a layer inherited from the PS2, **512 × 448** units
 | Pass lead | A pass point is placed ahead of the receiver by a lead built from his run. The two places that read that lead to place the point jump to added code that scales it by the chosen share (with F9, read at run time). |
 | Intro | The game already skips the opening movie when asked to, and a skippable logo when a button is pressed: those two paths are always taken (3 conditional jumps made inactive). Loading during the logos still happens. |
 
-The added code lives in unused padding areas of the exe.
+The added code lives in unused padding areas of the exe. When an exe has too few of them (some community patches), the patcher adds a small `.pch` section at the end of the file instead.
 
 ## Supported executables
 

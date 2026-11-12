@@ -105,7 +105,7 @@ Le jeu dessine ses menus dans un repère hérité de la PS2, de **512 × 448** u
 | Avance des passes | Le point visé d'une passe est placé devant le receveur, d'une avance construite d'après sa course. Les deux endroits qui lisent cette avance pour placer le point sautent vers du code ajouté qui la multiplie par le réglage choisi (avec F9, lu pendant le match). |
 | Intro | Le jeu sait déjà sauter la vidéo d'ouverture quand on le lui demande, et passer un logo quand on appuie sur une touche : ces deux chemins sont toujours pris (3 sauts conditionnels neutralisés). Le chargement fait pendant les logos a toujours lieu. |
 
-Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe.
+Le code ajouté est placé dans des zones de remplissage inutilisées de l'exe. Quand un exe en a trop peu (certains patchs communautaires), le patcher ajoute à la place une petite section `.pch` en fin de fichier.
 
 ## Exécutables pris en charge
 
