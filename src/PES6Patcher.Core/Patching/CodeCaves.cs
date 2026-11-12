@@ -284,6 +284,56 @@ internal static class CodeCaves
         HeadersState = 6;
 
     /// <summary>Headers percent read at run time (F11), in the test keys state.</summary>
+
+    /// <summary>Test key of the super shot: F12 (VK_F12).</summary>
+    public const byte SuperShotKey = 0x7B;
+
+    /// <summary>Super shot percent (word), in the unused end of the close dribbling state (+46).</summary>
+    private const int SuperShotState = 46;
+
+    public static int SuperShotStateAddress(FreeKickSites testKeys) => testKeys.State + SuperShotState;
+
+    public static TestKey SuperShotTestKey(int percent, int texts, int stride) =>
+        new(SuperShotKey, SuperShotState, percent, PatchOptions.MinSuperShot, PatchOptions.MaxSuperShot, texts, stride);
+
+    /// <summary>Super shot of the human teams: <see cref="Percent"/> % of the shot's speed; <see cref="StateAddress"/> is the F12 word (0 = no test key).</summary>
+    public sealed record SuperShotFix(int Percent, int StateAddress);
+
+    /// <summary>Buttons held in the player (+0xB0): L1 and R1 (measured on the pad: L1 0x400, R1 0x488000, of which 0x8000 is enough).</summary>
+    public const int SuperShotButtons = 0x8400;
+
+    /// <summary>
+    /// Super shot (prototype): at the kick function's entry, a shot (player state 4) of a human team whose shooter holds
+    /// L1 and R1 gets <see cref="SuperShotFix.Percent"/> % of its speed. The height is left alone.
+    /// </summary>
+    private static void EmitSuperShot(CodeBuilder code, ShotSites humans, SuperShotFix fix)
+    {
+        code.Bytes(0x60)                                            // pushad                ; the arguments are at esp+0x24...
+            .Bytes(0x8B, 0x74, 0x24, 0x24)                          // mov esi,[esp+0x24]    ; player
+            .Bytes(0x80, 0x7E, 0x16, 0x04)                          // cmp byte [esi+0x16],4 ; a shot
+            .Jump(0x75, "superDone")                                // jne superDone
+            .Bytes(0x8B, 0x86, 0xB0, 0x00, 0x00, 0x00)              // mov eax,[esi+0xB0]    ; buttons held
+            .Bytes([0x25], SuperShotButtons)                        // and eax,L1|R1
+            .Bytes([0x3D], SuperShotButtons)                        // cmp eax,L1|R1
+            .Jump(0x75, "superDone")                                // jne superDone
+            .Bytes(0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [esi+0x12] ; and ecx,1 ; team
+            .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
+            .Jump(0x72, "superDone");                               // jb superDone          ; not a human team
+        if (fix.StateAddress != 0)
+            code.Bytes([0x0F, 0xB7, 0x0D], fix.StateAddress)        // movzx ecx,word [percent]
+                .Bytes(0x85, 0xC9)                                  // test ecx,ecx
+                .Jump(0x75, "superPercent")                         // jne superPercent
+                .Bytes([0xB9], fix.Percent)                         // mov ecx,percent       ; from the patcher
+                .Mark("superPercent");
+        else
+            code.Bytes([0xB9], fix.Percent);                        // mov ecx,percent
+        code.Bytes(0x6A, 0x64, 0x5B)                                // push 100 ; pop ebx
+            .Bytes(0x8B, 0x44, 0x24, 0x2C)                          // mov eax,[esp+0x2C]    ; speed
+            .Bytes(0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB)              // imul eax,ecx ; cdq ; idiv ebx
+            .Bytes(0x89, 0x44, 0x24, 0x2C)                          // mov [esp+0x2C],eax
+            .Mark("superDone")
+            .Bytes(0x61);                                           // popad
+    }
     public static int HeadersStateAddress(FreeKickSites testKeys) => testKeys.State + HeadersState;
 
     public static TestKey HeadersTestKey(int percent, int texts, int stride) =>
@@ -345,7 +395,7 @@ internal static class CodeCaves
     /// The game's weight stays where it is (PityCharly's physics mod rewrites it while the game runs).
     /// </summary>
     public static (byte[] Cave, (int Va, byte[] Bytes)[] Entries, int ShotReturn) FreeKick(int cave, FreeKickSites sites, float weightUnit, int percent,
-        int testKeysSetUp = 0, ShotSites? humans = null, HeaderFix? headers = null)
+        int testKeysSetUp = 0, ShotSites? humans = null, HeaderFix? headers = null, SuperShotFix? superShot = null)
     {
         int state = sites.State, pending = state, heavy = state + 1, current = state + FreeKickWeightState;
         byte[] Addr(int a) => BitConverter.GetBytes(a);
@@ -375,6 +425,7 @@ internal static class CodeCaves
         if (testKeysSetUp != 0) TestKeysSetUpCall(code, sites, testKeysSetUp);
         if (humans != null) EmitHumanTeams(code, humans);
         if (humans != null && headers != null) EmitHeaders(code, humans, headers);
+        if (humans != null && superShot != null) EmitSuperShot(code, humans, superShot);
         code.Bytes([0x80, 0x3D, .. Addr(pending), 0x00])           // cmp byte [pending],0
             .Bytes([0x0F, 0x95, 0x05], heavy)                       // setne byte [heavy]
             .Bytes(KickEntryBytes)                                  // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
@@ -425,12 +476,13 @@ internal static class CodeCaves
     /// Without the free kick fix, the test keys set-up and the human teams are done from a hook of their own at
     /// the kick function's entry.
     /// </summary>
-    public static Hook KickEntryExtras(int cave, int kickEntry, FreeKickSites? testKeys, int setUp, ShotSites? humans, HeaderFix? headers = null)
+    public static Hook KickEntryExtras(int cave, int kickEntry, FreeKickSites? testKeys, int setUp, ShotSites? humans, HeaderFix? headers = null, SuperShotFix? superShot = null)
     {
         var code = new CodeBuilder(cave);
         if (testKeys != null && setUp != 0) TestKeysSetUpCall(code, testKeys, setUp);
         if (humans != null) EmitHumanTeams(code, humans);
         if (humans != null && headers != null) EmitHeaders(code, humans, headers);
+        if (humans != null && superShot != null) EmitSuperShot(code, humans, superShot);
         var bytes = code.Bytes(KickEntryBytes)                      // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
             .JumpTo(kickEntry + 7)                                  // jmp back
             .Build();

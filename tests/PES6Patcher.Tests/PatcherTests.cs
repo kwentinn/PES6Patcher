@@ -445,6 +445,32 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Super_shot_scales_the_speed_of_a_human_shot_taken_with_l1_and_r1()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var options = new PatchOptions(398, FreeDirection: false, Display: false);
+        // mov esi,[esp+0x24] ; cmp byte [esi+0x16],4 ; jne : a shot (player state 4)
+        byte[] shot = [0x8B, 0x74, 0x24, 0x24, 0x80, 0x7E, 0x16, 0x04, 0x75];
+        Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(shot) < 0);
+
+        var built = ExePatcher.Build(original, options with { SuperShot = 140 });
+        int at = built.AsSpan().IndexOf(shot);
+        Assert.True(at > 0);
+        var body = built.AsSpan(at, 100);
+        // mov eax,[esi+0xB0] ; and eax,0x8400 ; cmp eax,0x8400 (L1 0x400 and R1 0x8000, measured on the pad)
+        Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x84, 0, 0, 0x3D, 0x00, 0x84, 0, 0 }) > 0);
+        Assert.True(body.IndexOf(new byte[] { 0xB9, 140, 0, 0, 0 }) > 0);              // mov ecx,140
+        Assert.Equal(1, body.Count(new byte[] { 0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB })); // the speed only
+        Assert.Equal(0xE9, built[new PeImage(built).Offset(0x478020)]);
+
+        var debug = ExePatcher.Build(original, options with { SuperShot = 140, SuperShotDebug = true });
+        Assert.True(debug.AsSpan().IndexOf(new byte[] { 0x6A, CodeCaves.SuperShotKey, 0xFF, 0x15 }) > 0);   // F12 is read
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 90 }));
+    }
+
+    [Fact]
     public void Carrier_turn_raises_the_two_turn_steps_with_the_ball()
     {
         var original = Load("PES6.orig.exe");
