@@ -203,7 +203,7 @@ public static class ExePatcher
 
         var plan = new List<(int Va, byte[] Bytes)>();
         var caves = new CaveAllocator(image);
-        int Cave(int size) => caves.Allocate(size) is var at and not 0 ? at : throw new PatchException([Loc.T("Check.HookCave", "")]);
+        int Cave(int size) => caves.Allocate(size) is var at and not 0 ? at : throw new PatchException([Loc.T("Check.HookCave", size + " bytes")]);
 
         if (options.Display) PlanDisplay(display!, options.Half, plan, Cave);
 

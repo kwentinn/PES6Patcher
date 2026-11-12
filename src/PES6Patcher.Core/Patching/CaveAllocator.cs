@@ -11,8 +11,16 @@ internal sealed class CaveAllocator
     private readonly List<(int Start, int End)> _runs = [];
     private readonly List<int> _cursors = [];
 
+    // Last resort: a section of our own, added only when the padding runs are used up, so exes that
+    // fit in them keep the same bytes.
+    private const int OverflowSize = 0x4000;
+    private readonly PeImage _image;
+    private PeSection? _overflow;
+    private int _overflowCursor;
+
     public CaveAllocator(PeImage image)
     {
+        _image = image;
         var code = image.Code;
         var bytes = image.Bytes;
         int start = -1;
@@ -33,7 +41,7 @@ internal sealed class CaveAllocator
         }
     }
 
-    /// <summary>Address of <paramref name="size"/> free bytes, or 0 when no padding run is large enough.</summary>
+    /// <summary>Address of <paramref name="size"/> free bytes: a padding run, else the added section; 0 when neither fits.</summary>
     public int Allocate(int size)
     {
         for (int i = 0; i < _runs.Count; i++)
@@ -46,6 +54,20 @@ internal sealed class CaveAllocator
                     _cursors[i] = at + size;
                     return at;
                 }
+            }
+        }
+        if (_overflow == null && _image.AddSection(PeImage.OverflowSectionName, OverflowSize) is { } added)
+        {
+            _overflow = added;
+            _overflowCursor = added.Va;
+        }
+        if (_overflow != null)
+        {
+            int at = (_overflowCursor + 15) / 16 * 16;
+            if (at + size <= _overflow.Va + _overflow.VirtualSize)
+            {
+                _overflowCursor = at + size;
+                return at;
             }
         }
         return 0;

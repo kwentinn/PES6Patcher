@@ -871,4 +871,34 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal((5120, 1440), GameSettingsData.GetResolution(updated));
         Assert.True(GameSettingsData.HasValidChecksum(updated));
     }
+
+    [Fact]
+    public void Build_adds_a_section_when_the_padding_runs_are_not_enough()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        // an exe whose code has no padding run: every 0xCC run of the code section is filled
+        var crowded = (byte[])original.Clone();
+        var code = new PeImage(crowded).Code;
+        for (int p = code.RawOffset, end = p + code.MappedSize; p < end;)
+        {
+            int run = p;
+            while (run < end && crowded[run] == 0xCC) run++;
+            if (run - p >= 80) Array.Fill(crowded, (byte)0x90, p, run - p);
+            p = run == p ? p + 1 : run;
+        }
+        Assert.True(ExePatcher.IsSupported(crowded));
+
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, CloseDribbleStrengthDebug: true,
+            FreeKick: true, ShotPower: 80, ShotPowerDebug: true, ShotAccuracy: 50);
+        var built = ExePatcher.Build(crowded, options);
+
+        var image = new PeImage(built);
+        var added = image.Named(PeImage.OverflowSectionName);
+        Assert.NotNull(added);
+        Assert.Equal(0, built.Length % 0x200);
+        Assert.Equal(new PeImage(crowded).Sections.Count + 1, image.Sections.Count);
+        Assert.True(ExePatcher.Analyze(built)!.AlreadyPatched);
+    }
 }

@@ -12,9 +12,12 @@ internal sealed record PeSection(string Name, int Va, int VirtualSize, int RawOf
 /// <summary>Byte access by virtual address, from the PE section table.</summary>
 internal sealed class PeImage
 {
-    public byte[] Bytes { get; }
+    /// <summary>Name of the section added when the padding runs of the code are not enough.</summary>
+    public const string OverflowSectionName = ".pch";
+
+    public byte[] Bytes { get; private set; }
     public int ImageBase { get; }
-    public IReadOnlyList<PeSection> Sections { get; }
+    public IReadOnlyList<PeSection> Sections { get; private set; } = [];
 
     private readonly int _pe, _sectionTable;
 
@@ -25,13 +28,18 @@ internal sealed class PeImage
         int pe = BitConverter.ToInt32(bytes, 0x3C);
         if (BitConverter.ToUInt32(bytes, pe) != 0x00004550 || BitConverter.ToUInt16(bytes, pe + 24) != 0x10B)
             throw new InvalidDataException("Not a 32-bit PE file.");
-        int count = BitConverter.ToUInt16(bytes, pe + 6);
         int optionalSize = BitConverter.ToUInt16(bytes, pe + 20);
         ImageBase = BitConverter.ToInt32(bytes, pe + 24 + 28);
-
-        int table = pe + 24 + optionalSize;
         _pe = pe;
-        _sectionTable = table;
+        _sectionTable = pe + 24 + optionalSize;
+        ReadSections();
+    }
+
+    private void ReadSections()
+    {
+        var bytes = Bytes;
+        int count = BitConverter.ToUInt16(bytes, _pe + 6);
+        int table = _sectionTable;
         var raw = new List<(string Name, int Rva, int VirtualSize, int RawOffset, int RawSize, uint Flags)>();
         for (int i = 0; i < count; i++)
         {
@@ -49,9 +57,45 @@ internal sealed class PeImage
             int nextData = raw.Where(o => o.RawOffset > s.RawOffset).Select(o => o.RawOffset).DefaultIfEmpty(bytes.Length).Min();
             int mapped = Math.Min(Math.Min(PageUp(s.RawSize), PageUp(s.VirtualSize)), Math.Min(nextData, bytes.Length) - s.RawOffset);
             sections.Add(new PeSection(s.Name, ImageBase + s.Rva, s.VirtualSize, s.RawOffset, s.RawSize, Math.Max(mapped, 0),
-                (s.Flags & 0x20000020) != 0));   // CNT_CODE or MEM_EXECUTE
+                (s.Flags & 0x20000020) != 0 && s.Name != OverflowSectionName));   // CNT_CODE or MEM_EXECUTE; ours holds no game code to look for
         }
         Sections = sections;
+    }
+
+    /// <summary>
+    /// Appends a readable, executable section of <paramref name="size"/> bytes (zeroed) at the end of the file, for
+    /// exes whose code has too few padding runs. Null when the header has no room for another section entry.
+    /// </summary>
+    public PeSection? AddSection(string name, int size)
+    {
+        static int Align(int n, int a) => (n + a - 1) / a * a;
+        int count = BitConverter.ToUInt16(Bytes, _pe + 6);
+        int fileAlign = BitConverter.ToInt32(Bytes, _pe + 24 + 36), sectionAlign = BitConverter.ToInt32(Bytes, _pe + 24 + 32);
+        if (fileAlign <= 0 || sectionAlign <= 0) return null;
+        int entry = _sectionTable + 40 * count;
+        int firstData = Sections.Where(s => s.RawOffset > 0).Select(s => s.RawOffset).DefaultIfEmpty(0).Min();
+        if (firstData == 0 || entry + 40 > firstData) return null;
+        // free when zero, or a text a packer left there (like "*!ReLOaDeD!*"): the loader ignores it
+        foreach (byte b in Bytes.AsSpan(entry, 40))
+            if (b != 0 && b != '\r' && b != '\n' && (b < 0x20 || b > 0x7E)) return null;
+
+        int rawSize = Align(size, fileAlign), rawOffset = Align(Bytes.Length, fileAlign);
+        var last = Sections.MaxBy(s => s.Va)!;
+        int rva = Align(last.Va - ImageBase + Math.Max(last.VirtualSize, last.RawSize), sectionAlign);
+        var bytes = new byte[rawOffset + rawSize];
+        Bytes.CopyTo(bytes, 0);
+        Array.Clear(bytes, entry, 40);
+        System.Text.Encoding.ASCII.GetBytes(name).CopyTo(bytes, entry);
+        BitConverter.GetBytes(rawSize).CopyTo(bytes, entry + 8);          // virtual size
+        BitConverter.GetBytes(rva).CopyTo(bytes, entry + 12);
+        BitConverter.GetBytes(rawSize).CopyTo(bytes, entry + 16);
+        BitConverter.GetBytes(rawOffset).CopyTo(bytes, entry + 20);
+        BitConverter.GetBytes(0x60000020u).CopyTo(bytes, entry + 36);     // code, execute, read
+        BitConverter.GetBytes((ushort)(count + 1)).CopyTo(bytes, _pe + 6);
+        BitConverter.GetBytes(Align(rva + rawSize, sectionAlign)).CopyTo(bytes, _pe + 24 + 56);   // SizeOfImage
+        Bytes = bytes;
+        ReadSections();
+        return Named(name);
     }
 
     /// <summary>The main code section: the first executable one (.text, sometimes renamed by protections).</summary>
