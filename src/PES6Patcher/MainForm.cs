@@ -127,7 +127,7 @@ internal sealed class MainForm : Form
     private readonly CheckBox _superShot = new() { Text = Loc.T("Gameplay.SuperShot"), AutoSize = true };
     private readonly NumericUpDown _superShotPercent = new()
     {
-        Minimum = PatchOptions.MinSuperShot, Maximum = PatchOptions.MaxSuperShot, Increment = 10,
+        Minimum = PatchOptions.MinSuperShot, Maximum = PatchOptions.MaxSuperShot, Increment = 20,
         Value = PatchOptions.DefaultSuperShot, Width = 60, Enabled = false,
     };
     private readonly CheckBox _superShotDebug = new() { Text = Loc.T("Gameplay.SuperShotDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };

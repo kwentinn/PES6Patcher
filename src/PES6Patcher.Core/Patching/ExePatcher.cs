@@ -78,7 +78,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     public const int DefaultHeaders = 70, MinHeaders = 30, MaxHeaders = 100;
 
     /// <summary>Super shot (L1 + R1 held on a shot of a human team): speed, in % of the game's (100 = off): default and limits.</summary>
-    public const int DefaultSuperShot = 140, MinSuperShot = 110, MaxSuperShot = 200;
+    public const int DefaultSuperShot = 200, MinSuperShot = 120, MaxSuperShot = 300;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -334,7 +334,7 @@ public static class ExePatcher
         }
         if (superShotKey)
         {
-            var (texts, stride) = KeyTexts(PatchOptions.MaxSuperShot, "Overlay.SuperShot");
+            var (texts, stride) = KeyTexts(PatchOptions.MaxSuperShot, "Overlay.SuperShot", CodeCaves.SuperShotStep);
             keys.Add(CodeCaves.SuperShotTestKey(options.SuperShot, texts, stride));
         }
         int testKeysSetUp = 0;
