@@ -289,7 +289,7 @@ internal static class CodeCaves
     public static TestKey HeadersTestKey(int percent, int texts, int stride) =>
         new(HeadersKey, HeadersState, percent, PatchOptions.MinHeaders, PatchOptions.MaxHeaders, texts, stride);
 
-    /// <summary>Headers of the human teams: <see cref="Percent"/> % of the game's speed and height; <see cref="StateAddress"/> is the F11 word (0 = no test key).</summary>
+    /// <summary>Headers of the human teams: <see cref="Percent"/> % of the game's height; <see cref="StateAddress"/> is the F11 word (0 = no test key).</summary>
     public sealed record HeaderFix(int Percent, int StateAddress);
 
     /// <summary>Player states (+0x16) of the headers (seen in the kick probe: standing, jumping, diving).</summary>
@@ -297,7 +297,7 @@ internal static class CodeCaves
 
     /// <summary>
     /// Headers of a human team (see <see cref="EmitHumanTeams"/>): at the kick function's entry (player, direction, speed,
-    /// height, flag), the speed and the height are scaled to a percent. The AI's headers keep the game's.
+    /// height, flag), the height is scaled to a percent (the speed is kept). The AI's headers keep the game's.
     /// </summary>
     private static void EmitHeaders(CodeBuilder code, ShotSites humans, HeaderFix headers)
     {
@@ -319,10 +319,8 @@ internal static class CodeCaves
                 .Mark("headerPercent");
         else
             code.Bytes([0xB9], headers.Percent);                    // mov ecx,percent
+        // only the height: the speed is left alone, so the headers keep their power
         code.Bytes(0x6A, 0x64, 0x5B)                                // push 100 ; pop ebx
-            .Bytes(0x8B, 0x44, 0x24, 0x2C)                          // mov eax,[esp+0x2C]    ; speed
-            .Bytes(0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB)              // imul eax,ecx ; cdq ; idiv ebx
-            .Bytes(0x89, 0x44, 0x24, 0x2C)                          // mov [esp+0x2C],eax
             .Bytes(0x8B, 0x44, 0x24, 0x30)                          // mov eax,[esp+0x30]    ; height
             .Bytes(0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB)              // imul eax,ecx ; cdq ; idiv ebx
             .Bytes(0x89, 0x44, 0x24, 0x30)                          // mov [esp+0x30],eax

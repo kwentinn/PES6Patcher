@@ -39,7 +39,7 @@ namespace PES6Patcher.Core;
 /// <param name="CloseDribbleStrength">With close dribbling, how much the touches are shortened, in % of the first version's reduction.</param>
 /// <param name="CloseDribbleStrengthDebug">Test key: F10 in a match changes the close dribbling strength.</param>
 /// <param name="AccelerationGap">Acceleration gap between players: the acceleration stat weighs twice as much.</param>
-/// <param name="Headers">Speed and height of the human teams' headers, in % of the game's (100 = unchanged).</param>
+/// <param name="Headers">Height of the human teams' headers, in % of the game's (100 = unchanged).</param>
 /// <param name="HeadersDebug">Test key: F11 in a match changes the headers share.</param>
 /// <param name="PhysicsMod">Load PityCharly's physics mod DLL (kload.cfg); null = leave as it is.</param>
 public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null, bool FreeKick = false,

@@ -472,7 +472,7 @@
     <value>Gentler headers</value>
   </data>
   <data name="Gameplay.HeadersPercent" xml:space="preserve">
-    <value>% of the game's speed and height</value>
+    <value>% of the game's height</value>
   </data>
   <data name="Gameplay.HeadersDebug" xml:space="preserve">
     <value>Test: F11 in a match changes it (+10 %)</value>
@@ -484,7 +484,7 @@
     <value>HEADERS: {0} % (F11)</value>
   </data>
   <data name="Log.Headers" xml:space="preserve">
-    <value>Headers: the human teams' headers leave at {0} % of the game's speed and height, so they stop flying over the bar.</value>
+    <value>Headers: the human teams' headers leave at {0} % of the game's height (the speed is kept), so they stop flying over the bar.</value>
   </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Smaller analog stick dead zone:</value>

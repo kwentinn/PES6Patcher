@@ -416,7 +416,7 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public void Headers_scale_the_speed_and_height_of_a_human_team_at_the_kick_entry()
+    public void Headers_scale_the_height_of_a_human_team_at_the_kick_entry()
     {
         var original = Load("PES6.orig.exe");
         if (original == null) return;
@@ -435,7 +435,7 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.True(body.IndexOf(new byte[] { 0x3C, 34, 0x74 }) > 0);                   // cmp al,34 ; je
         Assert.True(body.IndexOf(new byte[] { 0x3C, 48, 0x75 }) > 0);                   // cmp al,48 ; jne
         Assert.True(body.IndexOf(new byte[] { 0xB9, 70, 0, 0, 0 }) > 0);                // mov ecx,70
-        Assert.Equal(2, body.Count(scale));                                             // the speed, then the height
+        Assert.Equal(1, body.Count(scale));                                             // the height only: the speed keeps the game's power
         Assert.Equal(0xE9, built[new PeImage(built).Offset(0x478020)]);                 // the kick function's entry jumps to the cave
 
         // with F11 (VK_F11 = 0x7A): the percent comes from the test keys' state (+6) and the key is read

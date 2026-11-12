@@ -472,7 +472,7 @@
     <value>Têtes plus douces</value>
   </data>
   <data name="Gameplay.HeadersPercent" xml:space="preserve">
-    <value>% de la vitesse et de la hauteur du jeu</value>
+    <value>% de la hauteur du jeu</value>
   </data>
   <data name="Gameplay.HeadersDebug" xml:space="preserve">
     <value>Test : F11 en match la change (+10 %)</value>
@@ -484,7 +484,7 @@
     <value>TÊTES : {0} % (F11)</value>
   </data>
   <data name="Log.Headers" xml:space="preserve">
-    <value>Têtes : celles des équipes des joueurs partent à {0} % de la vitesse et de la hauteur du jeu, pour ne plus passer au-dessus de la barre.</value>
+    <value>Têtes : celles des équipes des joueurs partent à {0} % de la hauteur du jeu (la vitesse est gardée), pour ne plus passer au-dessus de la barre.</value>
   </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Zone morte du stick analogique réduite :</value>

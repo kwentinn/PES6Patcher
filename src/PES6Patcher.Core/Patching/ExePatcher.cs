@@ -19,7 +19,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="LoftedAim">Lofted passes follow the press and the stick more: the distance wanted grows with the square of the gauge (same maximum), and the receiver must be within 22.5 degrees of the stick (45 in the game).</param>
 /// <param name="PassLead">How far ahead of the receiver a pass is aimed, in % of the game's lead (100 = unchanged): through passes no longer run out of play.</param>
 /// <param name="PassLeadDebug">Test key: F9 in game changes <paramref name="PassLead"/> by 10 % and shows it (through Kitserver).</param>
-/// <param name="Headers">Speed and height of the human teams' headers, in % of the game's (100 = unchanged): headers no longer fly over the bar.</param>
+/// <param name="Headers">Height of the human teams' headers, in % of the game's (100 = unchanged): headers no longer fly over the bar.</param>
 /// <param name="HeadersDebug">Test key: F11 in game changes <paramref name="Headers"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="CarrierTurn">Running with the ball, the most the player's facing and run turn per frame, in degrees (0 = unchanged; the game's is 1.4): after a sharp touch, he follows the ball instead of running on along his old line.</param>
 /// <param name="StickDeadZone">Analog stick dead zone of each axis, in % (<see cref="GameStickDeadZone"/> = unchanged): smaller, a stick held near an axis no longer snaps onto it.</param>
@@ -72,7 +72,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     /// <summary>Pass lead, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultPassLead = 60, MinPassLead = 30, MaxPassLead = 100;
 
-    /// <summary>Headers of the human teams: speed and height, in % of the game's (100 = unchanged): default and limits.</summary>
+    /// <summary>Headers of the human teams: height, in % of the game's (100 = unchanged): default and limits.</summary>
     public const int DefaultHeaders = 70, MinHeaders = 30, MaxHeaders = 100;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
@@ -336,7 +336,7 @@ public static class ExePatcher
         bool shots = options.ShotPower < 100 || options.ShotAccuracy < 100;
         bool headers = options.Headers < 100;
         var humans = shots || headers ? shot : null;   // human teams learnt at the kick function's entry
-        // headers of the human teams: speed and height scaled at the kick function's entry (state word of the F11 key, when set)
+        // headers of the human teams: height scaled at the kick function's entry (state word of the F11 key, when set)
         var headerFix = headers ? new CodeCaves.HeaderFix(options.Headers, headersKey ? CodeCaves.HeadersStateAddress(freeKick!) : 0) : null;
         if (headers) image.MakeWritable(image.SectionOf(shot!.HumanScores)!);
         int freeKickShotReturn = 0;
