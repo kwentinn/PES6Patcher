@@ -416,6 +416,35 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Headers_scale_the_speed_and_height_of_a_human_team_at_the_kick_entry()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).ShotPower);   // the same sites (human teams, kick function) as the shots
+        var options = new PatchOptions(398, FreeDirection: false, Display: false);
+        // mov esi,[esp+0x24] ; movzx eax,byte [esi+0x16] ; cmp al,30: the header states seen with the kick probe are 30, 34 and 48
+        byte[] states = [0x8B, 0x74, 0x24, 0x24, 0x0F, 0xB6, 0x46, 0x16, 0x3C, 30, 0x74];
+        byte[] scale = [0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB];   // imul eax,ecx ; cdq ; idiv ebx
+        Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(states) < 0);
+
+        var built = ExePatcher.Build(original, options with { Headers = 70 });
+        int at = built.AsSpan().IndexOf(states);
+        Assert.True(at > 0);
+        var body = built.AsSpan(at, 100);
+        Assert.True(body.IndexOf(new byte[] { 0x3C, 34, 0x74 }) > 0);                   // cmp al,34 ; je
+        Assert.True(body.IndexOf(new byte[] { 0x3C, 48, 0x75 }) > 0);                   // cmp al,48 ; jne
+        Assert.True(body.IndexOf(new byte[] { 0xB9, 70, 0, 0, 0 }) > 0);                // mov ecx,70
+        Assert.Equal(2, body.Count(scale));                                             // the speed, then the height
+        Assert.Equal(0xE9, built[new PeImage(built).Offset(0x478020)]);                 // the kick function's entry jumps to the cave
+
+        // with F11 (VK_F11 = 0x7A): the percent comes from the test keys' state (+6) and the key is read
+        var debug = ExePatcher.Build(original, options with { Headers = 70, HeadersDebug = true });
+        Assert.True(debug.AsSpan().IndexOf(new byte[] { 0x6A, CodeCaves.HeadersKey, 0xFF, 0x15 }) > 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { Headers = 20 }));
+    }
+
+    [Fact]
     public void Carrier_turn_raises_the_two_turn_steps_with_the_ball()
     {
         var original = Load("PES6.orig.exe");

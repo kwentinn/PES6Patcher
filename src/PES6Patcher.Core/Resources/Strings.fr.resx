@@ -468,6 +468,24 @@
   <data name="Log.PassLead" xml:space="preserve">
     <value>Avance des passes : une passe vise à {0} % de la distance devant le receveur du jeu (les deux équipes).</value>
   </data>
+  <data name="Gameplay.Headers" xml:space="preserve">
+    <value>Têtes plus douces</value>
+  </data>
+  <data name="Gameplay.HeadersPercent" xml:space="preserve">
+    <value>% de la vitesse et de la hauteur du jeu</value>
+  </data>
+  <data name="Gameplay.HeadersDebug" xml:space="preserve">
+    <value>Test : F11 en match la change (+10 %)</value>
+  </data>
+  <data name="Log.HeadersDebug" xml:space="preserve">
+    <value>Touche de test des têtes : F11 en match ajoute 10 % (retour à 30 % après 100 %), affiché à l'écran.</value>
+  </data>
+  <data name="Overlay.Headers" xml:space="preserve">
+    <value>TÊTES : {0} % (F11)</value>
+  </data>
+  <data name="Log.Headers" xml:space="preserve">
+    <value>Têtes : celles des équipes des joueurs partent à {0} % de la vitesse et de la hauteur du jeu, pour ne plus passer au-dessus de la barre.</value>
+  </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Zone morte du stick analogique réduite :</value>
   </data>

@@ -266,6 +266,9 @@ internal static class CodeCaves
     public const byte FreeKickWeightKey = 0x71, ShotPowerKey = 0x72, ShotAccuracyKey = 0x73, SpreadKey = 0x74, SpeedGapKey = 0x75, SprintTurnKey = 0x76, TackleKey = 0x77, PassLeadKey = 0x78;   // VK_F2 to VK_F9
     public const int TestKeyStep = 10;
 
+    /// <summary>Test key of the headers share: F11.</summary>
+    public const byte HeadersKey = 0x7A;
+
     /// <summary>
     /// Shared state of the free kick fix, the shot power and the test keys (<see cref="FreeKickSites.State"/>, zero
     /// padding of .rdata made writable): +0 free kick shot under way, +1 ball from a free kick, +2 test keys set up,
@@ -274,9 +277,58 @@ internal static class CodeCaves
     /// percent (word, 0 = the patcher's), +22 team spread percent (word, 0xFFFF = none, 0 = the patcher's), +24 speed gap percent (word, 0 = the patcher's),
     /// +26 sprint turn maximum in degrees (word, 0 = the patcher's), +28 challenge reach percent (word, 0 = the patcher's), +30 pass lead percent (word, 0 = the patcher's).
     /// The close dribbling switch state follows (<see cref="DribbleSites.SwitchState"/> = +32): +44 close dribbling strength percent (word, 0 = the patcher's).
+    /// +6 headers percent (word, 0 = the patcher's).
     /// </summary>
     private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28, PassLeadState = 30, CloseDribbleStrengthState = 44;
+        ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28, PassLeadState = 30, CloseDribbleStrengthState = 44,
+        HeadersState = 6;
+
+    /// <summary>Headers percent read at run time (F11), in the test keys state.</summary>
+    public static int HeadersStateAddress(FreeKickSites testKeys) => testKeys.State + HeadersState;
+
+    public static TestKey HeadersTestKey(int percent, int texts, int stride) =>
+        new(HeadersKey, HeadersState, percent, PatchOptions.MinHeaders, PatchOptions.MaxHeaders, texts, stride);
+
+    /// <summary>Headers of the human teams: <see cref="Percent"/> % of the game's speed and height; <see cref="StateAddress"/> is the F11 word (0 = no test key).</summary>
+    public sealed record HeaderFix(int Percent, int StateAddress);
+
+    /// <summary>Player states (+0x16) of the headers (seen in the kick probe: standing, jumping, diving).</summary>
+    private const byte HeaderStateA = 30, HeaderStateB = 34, HeaderStateC = 48;
+
+    /// <summary>
+    /// Headers of a human team (see <see cref="EmitHumanTeams"/>): at the kick function's entry (player, direction, speed,
+    /// height, flag), the speed and the height are scaled to a percent. The AI's headers keep the game's.
+    /// </summary>
+    private static void EmitHeaders(CodeBuilder code, ShotSites humans, HeaderFix headers)
+    {
+        code.Bytes(0x60)                                            // pushad                ; the arguments are at esp+0x24...
+            .Bytes(0x8B, 0x74, 0x24, 0x24)                          // mov esi,[esp+0x24]    ; player
+            .Bytes(0x0F, 0xB6, 0x46, 0x16)                          // movzx eax,byte [esi+0x16] ; state
+            .Bytes(0x3C, HeaderStateA).Jump(0x74, "headerState")    // cmp al,30 ; je headerState
+            .Bytes(0x3C, HeaderStateB).Jump(0x74, "headerState")    // cmp al,34 ; je headerState
+            .Bytes(0x3C, HeaderStateC).Jump(0x75, "headerDone")     // cmp al,48 ; jne headerDone
+            .Mark("headerState")
+            .Bytes(0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [esi+0x12] ; and ecx,1 ; team
+            .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
+            .Jump(0x72, "headerDone");                              // jb headerDone         ; not a human team
+        if (headers.StateAddress != 0)
+            code.Bytes([0x0F, 0xB7, 0x0D], headers.StateAddress)    // movzx ecx,word [percent]
+                .Bytes(0x85, 0xC9)                                  // test ecx,ecx
+                .Jump(0x75, "headerPercent")                        // jne headerPercent
+                .Bytes([0xB9], headers.Percent)                     // mov ecx,percent       ; from the patcher
+                .Mark("headerPercent");
+        else
+            code.Bytes([0xB9], headers.Percent);                    // mov ecx,percent
+        code.Bytes(0x6A, 0x64, 0x5B)                                // push 100 ; pop ebx
+            .Bytes(0x8B, 0x44, 0x24, 0x2C)                          // mov eax,[esp+0x2C]    ; speed
+            .Bytes(0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB)              // imul eax,ecx ; cdq ; idiv ebx
+            .Bytes(0x89, 0x44, 0x24, 0x2C)                          // mov [esp+0x2C],eax
+            .Bytes(0x8B, 0x44, 0x24, 0x30)                          // mov eax,[esp+0x30]    ; height
+            .Bytes(0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB)              // imul eax,ecx ; cdq ; idiv ebx
+            .Bytes(0x89, 0x44, 0x24, 0x30)                          // mov [esp+0x30],eax
+            .Mark("headerDone")
+            .Bytes(0x61);                                           // popad
+    }
 
     /// <summary>Close dribbling strength percent read at run time (F10), in the close dribbling switch state.</summary>
     public static int CloseDribbleStrengthAddress(FreeKickSites testKeys) => testKeys.State + CloseDribbleStrengthState;
@@ -296,7 +348,7 @@ internal static class CodeCaves
     /// The game's weight stays where it is (PityCharly's physics mod rewrites it while the game runs).
     /// </summary>
     public static (byte[] Cave, (int Va, byte[] Bytes)[] Entries, int ShotReturn) FreeKick(int cave, FreeKickSites sites, float weightUnit, int percent,
-        int testKeysSetUp = 0, ShotSites? humans = null)
+        int testKeysSetUp = 0, ShotSites? humans = null, HeaderFix? headers = null)
     {
         int state = sites.State, pending = state, heavy = state + 1, current = state + FreeKickWeightState;
         byte[] Addr(int a) => BitConverter.GetBytes(a);
@@ -325,6 +377,7 @@ internal static class CodeCaves
             .Mark("kick");
         if (testKeysSetUp != 0) TestKeysSetUpCall(code, sites, testKeysSetUp);
         if (humans != null) EmitHumanTeams(code, humans);
+        if (humans != null && headers != null) EmitHeaders(code, humans, headers);
         code.Bytes([0x80, 0x3D, .. Addr(pending), 0x00])           // cmp byte [pending],0
             .Bytes([0x0F, 0x95, 0x05], heavy)                       // setne byte [heavy]
             .Bytes(KickEntryBytes)                                  // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
@@ -375,11 +428,12 @@ internal static class CodeCaves
     /// Without the free kick fix, the test keys set-up and the human teams are done from a hook of their own at
     /// the kick function's entry.
     /// </summary>
-    public static Hook KickEntryExtras(int cave, int kickEntry, FreeKickSites? testKeys, int setUp, ShotSites? humans)
+    public static Hook KickEntryExtras(int cave, int kickEntry, FreeKickSites? testKeys, int setUp, ShotSites? humans, HeaderFix? headers = null)
     {
         var code = new CodeBuilder(cave);
         if (testKeys != null && setUp != 0) TestKeysSetUpCall(code, testKeys, setUp);
         if (humans != null) EmitHumanTeams(code, humans);
+        if (humans != null && headers != null) EmitHeaders(code, humans, headers);
         var bytes = code.Bytes(KickEntryBytes)                      // original: push ebx/ebp/esi ; mov esi,[esp+0x10]
             .JumpTo(kickEntry + 7)                                  // jmp back
             .Build();

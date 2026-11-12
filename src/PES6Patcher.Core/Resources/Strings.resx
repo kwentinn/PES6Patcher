@@ -468,6 +468,24 @@
   <data name="Log.PassLead" xml:space="preserve">
     <value>Pass lead: a pass is aimed {0} % as far ahead of the receiver as in the game (both teams).</value>
   </data>
+  <data name="Gameplay.Headers" xml:space="preserve">
+    <value>Gentler headers</value>
+  </data>
+  <data name="Gameplay.HeadersPercent" xml:space="preserve">
+    <value>% of the game's speed and height</value>
+  </data>
+  <data name="Gameplay.HeadersDebug" xml:space="preserve">
+    <value>Test: F11 in a match changes it (+10 %)</value>
+  </data>
+  <data name="Log.HeadersDebug" xml:space="preserve">
+    <value>Headers test key: F11 in a match adds 10 % (back to 30 % after 100 %), shown on screen.</value>
+  </data>
+  <data name="Overlay.Headers" xml:space="preserve">
+    <value>HEADERS: {0} % (F11)</value>
+  </data>
+  <data name="Log.Headers" xml:space="preserve">
+    <value>Headers: the human teams' headers leave at {0} % of the game's speed and height, so they stop flying over the bar.</value>
+  </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Smaller analog stick dead zone:</value>
   </data>

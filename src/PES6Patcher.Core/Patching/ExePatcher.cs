@@ -19,6 +19,8 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="LoftedAim">Lofted passes follow the press and the stick more: the distance wanted grows with the square of the gauge (same maximum), and the receiver must be within 22.5 degrees of the stick (45 in the game).</param>
 /// <param name="PassLead">How far ahead of the receiver a pass is aimed, in % of the game's lead (100 = unchanged): through passes no longer run out of play.</param>
 /// <param name="PassLeadDebug">Test key: F9 in game changes <paramref name="PassLead"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="Headers">Speed and height of the human teams' headers, in % of the game's (100 = unchanged): headers no longer fly over the bar.</param>
+/// <param name="HeadersDebug">Test key: F11 in game changes <paramref name="Headers"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="CarrierTurn">Running with the ball, the most the player's facing and run turn per frame, in degrees (0 = unchanged; the game's is 1.4): after a sharp touch, he follows the ball instead of running on along his old line.</param>
 /// <param name="StickDeadZone">Analog stick dead zone of each axis, in % (<see cref="GameStickDeadZone"/> = unchanged): smaller, a stick held near an axis no longer snaps onto it.</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
@@ -37,7 +39,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
     int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
-    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false)
+    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false)
 {
     /// <summary>
     /// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -69,6 +71,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
     /// <summary>Pass lead, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultPassLead = 60, MinPassLead = 30, MaxPassLead = 100;
+
+    /// <summary>Headers of the human teams: speed and height, in % of the game's (100 = unchanged): default and limits.</summary>
+    public const int DefaultHeaders = 70, MinHeaders = 30, MaxHeaders = 100;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -195,7 +200,9 @@ public static class ExePatcher
         if (options.CloseDribble && dribble == null) throw new PatchException(problems);
         if (options.SkipIntro && intro == null) throw new PatchException(problems);
         if (options.FreeKick && freeKick == null) throw new PatchException(problems);
-        if ((options.ShotPower < 100 || options.ShotAccuracy < 100) && shot == null) throw new PatchException(problems);
+        if ((options.ShotPower < 100 || options.ShotAccuracy < 100 || options.Headers < 100) && shot == null) throw new PatchException(problems);
+        if (options.Headers is < PatchOptions.MinHeaders or > PatchOptions.MaxHeaders)
+            throw new ArgumentOutOfRangeException(nameof(options), options.Headers, null);
         if (options.ShotPower is < PatchOptions.MinShotPower or > PatchOptions.MaxShotPower)
             throw new ArgumentOutOfRangeException(nameof(options), options.ShotPower, null);
         if (options.ShotAccuracy is < PatchOptions.MinShotAccuracy or > PatchOptions.MaxShotAccuracy)
@@ -255,8 +262,9 @@ public static class ExePatcher
             accuracyKey = options.ShotAccuracy < 100 && options.ShotAccuracyDebug, spreadKey = options.Spread > 0 && options.SpreadDebug,
             speedKey = options.SpeedGap != 100 && options.SpeedGapDebug, sprintKey = options.SprintTurn > 0 && options.SprintTurnDebug,
             tackleKey = options.Tackle != 100 && options.TackleDebug,
-            passLeadKey = options.PassLead < 100 && options.PassLeadDebug;
-        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey || strengthKey) && freeKick == null) throw new PatchException(problems);
+            passLeadKey = options.PassLead < 100 && options.PassLeadDebug,
+            headersKey = options.Headers < 100 && options.HeadersDebug;
+        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey || strengthKey || headersKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key, int step = CodeCaves.TestKeyStep)
         {
@@ -311,6 +319,11 @@ public static class ExePatcher
             var (texts, stride) = KeyTexts(PatchOptions.MaxCloseDribbleStrength, "Overlay.CloseDribbleStrength", CodeCaves.CloseDribbleStrengthStep);
             keys.Add(CodeCaves.CloseDribbleStrengthTestKey(options.CloseDribbleStrength, texts, stride));
         }
+        if (headersKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxHeaders, "Overlay.Headers");
+            keys.Add(CodeCaves.HeadersTestKey(options.Headers, texts, stride));
+        }
         int testKeysSetUp = 0;
         if (keys.Count > 0)
         {
@@ -321,16 +334,20 @@ public static class ExePatcher
 
         // free kicks: heavier ball after a free kick shot; its state lives in the end of .rdata
         bool shots = options.ShotPower < 100 || options.ShotAccuracy < 100;
-        var humans = shots ? shot : null;   // human teams learnt at the kick function's entry
+        bool headers = options.Headers < 100;
+        var humans = shots || headers ? shot : null;   // human teams learnt at the kick function's entry
+        // headers of the human teams: speed and height scaled at the kick function's entry (state word of the F11 key, when set)
+        var headerFix = headers ? new CodeCaves.HeaderFix(options.Headers, headersKey ? CodeCaves.HeadersStateAddress(freeKick!) : 0) : null;
+        if (headers) image.MakeWritable(image.SectionOf(shot!.HumanScores)!);
         int freeKickShotReturn = 0;
         if (options.FreeKick)
         {
             if (options.FreeKickWeight is < PatchOptions.MinFreeKickWeight or > PatchOptions.MaxFreeKickWeight)
                 throw new ArgumentOutOfRangeException(nameof(options), options.FreeKickWeight, null);
             float unit = image.ReadFloat(freeKick!.Weight) / 100f;
-            int size = CodeCaves.FreeKick(0, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans).Cave.Length;
+            int size = CodeCaves.FreeKick(0, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans, headerFix).Cave.Length;
             int at = Cave(size);
-            var (cave, entries, shotReturn) = CodeCaves.FreeKick(at, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans);
+            var (cave, entries, shotReturn) = CodeCaves.FreeKick(at, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans, headerFix);
             plan.Add((at, cave));
             plan.AddRange(entries);
             image.MakeWritable(image.SectionOf(freeKick.State)!);
@@ -341,8 +358,8 @@ public static class ExePatcher
             // without the free kick hook at the kick function's entry, the test keys and human teams get one of their own
             int kickEntry = humans?.KickEntry ?? freeKick!.KickEntry;
             var testKeys = keys.Count > 0 ? freeKick : null;
-            var hook = CodeCaves.KickEntryExtras(0, kickEntry, testKeys, testKeysSetUp, humans);
-            hook = CodeCaves.KickEntryExtras(Cave(hook.CaveBytes.Length), kickEntry, testKeys, testKeysSetUp, humans);
+            var hook = CodeCaves.KickEntryExtras(0, kickEntry, testKeys, testKeysSetUp, humans, headerFix);
+            hook = CodeCaves.KickEntryExtras(Cave(hook.CaveBytes.Length), kickEntry, testKeys, testKeysSetUp, humans, headerFix);
             plan.Add((hook.Cave, hook.CaveBytes));
             plan.Add((hook.Entry, hook.EntryBytes));
         }
