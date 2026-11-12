@@ -487,22 +487,22 @@
     <value>Têtes : celles des équipes des joueurs partent à {0} % de la hauteur du jeu (la vitesse est gardée), pour ne plus passer au-dessus de la barre.</value>
   </data>
   <data name="Gameplay.SuperShot" xml:space="preserve">
-    <value>Super frappe : maintenir L1 + R1 en tirant</value>
+    <value>Super frappe : maintenir L1 + R1 en tirant (plat et rapide)</value>
   </data>
   <data name="Gameplay.SuperShotPercent" xml:space="preserve">
-    <value>% de la vitesse du tir</value>
+    <value>hauteur du ballon (tirs du jeu : 13 à 35)</value>
   </data>
   <data name="Gameplay.SuperShotDebug" xml:space="preserve">
-    <value>Test : F12 en match la change (+20 %)</value>
+    <value>Test : F12 en match la change (+2)</value>
   </data>
   <data name="Log.SuperShotDebug" xml:space="preserve">
-    <value>Touche de test de la super frappe : F12 en match ajoute 20 % (retour à 120 % après 300 %), affiché à l'écran.</value>
+    <value>Touche de test de la super frappe : F12 en match ajoute 2 à la hauteur (retour à 6 après 30), affiché à l'écran.</value>
   </data>
   <data name="Overlay.SuperShot" xml:space="preserve">
-    <value>SUPER FRAPPE : {0} % (F12)</value>
+    <value>HAUTEUR SUPER FRAPPE : {0} (F12)</value>
   </data>
   <data name="Log.SuperShot" xml:space="preserve">
-    <value>Super frappe (expérimental) : un tir des équipes des joueurs pris en maintenant L1 et R1 (un lob) part à {0} % de la vitesse du jeu.</value>
+    <value>Super frappe (expérimental) : un tir des équipes des joueurs pris en maintenant L1 et R1 part à plat (hauteur {0}) à la vitesse maximale.</value>
   </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Zone morte du stick analogique réduite :</value>

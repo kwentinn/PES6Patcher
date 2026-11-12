@@ -288,26 +288,29 @@ internal static class CodeCaves
     /// <summary>Test key of the super shot: F12 (VK_F12).</summary>
     public const byte SuperShotKey = 0x7B;
 
-    /// <summary>F12 changes the super shot by 20 %.</summary>
-    public const int SuperShotStep = 20;
+    /// <summary>F12 changes the super shot height by 2.</summary>
+    public const int SuperShotStep = 2;
 
-    /// <summary>Super shot percent (word), in the unused end of the close dribbling state (+46).</summary>
+    /// <summary>Super shot height (word, 0 = the patcher's), in the unused end of the close dribbling state (+46).</summary>
     private const int SuperShotState = 46;
 
     public static int SuperShotStateAddress(FreeKickSites testKeys) => testKeys.State + SuperShotState;
 
-    public static TestKey SuperShotTestKey(int percent, int texts, int stride) =>
-        new(SuperShotKey, SuperShotState, percent, PatchOptions.MinSuperShot, PatchOptions.MaxSuperShot, texts, stride, SuperShotStep);
+    public static TestKey SuperShotTestKey(int height, int texts, int stride) =>
+        new(SuperShotKey, SuperShotState, height, PatchOptions.MinSuperShot, PatchOptions.MaxSuperShot, texts, stride, SuperShotStep);
 
-    /// <summary>Super shot of the human teams: <see cref="Percent"/> % of the shot's speed; <see cref="StateAddress"/> is the F12 word (0 = no test key).</summary>
-    public sealed record SuperShotFix(int Percent, int StateAddress);
+    /// <summary>Super shot of the human teams: its <see cref="Height"/>; <see cref="StateAddress"/> is the F12 word (0 = no test key).</summary>
+    public sealed record SuperShotFix(int Height, int StateAddress);
+
+    /// <summary>Speed given to a super shot: the top of what the kick function gets (the shots measured with the kick probe peak at 30 695).</summary>
+    public const int SuperShotSpeed = 30600;
 
     /// <summary>Buttons held in the player (+0xB0): L1 (0x400, the lob button) and R1 (measured on the pad: 0x488000, of which 0x8000 is enough).</summary>
     public const int SuperShotButtons = 0x8400;
 
     /// <summary>
     /// Super shot (prototype): at the kick function's entry, a shot (player state 4) of a human team whose shooter holds
-    /// L1 and R1 (a lob, whose speed the shot accuracy already lowers) gets <see cref="SuperShotFix.Percent"/> % of its speed. The height is left alone.
+    /// L1 and R1 (a lob) is made flat and fast: its speed goes to <see cref="SuperShotSpeed"/> and its height to <see cref="SuperShotFix.Height"/>.
     /// </summary>
     private static void EmitSuperShot(CodeBuilder code, ShotSites humans, SuperShotFix fix)
     {
@@ -333,20 +336,21 @@ internal static class CodeCaves
             .Jump(0x72, "superDone");                               // jb superDone          ; not a human team
         if (diagnosis) code.Bytes(Flag(4));
         if (fix.StateAddress != 0)
-            code.Bytes([0x0F, 0xB7, 0x0D], fix.StateAddress)        // movzx ecx,word [percent]
+            code.Bytes([0x0F, 0xB7, 0x0D], fix.StateAddress)        // movzx ecx,word [height]
                 .Bytes(0x85, 0xC9)                                  // test ecx,ecx
-                .Jump(0x75, "superPercent")                         // jne superPercent
-                .Bytes([0xB9], fix.Percent)                         // mov ecx,percent       ; from the patcher
-                .Mark("superPercent");
+                .Jump(0x75, "superHeight")                          // jne superHeight
+                .Bytes([0xB9], fix.Height)                          // mov ecx,height        ; from the patcher
+                .Mark("superHeight");
         else
-            code.Bytes([0xB9], fix.Percent);                        // mov ecx,percent
-        code.Bytes(0x6A, 0x64, 0x5B)                                // push 100 ; pop ebx
-            .Bytes(0x8B, 0x44, 0x24, 0x2C)                          // mov eax,[esp+0x2C]    ; speed
-            .Bytes(0x0F, 0xAF, 0xC1, 0x99, 0xF7, 0xFB)              // imul eax,ecx ; cdq ; idiv ebx
-            .Bytes(0x89, 0x44, 0x24, 0x2C)                          // mov [esp+0x2C],eax
+            code.Bytes([0xB9], fix.Height);                         // mov ecx,height
+        // flat and fast: the speed argument goes to the top, the height argument to the chosen (low) value
+        code.Bytes([0xC7, 0x44, 0x24, 0x2C], SuperShotSpeed)        // mov dword [esp+0x2C],speed
+            .Bytes(0x89, 0x4C, 0x24, 0x30)                          // mov [esp+0x30],ecx    ; height
             .Mark("superDone")
             .Bytes(0x61);                                           // popad
     }
+
+    /// <summary>Headers percent read at run time (F11), in the test keys state.</summary>
     public static int HeadersStateAddress(FreeKickSites testKeys) => testKeys.State + HeadersState;
 
     public static TestKey HeadersTestKey(int percent, int texts, int stride) =>

@@ -127,7 +127,7 @@ internal sealed class MainForm : Form
     private readonly CheckBox _superShot = new() { Text = Loc.T("Gameplay.SuperShot"), AutoSize = true };
     private readonly NumericUpDown _superShotPercent = new()
     {
-        Minimum = PatchOptions.MinSuperShot, Maximum = PatchOptions.MaxSuperShot, Increment = 20,
+        Minimum = PatchOptions.MinSuperShot, Maximum = PatchOptions.MaxSuperShot, Increment = 2,
         Value = PatchOptions.DefaultSuperShot, Width = 60, Enabled = false,
     };
     private readonly CheckBox _superShotDebug = new() { Text = Loc.T("Gameplay.SuperShotDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
@@ -407,7 +407,7 @@ internal sealed class MainForm : Form
             SpreadDebug: _spreadDebug.Checked, SpeedGap: _speedGap.Enabled && _speedGap.Checked ? (int)_speedGapPercent.Value : 100,
             SpeedGapDebug: _speedGapDebug.Checked, SprintTurn: _sprintTurn.Enabled && _sprintTurn.Checked ? (int)_sprintTurnDegrees.Value : 0,
             LobPower: (int)_lobPower.Value, Headers: _headers.Enabled && _headers.Checked ? (int)_headersPercent.Value : 100, HeadersDebug: _headersDebug.Checked,
-            SuperShot: _superShot.Enabled && _superShot.Checked ? (int)_superShotPercent.Value : 100, SuperShotDebug: _superShotDebug.Checked,
+            SuperShot: _superShot.Enabled && _superShot.Checked ? (int)_superShotPercent.Value : 0, SuperShotDebug: _superShotDebug.Checked,
             SprintTurnDebug: _sprintTurnDebug.Checked, Tackle: _tackle.Enabled && _tackle.Checked ? (int)_tacklePercent.Value : 100,
             TackleDebug: _tackleDebug.Checked, LoftedAim: _loftedAim.Enabled && _loftedAim.Checked,
             PassLead: _passLead.Enabled && _passLead.Checked ? (int)_passLeadPercent.Value : 100, PassLeadDebug: _passLeadDebug.Checked,
@@ -662,7 +662,7 @@ internal sealed class MainForm : Form
         _headers.Checked = s.Headers < 100;
         if (_headers.Checked) Set(_headersPercent, s.Headers);
         _headersDebug.Checked = s.HeadersDebug;
-        _superShot.Checked = s.SuperShot > 100;
+        _superShot.Checked = s.SuperShot > 0;
         if (_superShot.Checked) Set(_superShotPercent, s.SuperShot);
         _superShotDebug.Checked = s.SuperShotDebug;
         _skipIntro.Checked = s.SkipIntro;

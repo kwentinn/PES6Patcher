@@ -21,8 +21,8 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="PassLeadDebug">Test key: F9 in game changes <paramref name="PassLead"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="Headers">Height of the human teams' headers, in % of the game's (100 = unchanged): headers no longer fly over the bar.</param>
 /// <param name="HeadersDebug">Test key: F11 in game changes <paramref name="Headers"/> by 10 % and shows it (through Kitserver).</param>
-/// <param name="SuperShot">Speed of a human team's shot taken with L1 and R1 held, in % of the game's (100 = off).</param>
-/// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="SuperShot">Height of a human team's shot taken with L1 and R1 held (the super shot: flat and at the top speed), in the kick function's units (the game's shots: 13 to 35; 0 = off).</param>
+/// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
 /// <param name="CarrierTurn">Running with the ball, the most the player's facing and run turn per frame, in degrees (0 = unchanged; the game's is 1.4): after a sharp touch, he follows the ball instead of running on along his old line.</param>
 /// <param name="StickDeadZone">Analog stick dead zone of each axis, in % (<see cref="GameStickDeadZone"/> = unchanged): smaller, a stick held near an axis no longer snaps onto it.</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
@@ -41,7 +41,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
     int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
-    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int SuperShot = 100, bool SuperShotDebug = false)
+    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int SuperShot = 0, bool SuperShotDebug = false)
 {
     /// <summary>
     /// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -78,7 +78,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     public const int DefaultHeaders = 70, MinHeaders = 30, MaxHeaders = 100;
 
     /// <summary>Super shot (L1 + R1 held on a shot of a human team): speed, in % of the game's (100 = off): default and limits.</summary>
-    public const int DefaultSuperShot = 200, MinSuperShot = 120, MaxSuperShot = 300;
+    public const int DefaultSuperShot = 14, MinSuperShot = 6, MaxSuperShot = 30;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -205,8 +205,8 @@ public static class ExePatcher
         if (options.CloseDribble && dribble == null) throw new PatchException(problems);
         if (options.SkipIntro && intro == null) throw new PatchException(problems);
         if (options.FreeKick && freeKick == null) throw new PatchException(problems);
-        if ((options.ShotPower < 100 || options.ShotAccuracy < 100 || options.Headers < 100 || options.SuperShot > 100) && shot == null) throw new PatchException(problems);
-        if (options.SuperShot != 100 && options.SuperShot is < PatchOptions.MinSuperShot or > PatchOptions.MaxSuperShot)
+        if ((options.ShotPower < 100 || options.ShotAccuracy < 100 || options.Headers < 100 || options.SuperShot > 0) && shot == null) throw new PatchException(problems);
+        if (options.SuperShot != 0 && options.SuperShot is < PatchOptions.MinSuperShot or > PatchOptions.MaxSuperShot)
             throw new ArgumentOutOfRangeException(nameof(options), options.SuperShot, null);
         if (options.Headers is < PatchOptions.MinHeaders or > PatchOptions.MaxHeaders)
             throw new ArgumentOutOfRangeException(nameof(options), options.Headers, null);
@@ -271,7 +271,7 @@ public static class ExePatcher
             tackleKey = options.Tackle != 100 && options.TackleDebug,
             passLeadKey = options.PassLead < 100 && options.PassLeadDebug,
             headersKey = options.Headers < 100 && options.HeadersDebug,
-            superShotKey = options.SuperShot > 100 && options.SuperShotDebug;
+            superShotKey = options.SuperShot > 0 && options.SuperShotDebug;
         if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey || strengthKey || headersKey || superShotKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key, int step = CodeCaves.TestKeyStep)
@@ -348,7 +348,7 @@ public static class ExePatcher
         // free kicks: heavier ball after a free kick shot; its state lives in the end of .rdata
         bool shots = options.ShotPower < 100 || options.ShotAccuracy < 100;
         bool headers = options.Headers < 100;
-        bool superShot = options.SuperShot > 100;
+        bool superShot = options.SuperShot > 0;
         var humans = shots || headers || superShot ? shot : null;   // human teams learnt at the kick function's entry
         var superFix = superShot ? new CodeCaves.SuperShotFix(options.SuperShot, superShotKey ? CodeCaves.SuperShotStateAddress(freeKick!) : 0) : null;
         // headers of the human teams: height scaled at the kick function's entry (state word of the F11 key, when set)

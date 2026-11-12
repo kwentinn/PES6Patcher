@@ -487,22 +487,22 @@
     <value>Headers: the human teams' headers leave at {0} % of the game's height (the speed is kept), so they stop flying over the bar.</value>
   </data>
   <data name="Gameplay.SuperShot" xml:space="preserve">
-    <value>Super shot: hold L1 + R1 when shooting</value>
+    <value>Super shot: hold L1 + R1 when shooting (flat and fast)</value>
   </data>
   <data name="Gameplay.SuperShotPercent" xml:space="preserve">
-    <value>% of the shot's speed</value>
+    <value>ball height (the game's shots: 13 to 35)</value>
   </data>
   <data name="Gameplay.SuperShotDebug" xml:space="preserve">
-    <value>Test: F12 in a match changes it (+20 %)</value>
+    <value>Test: F12 in a match changes it (+2)</value>
   </data>
   <data name="Log.SuperShotDebug" xml:space="preserve">
-    <value>Super shot test key: F12 in a match adds 20 % (back to 120 % after 300 %), shown on screen.</value>
+    <value>Super shot test key: F12 in a match adds 2 to the height (back to 6 after 30), shown on screen.</value>
   </data>
   <data name="Overlay.SuperShot" xml:space="preserve">
-    <value>SUPER SHOT: {0} % (F12)</value>
+    <value>SUPER SHOT HEIGHT: {0} (F12)</value>
   </data>
   <data name="Log.SuperShot" xml:space="preserve">
-    <value>Super shot (experimental): a shot of the human teams taken with L1 and R1 held (a lob) leaves at {0} % of the game's speed.</value>
+    <value>Super shot (experimental): a shot of the human teams taken with L1 and R1 held leaves flat (height {0}) at the top speed.</value>
   </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Smaller analog stick dead zone:</value>
