@@ -77,8 +77,12 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     /// <summary>Headers of the human teams: height, in % of the game's (100 = unchanged): default and limits.</summary>
     public const int DefaultHeaders = 70, MinHeaders = 30, MaxHeaders = 100;
 
-    /// <summary>Super shot (L1 + R1 held on a shot of a human team): speed, in % of the game's (100 = off): default and limits.</summary>
-    public const int DefaultSuperShot = 14, MinSuperShot = 6, MaxSuperShot = 30;
+    /// <summary>
+    /// Super shot (L1 + R1 held on a shot of a human team): the height it leaves at, in the kick function's units
+    /// (the game's shots: 13 to 35; 0 = off). Default 34, tuned in game: lower, the shot is so flat that it goes in
+    /// every time; at 34 a fully charged one clears the bar.
+    /// </summary>
+    public const int DefaultSuperShot = 34, MinSuperShot = 10, MaxSuperShot = 45;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -377,6 +381,19 @@ public static class ExePatcher
             hook = CodeCaves.KickEntryExtras(Cave(hook.CaveBytes.Length), kickEntry, testKeys, testKeysSetUp, humans, headerFix, superFix);
             plan.Add((hook.Cave, hook.CaveBytes));
             plan.Add((hook.Entry, hook.EntryBytes));
+        }
+
+        // super shot: while L1 and a right shoulder are held, the lob decisions no longer see L1, so the shot keeps
+        // the plain shot's animation and contact (the speed and height are set at the kick function's entry above)
+        if (superShot)
+        {
+            var sites = ExeLocator.LocateLob(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.SuperShot"), 0)]);
+            int flag = CodeCaves.LobFlagAddress(shot!);
+            int size = CodeCaves.LobSuppression(0, sites, flag).Cave.Length;
+            int at = Cave(size);
+            var (cave, entries) = CodeCaves.LobSuppression(at, sites, flag);
+            plan.Add((at, cave));
+            plan.AddRange(entries);
         }
 
         // shot power: scaled at the shot function's entry, free kicks excepted (the entry also keeps the direction

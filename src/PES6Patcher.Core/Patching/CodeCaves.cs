@@ -302,11 +302,18 @@ internal static class CodeCaves
     /// <summary>Super shot of the human teams: its <see cref="Height"/>; <see cref="StateAddress"/> is the F12 word (0 = no test key).</summary>
     public sealed record SuperShotFix(int Height, int StateAddress);
 
-    /// <summary>Speed given to a super shot: the top of what the kick function gets (the shots measured with the kick probe peak at 30 695).</summary>
-    public const int SuperShotSpeed = 30600;
+    /// <summary>
+    /// Speed given to a super shot. The game's own shots peak around 30 700 (the strong shots measured in game got
+    /// 18 000 to 23 000), and the kick function takes more: 36 300 was tried in memory and felt right, 40 000 too fast.
+    /// </summary>
+    public const int SuperShotSpeed = 36300;
 
-    /// <summary>Buttons held in the player (+0xB0): L1 (0x400, the lob button) and R1 (measured on the pad: 0x488000, of which 0x8000 is enough).</summary>
-    public const int SuperShotButtons = 0x8400;
+    /// <summary>
+    /// Buttons held in the player (+0xB0) at the kick: L1 (0x400, the lob button) and a right shoulder (0x01000800).
+    /// Measured in game with a ring of the last shots: L1 alone gives 0x400, R1 alone 0x01488800, R2 alone 0x01000800,
+    /// and L1 + R1 gives 0x01000C00 — holding L1 drops R1's own bits (0x488000), so only the shared part is left.
+    /// </summary>
+    public const int SuperShotButtons = 0x01000C00;
 
     /// <summary>
     /// Super shot (prototype): at the kick function's entry, a shot (player state 4) of a human team whose shooter holds
@@ -325,8 +332,8 @@ internal static class CodeCaves
         if (diagnosis) code.Bytes(Flag(1));
         code.Bytes(0x8B, 0x86, 0xB0, 0x00, 0x00, 0x00);             // mov eax,[esi+0xB0]    ; buttons held
         if (diagnosis)
-            code.Bytes([0xA9], 0x400).Jump(0x74, "noR2").Bytes(Flag(8)).Mark("noR2")        // test eax,L1
-                .Bytes([0xA9], 0x8000).Jump(0x74, "noR1").Bytes(Flag(16)).Mark("noR1");     // test eax,R1
+            code.Bytes([0xA9], 0x400).Jump(0x74, "noL1").Bytes(Flag(8)).Mark("noL1")        // test eax,L1
+                .Bytes([0xA9], 0x01000800).Jump(0x74, "noR1").Bytes(Flag(16)).Mark("noR1"); // test eax,R1
         code.Bytes([0x25], SuperShotButtons)                        // and eax,L1|R1
             .Bytes([0x3D], SuperShotButtons)                        // cmp eax,L1|R1
             .Jump(0x75, "superDone");                               // jne superDone
@@ -348,6 +355,54 @@ internal static class CodeCaves
             .Bytes(0x89, 0x4C, 0x24, 0x30)                          // mov [esp+0x30],ecx    ; height
             .Mark("superDone")
             .Bytes(0x61);                                           // popad
+    }
+
+    /// <summary>Super shot in progress: a free byte of the human scores block (+0..+3 are the scores and the shot direction).</summary>
+    public static int LobFlagAddress(ShotSites humans) => humans.HumanScores + 4;
+
+    /// <summary>
+    /// Super shot: the shot must not be a lob, or it keeps the lob's animation and its soft contact (tried in game:
+    /// forcing the speed and the height alone still gave a chip). In one cave:
+    /// <list type="bullet">
+    /// <item><see cref="LobSites.ButtonRebuild"/> ("and ecx,400h", where the buttons are still whole) becomes a jump
+    /// here: the flag is set while a player holds L1 and a right shoulder (<see cref="SuperShotButtons"/>), and cleared
+    /// when he holds L1 alone. A player without L1 leaves it as it is, so the other players' frames do not clear it.</item>
+    /// <item>each <see cref="LobSites.ButtonReads"/> ("mov eax,[esi+0xB0]" before a test of L1) becomes a call here:
+    /// the buttons come back without L1 while the flag is set, so every lob decision — kind, animation, power — takes
+    /// the plain shot path. The game's own lob (L1 alone) is untouched.</item>
+    /// </list>
+    /// </summary>
+    public static (byte[] Cave, (int Va, byte[] Bytes)[] Entries) LobSuppression(int cave, LobSites sites, int flag)
+    {
+        byte[] Flag(byte value) => [0xC6, 0x05, .. BitConverter.GetBytes(flag), value];   // mov byte [flag],value
+        var code = new CodeBuilder(cave)
+            .Mark("rebuild")
+            .Bytes(0x51)                                            // push ecx
+            .Bytes([0xF7, 0xC1], 0x400)                             // test ecx,L1
+            .Jump(0x74, "leave")                                    // je leave             ; no L1: not ours
+            .Bytes([0x81, 0xE1], SuperShotButtons)                  // and ecx,L1|R1
+            .Bytes([0x81, 0xF9], SuperShotButtons)                  // cmp ecx,L1|R1
+            .Jump(0x75, "clear")                                    // jne clear
+            .Bytes(Flag(1))                                         // mov byte [flag],1
+            .Jump(0xEB, "leave")                                    // jmp leave
+            .Mark("clear")
+            .Bytes(Flag(0))                                         // mov byte [flag],0
+            .Mark("leave")
+            .Bytes(0x59)                                            // pop ecx
+            .Bytes([0x81, 0xE1], 0x400)                             // original: and ecx,400h
+            .JumpTo(sites.ButtonRebuild + 6)                        // jmp back
+            .Mark("read")
+            .Bytes(0x8B, 0x86, 0xB0, 0x00, 0x00, 0x00)              // original: mov eax,[esi+0xB0]
+            .Bytes([0x80, 0x3D, .. BitConverter.GetBytes(flag), 0x01])   // cmp byte [flag],1
+            .Jump(0x75, "readDone")                                 // jne readDone
+            .Bytes([0x25], ~0x400)                                  // and eax,~L1          ; no lob while it lasts
+            .Mark("readDone")
+            .Bytes(0xC3);                                           // ret                  ; the flags are the caller's test
+
+        var bytes = code.Build();
+        var entries = new List<(int, byte[])> { (sites.ButtonRebuild, CodeBuilder.JumpPatch(sites.ButtonRebuild, code.AddressOfLabel("rebuild"), 6)) };
+        entries.AddRange(sites.ButtonReads.Select(read => (read, CodeBuilder.CallPatch(read, code.AddressOfLabel("read"), 6))));
+        return (bytes, [.. entries]);
     }
 
     /// <summary>Headers percent read at run time (F11), in the test keys state.</summary>

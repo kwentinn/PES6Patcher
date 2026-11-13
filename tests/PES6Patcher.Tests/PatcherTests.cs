@@ -459,8 +459,8 @@ public class PatcherTests(ITestOutputHelper output)
         int at = built.AsSpan().IndexOf(shot);
         Assert.True(at > 0);
         var body = built.AsSpan(at, 100);
-        // mov eax,[esi+0xB0] ; and eax,0x8400 ; cmp eax,0x8400 (L1 0x400 and R1 0x8000, measured on the pad)
-        Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x84, 0, 0, 0x3D, 0x00, 0x84, 0, 0 }) > 0);
+        // mov eax,[esi+0xB0] ; and eax,0x01000C00 ; cmp eax,0x01000C00 (L1 and a right shoulder, measured at the kick)
+        Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x0C, 0x00, 0x01, 0x3D, 0x00, 0x0C, 0x00, 0x01 }) > 0);
         Assert.True(body.IndexOf(new byte[] { 0xB9, 14, 0, 0, 0 }) > 0);                // mov ecx,14 (the height)
         byte[] speed = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(CodeCaves.SuperShotSpeed)];   // mov dword [esp+0x2C],speed
         Assert.True(body.IndexOf(speed) > 0);
@@ -470,7 +470,34 @@ public class PatcherTests(ITestOutputHelper output)
         var debug = ExePatcher.Build(original, options with { SuperShot = 14, SuperShotDebug = true });
         Assert.True(debug.AsSpan().IndexOf(new byte[] { 0x6A, CodeCaves.SuperShotKey, 0xFF, 0x15 }) > 0);   // F12 is read
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 3 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 40 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 50 }));
+    }
+
+    [Fact]
+    public void Super_shot_hides_l1_from_every_lob_decision()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var sites = ExeLocator.LocateLob(original);
+        Assert.NotNull(sites);
+        Assert.Equal(8, sites!.ButtonReads.Length);
+
+        var options = new PatchOptions(398, FreeDirection: false, Display: false);
+        // mov eax,[esi+0xB0] ; test ah,4: the lob decisions, left alone until the super shot is asked for
+        byte[] read = [0x8B, 0x86, 0xB0, 0, 0, 0, 0xF6, 0xC4, 0x04];
+        Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(read) > 0);
+
+        var built = ExePatcher.Build(original, options with { SuperShot = 34 });
+        Assert.True(built.AsSpan().IndexOf(read) < 0);                                  // every one of them now calls the cave
+        var image = new PeImage(built);
+        foreach (int site in sites.ButtonReads) Assert.Equal(0xE8, built[image.Offset(site)]);
+        Assert.Equal(0xE9, built[image.Offset(sites.ButtonRebuild)]);
+        // the cave: mov eax,[esi+0xB0] ; cmp byte [flag],1 ; jne ; and eax,~0x400
+        byte[] hide = [0x8B, 0x86, 0xB0, 0, 0, 0, 0x80, 0x3D];
+        int cave = built.AsSpan().IndexOf(hide);
+        Assert.True(cave > 0);
+        Assert.True(built.AsSpan(cave, 24).IndexOf(new byte[] { 0x25, 0xFF, 0xFB, 0xFF, 0xFF }) > 0);
     }
 
     [Fact]
