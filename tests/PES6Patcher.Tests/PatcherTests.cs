@@ -451,14 +451,16 @@ public class PatcherTests(ITestOutputHelper output)
         if (original == null) return;
 
         var options = new PatchOptions(398, FreeDirection: false, Display: false);
-        // mov esi,[esp+0x24] ; cmp byte [esi+0x16],4 ; jne : a shot (player state 4)
-        byte[] shot = [0x8B, 0x74, 0x24, 0x24, 0x80, 0x7E, 0x16, 0x04, 0x75];
+        // mov esi,[esp+0x24] ; mov al,[esi+0x16] ; and al,0xFE ; cmp al,4 : a shot (player state 4 standing, 5 running)
+        byte[] shot = [0x8B, 0x74, 0x24, 0x24, 0x8A, 0x46, 0x16, 0x24, 0xFE, 0x3C, 0x04, 0x75];
         Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(shot) < 0);
 
         var built = ExePatcher.Build(original, options with { SuperShot = 14 });
         int at = built.AsSpan().IndexOf(shot);
         Assert.True(at > 0);
-        var body = built.AsSpan(at, 100);
+        var body = built.AsSpan(at, 110);
+        // cmp dword [esp+0x34],0 : the kick's 5th argument, 0 for a shot and 1 for a pass
+        Assert.True(body.IndexOf(new byte[] { 0x83, 0x7C, 0x24, 0x34, 0x00, 0x75 }) > 0);
         // mov eax,[esi+0xB0] ; and eax,0x01000C00 ; cmp eax,0x01000C00 (L1 and a right shoulder, measured at the kick)
         Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x0C, 0x00, 0x01, 0x3D, 0x00, 0x0C, 0x00, 0x01 }) > 0);
         Assert.True(body.IndexOf(new byte[] { 0xB9, 14, 0, 0, 0 }) > 0);                // mov ecx,14 (the height)

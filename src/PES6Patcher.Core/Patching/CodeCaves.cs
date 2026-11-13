@@ -313,8 +313,11 @@ internal static class CodeCaves
     public const int SuperShotButtons = 0x01000C00;
 
     /// <summary>
-    /// Super shot (prototype): at the kick function's entry, a shot (player state 4) of a human team whose shooter holds
-    /// L1 and R1 leaves at <see cref="SuperShotFix.Speed"/> and <see cref="SuperShotFix.Height"/> (the F12 value when set).
+    /// Super shot (prototype): at the kick function's entry, a shot of a human team whose shooter holds L1 and R1 leaves
+    /// at <see cref="SuperShotFix.Speed"/> and <see cref="SuperShotFix.Height"/> (the F12 value when set). A shot is the
+    /// player state 4 (standing) or 5 (running: R1 is the sprint button, so most super shots are taken in state 5) with
+    /// the kick's 5th argument at 0 — measured in game, a pass from the same states passes 1 there and used to be sent
+    /// at the shot's speed.
     /// </summary>
     private static void EmitSuperShot(CodeBuilder code, ShotSites humans, SuperShotFix fix)
     {
@@ -324,7 +327,11 @@ internal static class CodeCaves
         bool diagnosis = fix.StateAddress != 0;
         code.Bytes(0x60)                                            // pushad                ; the arguments are at esp+0x24...
             .Bytes(0x8B, 0x74, 0x24, 0x24)                          // mov esi,[esp+0x24]    ; player
-            .Bytes(0x80, 0x7E, 0x16, 0x04)                          // cmp byte [esi+0x16],4 ; a shot
+            .Bytes(0x8A, 0x46, 0x16)                                // mov al,[esi+0x16]     ; state
+            .Bytes(0x24, 0xFE)                                      // and al,0xFE           ; a shot: 4 standing, 5 running
+            .Bytes(0x3C, 0x04)                                      // cmp al,4
+            .Jump(0x75, "superDone")                                // jne superDone
+            .Bytes(0x83, 0x7C, 0x24, 0x34, 0x00)                    // cmp dword [esp+0x34],0 ; a shot, not a pass
             .Jump(0x75, "superDone");                               // jne superDone
         if (diagnosis) code.Bytes(Flag(1));
         code.Bytes(0x8B, 0x86, 0xB0, 0x00, 0x00, 0x00);             // mov eax,[esi+0xB0]    ; buttons held
