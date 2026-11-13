@@ -83,10 +83,10 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
     /// <summary>
     /// Super shot (L1 + R1 held on a shot of a human team): the height it leaves at, in the kick function's units
-    /// (the game's shots: 13 to 35; 0 = off). Default 34, tuned in game: lower, the shot is so flat that it goes in
-    /// every time; at 34 a fully charged one clears the bar.
+    /// (the game's shots: 13 to 35; 0 = off). Default 32, tuned in a match together with the weight that makes a
+    /// star's ball dip: flatter, the shot goes in every time; higher, it sails over the bar.
     /// </summary>
-    public const int DefaultSuperShot = 46, MinSuperShot = 10, MaxSuperShot = 60;
+    public const int DefaultSuperShot = 32, MinSuperShot = 10, MaxSuperShot = 60;
 
     /// <summary>
     /// Super shot: the speed it leaves at, in the kick function's units. The game's own shots peak around 30 700
