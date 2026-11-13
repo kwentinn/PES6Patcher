@@ -338,20 +338,22 @@ internal static class CodeCaves
             code.Bytes([0xC6, 0x05, .. BitConverter.GetBytes(fix.HeavyState), 0x00]);   // mov byte [heavy],0 ; any kick ends the last one
         // the shot function is the only caller that makes a shot: a pass reaches this entry from elsewhere (the
         // physics mod's own call, among others), whatever the player state, and used to be sent at the shot's speed
-        code.Bytes([0x81, 0x7C, 0x24, 0x20], humans.KickCall + 5)   // cmp dword [esp+0x20],shot kick call
-            .Jump(0x75, "superDone");                               // jne superDone
+        // the block is too long for a short jump to its end: every test that gives up goes through a near jump
+        void GiveUp(byte keepGoing, string label) => code.Jump(keepGoing, label).JumpTo("superDone").Mark(label);
+        code.Bytes([0x81, 0x7C, 0x24, 0x20], humans.KickCall + 5);  // cmp dword [esp+0x20],shot kick call
+        GiveUp(0x74, "superCalled");                                // je superCalled ; jmp superDone
         if (diagnosis) code.Bytes(Flag(1));
         code.Bytes(0x8B, 0x86, 0xB0, 0x00, 0x00, 0x00);             // mov eax,[esi+0xB0]    ; buttons held
         if (diagnosis)
             code.Bytes([0xA9], 0x400).Jump(0x74, "noL1").Bytes(Flag(8)).Mark("noL1")        // test eax,L1
                 .Bytes([0xA9], 0x01000800).Jump(0x74, "noR1").Bytes(Flag(16)).Mark("noR1"); // test eax,R1
         code.Bytes([0x25], SuperShotButtons)                        // and eax,L1|R1
-            .Bytes([0x3D], SuperShotButtons)                        // cmp eax,L1|R1
-            .Jump(0x75, "superDone");                               // jne superDone
+            .Bytes([0x3D], SuperShotButtons);                       // cmp eax,L1|R1
+        GiveUp(0x74, "superHeld");                                  // je superHeld ; jmp superDone
         if (diagnosis) code.Bytes(Flag(2));
         code.Bytes(0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [esi+0x12] ; and ecx,1 ; team
-            .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
-            .Jump(0x72, "superDone");                               // jb superDone          ; not a human team
+            .Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore]);  // cmp byte [ecx+scores],HumanScore
+        GiveUp(0x73, "superHuman");                                 // jae superHuman ; jmp superDone ; not a human team
         if (diagnosis) code.Bytes(Flag(4));
         // a star's shot (shot accuracy stat) keeps extra weight while it flies: it rises, then dips under the bar
         if (fix.HeavyState != 0 && fix.Weight > 0)

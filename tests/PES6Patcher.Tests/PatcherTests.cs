@@ -496,6 +496,10 @@ public class PatcherTests(ITestOutputHelper output)
         byte[] weight = [.. BitConverter.GetBytes(PatchOptions.DefaultSuperShotWeight), 0x50, 0xDB, 0x04, 0x24, 0xD8, 0x0D];
         Assert.True(built.AsSpan().IndexOf(weight) > 0);
         Assert.True(ExePatcher.Build(original, options with { FreeKick = true }).AsSpan().IndexOf(weight) > 0);
+        // everything on at once: the longest the block gets, where its jumps to the end stopped being short ones
+        var every = ExePatcher.Build(original, options with { FreeKick = true, SuperShotDebug = true, ShotPower = 80, ShotAccuracy = 50, Headers = 70 });
+        Assert.True(every.AsSpan().IndexOf(star) > 0);
+        Assert.True(every.AsSpan().IndexOf(weight) > 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShotWeight = 200 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShotStar = 50 }));
     }
