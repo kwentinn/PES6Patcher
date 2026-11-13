@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, decimal CloseDribbleStrength, bool CloseDribbleStrengthDebug, bool AccelerationGap, bool Headers, decimal HeadersPercent, bool HeadersDebug, bool SuperShot, decimal SuperShotPercent, decimal SuperShotSpeed, bool SuperShotDebug, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, decimal CloseDribbleStrength, bool CloseDribbleStrengthDebug, bool AccelerationGap, bool Headers, decimal HeadersPercent, bool HeadersDebug, bool SuperShot, decimal SuperShotPercent, decimal SuperShotSpeed, decimal SuperShotWeight, decimal SuperShotStar, bool SuperShotDebug, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -135,6 +135,16 @@ internal sealed class MainForm : Form
         Minimum = PatchOptions.MinSuperShotSpeed, Maximum = PatchOptions.MaxSuperShotSpeed, Increment = 1000,
         Value = PatchOptions.DefaultSuperShotSpeed, Width = 72, Enabled = false, Margin = new Padding(22, 3, 3, 3),
     };
+    private readonly NumericUpDown _superShotWeight = new()
+    {
+        Minimum = PatchOptions.MinSuperShotWeight, Maximum = PatchOptions.MaxSuperShotWeight, Increment = 5,
+        Value = PatchOptions.DefaultSuperShotWeight, Width = 60, Enabled = false, Margin = new Padding(22, 3, 3, 3),
+    };
+    private readonly NumericUpDown _superShotStar = new()
+    {
+        Minimum = PatchOptions.MinSuperShotStar, Maximum = PatchOptions.MaxSuperShotStar, Increment = 1,
+        Value = PatchOptions.DefaultSuperShotStar, Width = 60, Enabled = false, Margin = new Padding(22, 3, 3, 3),
+    };
     private readonly CheckBox _superShotDebug = new() { Text = Loc.T("Gameplay.SuperShotDebug"), AutoSize = true, Enabled = false, Margin = new Padding(22, 0, 3, 3) };
     // shown visibly, as the physics mod's licence asks
     private readonly LinkLabel _physicsCredit = new() { Text = PhysicsMod.Credit, AutoSize = true, Margin = new Padding(22, 0, 3, 3) };
@@ -188,8 +198,8 @@ internal sealed class MainForm : Form
         _passLead.CheckedChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
         _headers.EnabledChanged += (_, _) => _headersPercent.Enabled = _headersDebug.Enabled = _headers.Enabled && _headers.Checked;
         _headers.CheckedChanged += (_, _) => _headersPercent.Enabled = _headersDebug.Enabled = _headers.Enabled && _headers.Checked;
-        _superShot.EnabledChanged += (_, _) => _superShotPercent.Enabled = _superShotSpeed.Enabled = _superShotDebug.Enabled = _superShot.Enabled && _superShot.Checked;
-        _superShot.CheckedChanged += (_, _) => _superShotPercent.Enabled = _superShotSpeed.Enabled = _superShotDebug.Enabled = _superShot.Enabled && _superShot.Checked;
+        _superShot.EnabledChanged += (_, _) => _superShotPercent.Enabled = _superShotSpeed.Enabled = _superShotWeight.Enabled = _superShotStar.Enabled = _superShotDebug.Enabled = _superShot.Enabled && _superShot.Checked;
+        _superShot.CheckedChanged += (_, _) => _superShotPercent.Enabled = _superShotSpeed.Enabled = _superShotWeight.Enabled = _superShotStar.Enabled = _superShotDebug.Enabled = _superShot.Enabled && _superShot.Checked;
         // "check all": a click sets every available option; it shows as checked when they all are
         _checkAll.Click += (_, _) =>
         {
@@ -248,6 +258,8 @@ internal sealed class MainForm : Form
             _headersDebug,
             Flow(_superShot, _superShotPercent, LabelText(Loc.T("Gameplay.SuperShotPercent"))),
             Flow(_superShotSpeed, LabelText(Loc.T("Gameplay.SuperShotSpeed"))),
+            Flow(_superShotWeight, LabelText(Loc.T("Gameplay.SuperShotWeight"))),
+            Flow(_superShotStar, LabelText(Loc.T("Gameplay.SuperShotStar"))),
             _superShotDebug,
             Theme("Gameplay.Theme.Passing"),
             _loftedAim,
@@ -358,6 +370,8 @@ internal sealed class MainForm : Form
             _superShot.Checked = previous.SuperShot;
             _superShotPercent.Value = previous.SuperShotPercent;
             _superShotSpeed.Value = previous.SuperShotSpeed;
+            _superShotWeight.Value = previous.SuperShotWeight;
+            _superShotStar.Value = previous.SuperShotStar;
             _superShotDebug.Checked = previous.SuperShotDebug;
             _stickDeadZone.Checked = previous.StickDeadZone;
             _stickDeadZonePercent.Value = previous.StickDeadZonePercent;
@@ -397,7 +411,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotWeight.Value, _superShotStar.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -415,7 +429,7 @@ internal sealed class MainForm : Form
             SpeedGapDebug: _speedGapDebug.Checked, SprintTurn: _sprintTurn.Enabled && _sprintTurn.Checked ? (int)_sprintTurnDegrees.Value : 0,
             LobPower: (int)_lobPower.Value, Headers: _headers.Enabled && _headers.Checked ? (int)_headersPercent.Value : 100, HeadersDebug: _headersDebug.Checked,
             SuperShot: _superShot.Enabled && _superShot.Checked ? (int)_superShotPercent.Value : 0, SuperShotDebug: _superShotDebug.Checked,
-            SuperShotSpeed: (int)_superShotSpeed.Value,
+            SuperShotSpeed: (int)_superShotSpeed.Value, SuperShotWeight: (int)_superShotWeight.Value, SuperShotStar: (int)_superShotStar.Value,
             SprintTurnDebug: _sprintTurnDebug.Checked, Tackle: _tackle.Enabled && _tackle.Checked ? (int)_tacklePercent.Value : 100,
             TackleDebug: _tackleDebug.Checked, LoftedAim: _loftedAim.Enabled && _loftedAim.Checked,
             PassLead: _passLead.Enabled && _passLead.Checked ? (int)_passLeadPercent.Value : 100, PassLeadDebug: _passLeadDebug.Checked,
@@ -673,6 +687,8 @@ internal sealed class MainForm : Form
         _superShot.Checked = s.SuperShot > 0;
         if (_superShot.Checked) Set(_superShotPercent, s.SuperShot);
         Set(_superShotSpeed, s.SuperShotSpeed);
+        Set(_superShotWeight, s.SuperShotWeight);
+        Set(_superShotStar, s.SuperShotStar);
         _superShotDebug.Checked = s.SuperShotDebug;
         _skipIntro.Checked = s.SkipIntro;
         UpdateFormatInfo();

@@ -27,6 +27,8 @@ public class GameplayPresetsTests
         var (normal, pro, hardcore) = (Apply(GameplayPreset.Normal), Apply(GameplayPreset.Pro), Apply(GameplayPreset.Hardcore));
         Assert.True(normal.SuperShot < pro.SuperShot && pro.SuperShot < hardcore.SuperShot);
         Assert.True(normal.SuperShotSpeed > pro.SuperShotSpeed && pro.SuperShotSpeed > hardcore.SuperShotSpeed);
+        Assert.True(normal.SuperShotWeight < pro.SuperShotWeight && pro.SuperShotWeight < hardcore.SuperShotWeight);
+        Assert.True(normal.SuperShotStar < pro.SuperShotStar && pro.SuperShotStar < hardcore.SuperShotStar);
         static InstallSettings Apply(GameplayPreset preset) => GameplayPresets.Apply(Start, preset);
     }
 
@@ -62,6 +64,8 @@ public class GameplayPresetsTests
             Assert.InRange(s.Headers, PatchOptions.MinHeaders, PatchOptions.MaxHeaders - 1);
             Assert.InRange(s.SuperShot, PatchOptions.MinSuperShot, PatchOptions.MaxSuperShot);
             Assert.InRange(s.SuperShotSpeed, PatchOptions.MinSuperShotSpeed, PatchOptions.MaxSuperShotSpeed);
+            Assert.InRange(s.SuperShotWeight, PatchOptions.MinSuperShotWeight, PatchOptions.MaxSuperShotWeight);
+            Assert.InRange(s.SuperShotStar, PatchOptions.MinSuperShotStar, PatchOptions.MaxSuperShotStar);
         }
     }
 }

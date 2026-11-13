@@ -495,6 +495,15 @@
   <data name="Gameplay.SuperShotSpeed" xml:space="preserve">
     <value>ball speed (the game's hardest shots: about 30700)</value>
   </data>
+  <data name="Gameplay.SuperShotWeight" xml:space="preserve">
+    <value>% extra ball weight in flight, for a star (0 = none)</value>
+  </data>
+  <data name="Gameplay.SuperShotStar" xml:space="preserve">
+    <value>from this shot accuracy</value>
+  </data>
+  <data name="Log.SuperShotWeight" xml:space="preserve">
+    <value>Super shot of a star (shot accuracy {1} and above): the ball keeps {0} % more weight while it flies, so it rises over the defenders and dips under the bar.</value>
+  </data>
   <data name="Gameplay.SuperShotDebug" xml:space="preserve">
     <value>Test: F12 in a match changes it (+2)</value>
   </data>

@@ -450,17 +450,15 @@ public class PatcherTests(ITestOutputHelper output)
         var original = Load("PES6.orig.exe");
         if (original == null) return;
 
-        var options = new PatchOptions(398, FreeDirection: false, Display: false);
-        // mov esi,[esp+0x24] ; mov al,[esi+0x16] ; and al,0xFE ; cmp al,4 : a shot (player state 4 standing, 5 running)
-        byte[] shot = [0x8B, 0x74, 0x24, 0x24, 0x8A, 0x46, 0x16, 0x24, 0xFE, 0x3C, 0x04, 0x75];
+        var options = new PatchOptions(398, FreeDirection: false, Display: false, SuperShotWeight: 0);
+        // mov esi,[esp+0x24] ; cmp dword [esp+0x20],... : the kick comes from the shot function, not from a pass
+        byte[] shot = [0x8B, 0x74, 0x24, 0x24, 0x81, 0x7C, 0x24, 0x20];
         Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(shot) < 0);
 
         var built = ExePatcher.Build(original, options with { SuperShot = 14 });
         int at = built.AsSpan().IndexOf(shot);
         Assert.True(at > 0);
         var body = built.AsSpan(at, 110);
-        // cmp dword [esp+0x34],0 : the kick's 5th argument, 0 for a shot and 1 for a pass
-        Assert.True(body.IndexOf(new byte[] { 0x83, 0x7C, 0x24, 0x34, 0x00, 0x75 }) > 0);
         // mov eax,[esi+0xB0] ; and eax,0x01000C00 ; cmp eax,0x01000C00 (L1 and a right shoulder, measured at the kick)
         Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x0C, 0x00, 0x01, 0x3D, 0x00, 0x0C, 0x00, 0x01 }) > 0);
         Assert.True(body.IndexOf(new byte[] { 0xB9, 14, 0, 0, 0 }) > 0);                // mov ecx,14 (the height)
@@ -478,7 +476,28 @@ public class PatcherTests(ITestOutputHelper output)
         var debug = ExePatcher.Build(original, options with { SuperShot = 14, SuperShotDebug = true });
         Assert.True(debug.AsSpan().IndexOf(new byte[] { 0x6A, CodeCaves.SuperShotKey, 0xFF, 0x15 }) > 0);   // F12 is read
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 3 }));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 50 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 70 }));
+    }
+
+    [Fact]
+    public void A_stars_super_shot_keeps_extra_weight_while_it_flies()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var options = new PatchOptions(398, FreeDirection: false, Display: false, SuperShot: 46);
+        // movzx eax,byte [eax+shot accuracy] ; and eax,0x7F ; cmp eax,star : only a star gets the dipping ball
+        byte[] star = [0x83, 0xE0, 0x7F, 0x83, 0xF8, PatchOptions.DefaultSuperShotStar, 0x72];
+        Assert.True(ExePatcher.Build(original, options with { SuperShotWeight = 0 }).AsSpan().IndexOf(star) < 0);
+
+        var built = ExePatcher.Build(original, options);
+        Assert.True(built.AsSpan().IndexOf(star) > 0);
+        // mov eax,percent ; push eax ; fild dword [esp] ; fmul dword [unit] ; faddp st(1),st
+        byte[] weight = [.. BitConverter.GetBytes(PatchOptions.DefaultSuperShotWeight), 0x50, 0xDB, 0x04, 0x24, 0xD8, 0x0D];
+        Assert.True(built.AsSpan().IndexOf(weight) > 0);
+        Assert.True(ExePatcher.Build(original, options with { FreeKick = true }).AsSpan().IndexOf(weight) > 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShotWeight = 200 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShotStar = 50 }));
     }
 
     [Fact]
@@ -501,8 +520,8 @@ public class PatcherTests(ITestOutputHelper output)
         var image = new PeImage(built);
         foreach (int site in sites.ButtonReads) Assert.Equal(0xE8, built[image.Offset(site)]);
         Assert.Equal(0xE9, built[image.Offset(sites.ButtonRebuild)]);
-        // the cave: mov eax,[esi+0xB0] ; cmp byte [flag],1 ; jne ; and eax,~0x400
-        byte[] hide = [0x8B, 0x86, 0xB0, 0, 0, 0, 0x80, 0x3D];
+        // the cave: mov eax,[esi+0xB0] ; cmp esi,[flag] ; jne ; and eax,~0x400 (the flag holds the shooter)
+        byte[] hide = [0x8B, 0x86, 0xB0, 0, 0, 0, 0x3B, 0x35];
         int cave = built.AsSpan().IndexOf(hide);
         Assert.True(cave > 0);
         Assert.True(built.AsSpan(cave, 24).IndexOf(new byte[] { 0x25, 0xFF, 0xFB, 0xFF, 0xFF }) > 0);
