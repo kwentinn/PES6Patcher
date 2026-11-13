@@ -299,14 +299,11 @@ internal static class CodeCaves
     public static TestKey SuperShotTestKey(int height, int texts, int stride) =>
         new(SuperShotKey, SuperShotState, height, PatchOptions.MinSuperShot, PatchOptions.MaxSuperShot, texts, stride, SuperShotStep);
 
-    /// <summary>Super shot of the human teams: its <see cref="Height"/>; <see cref="StateAddress"/> is the F12 word (0 = no test key).</summary>
-    public sealed record SuperShotFix(int Height, int StateAddress);
-
     /// <summary>
-    /// Speed given to a super shot. The game's own shots peak around 30 700 (the strong shots measured in game got
-    /// 18 000 to 23 000), and the kick function takes more: 36 300 was tried in memory and felt right, 40 000 too fast.
+    /// Super shot of the human teams: its <see cref="Speed"/> and <see cref="Height"/>, both in the kick function's
+    /// units; <see cref="StateAddress"/> is the F12 word of the height (0 = no test key).
     /// </summary>
-    public const int SuperShotSpeed = 36300;
+    public sealed record SuperShotFix(int Speed, int Height, int StateAddress);
 
     /// <summary>
     /// Buttons held in the player (+0xB0) at the kick: L1 (0x400, the lob button) and a right shoulder (0x01000800).
@@ -317,7 +314,7 @@ internal static class CodeCaves
 
     /// <summary>
     /// Super shot (prototype): at the kick function's entry, a shot (player state 4) of a human team whose shooter holds
-    /// L1 and R1 (a lob) is made flat and fast: its speed goes to <see cref="SuperShotSpeed"/> and its height to <see cref="SuperShotFix.Height"/>.
+    /// L1 and R1 leaves at <see cref="SuperShotFix.Speed"/> and <see cref="SuperShotFix.Height"/> (the F12 value when set).
     /// </summary>
     private static void EmitSuperShot(CodeBuilder code, ShotSites humans, SuperShotFix fix)
     {
@@ -350,8 +347,8 @@ internal static class CodeCaves
                 .Mark("superHeight");
         else
             code.Bytes([0xB9], fix.Height);                         // mov ecx,height
-        // flat and fast: the speed argument goes to the top, the height argument to the chosen (low) value
-        code.Bytes([0xC7, 0x44, 0x24, 0x2C], SuperShotSpeed)        // mov dword [esp+0x2C],speed
+        // the speed and height arguments both take the chosen values (the lob itself is dropped elsewhere, see LobSuppression)
+        code.Bytes([0xC7, 0x44, 0x24, 0x2C], fix.Speed)             // mov dword [esp+0x2C],speed
             .Bytes(0x89, 0x4C, 0x24, 0x30)                          // mov [esp+0x30],ecx    ; height
             .Mark("superDone")
             .Bytes(0x61);                                           // popad

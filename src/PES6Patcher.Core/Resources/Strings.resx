@@ -492,6 +492,9 @@
   <data name="Gameplay.SuperShotPercent" xml:space="preserve">
     <value>ball height (the game's shots: 13 to 35)</value>
   </data>
+  <data name="Gameplay.SuperShotSpeed" xml:space="preserve">
+    <value>ball speed (the game's hardest shots: about 30700)</value>
+  </data>
   <data name="Gameplay.SuperShotDebug" xml:space="preserve">
     <value>Test: F12 in a match changes it (+2)</value>
   </data>
@@ -502,7 +505,7 @@
     <value>SUPER SHOT HEIGHT: {0} (F12)</value>
   </data>
   <data name="Log.SuperShot" xml:space="preserve">
-    <value>Super shot (experimental): a shot of the human teams taken with L1 and R1 held is no longer a lob, and leaves at height {0}, faster than the game&apos;s hardest shot.</value>
+    <value>Super shot (experimental): a shot of the human teams taken with L1 and R1 held is no longer a lob, and leaves at a speed of {0} (the game&apos;s hardest shots: about 30700) and a height of {1}.</value>
   </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Smaller analog stick dead zone:</value>

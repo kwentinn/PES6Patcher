@@ -462,8 +462,14 @@ public class PatcherTests(ITestOutputHelper output)
         // mov eax,[esi+0xB0] ; and eax,0x01000C00 ; cmp eax,0x01000C00 (L1 and a right shoulder, measured at the kick)
         Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x0C, 0x00, 0x01, 0x3D, 0x00, 0x0C, 0x00, 0x01 }) > 0);
         Assert.True(body.IndexOf(new byte[] { 0xB9, 14, 0, 0, 0 }) > 0);                // mov ecx,14 (the height)
-        byte[] speed = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(CodeCaves.SuperShotSpeed)];   // mov dword [esp+0x2C],speed
+        byte[] speed = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(PatchOptions.DefaultSuperShotSpeed)];   // mov dword [esp+0x2C],speed
         Assert.True(body.IndexOf(speed) > 0);
+        // the speed is a setting of its own
+        var faster = ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 42000 });
+        byte[] chosen = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(42000)];
+        Assert.True(faster.AsSpan().IndexOf(chosen) > 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 9000 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 70000 }));
         Assert.True(body.IndexOf(new byte[] { 0x89, 0x4C, 0x24, 0x30 }) > 0);           // mov [esp+0x30],ecx
         Assert.Equal(0xE9, built[new PeImage(built).Offset(0x478020)]);
 
