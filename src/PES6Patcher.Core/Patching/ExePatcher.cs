@@ -90,10 +90,10 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
     /// <summary>
     /// Super shot: the speed it leaves at, in the kick function's units. The game's own shots peak around 30 700
-    /// (strong shots measured in game got 18 463 to 23 011), and the kick function takes more: 36 300 was validated
-    /// in a match, 40 000 felt too fast.
+    /// (strong shots measured in game got 18 463 to 23 011), and the kick function takes more: 36 300 was tried in a
+    /// match and still lacked bite, 38 000 settled on, 40 000 felt too fast.
     /// </summary>
-    public const int DefaultSuperShotSpeed = 36300, MinSuperShotSpeed = 20000, MaxSuperShotSpeed = 60000;
+    public const int DefaultSuperShotSpeed = 38000, MinSuperShotSpeed = 20000, MaxSuperShotSpeed = 60000;
 
     /// <summary>
     /// Super shot of a star: extra ball weight while it flies, in % of the game's weight (0 = none), and the shot
