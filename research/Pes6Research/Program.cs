@@ -23,6 +23,9 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     // unattended runs in a CPU-vs-CPU match
     ["ab"] = (AbCommand.Run, [], AbCommand.Usage),
     ["scoreprobe"] = (ScoreProbeCommand.Run, [], ScoreProbeCommand.Usage),
+    // windows
+    ["window"] = (WindowCommands.Window, [], WindowCommands.WindowUsage),
+    ["capture"] = (WindowCommands.Capture, [], WindowCommands.CaptureUsage),
     // files (the game need not run)
     ["depth"] = (DepthCommand.Run, [], DepthCommand.Usage),
     ["findref"] = (ExeCommands.FindRef, [], ExeCommands.FindRefUsage),

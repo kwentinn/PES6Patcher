@@ -10,6 +10,8 @@
     <AssemblyName>pes6r</AssemblyName>
     <RootNamespace>Pes6Research</RootNamespace>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- System.Drawing, for capture (PNG) -->
+    <UseWindowsForms>true</UseWindowsForms>
     <OutputPath>bin\</OutputPath>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>

@@ -223,6 +223,8 @@ They are moving one by one into a C# console tool, [`Pes6Research`](Pes6Research
 | `pes6r hits -Addresses 0x404338,0x4043A3 [-Seconds 3]` | `pes6hits.ps1` | debugger: how many times up to 4 addresses run; callers, EDI and first argument of the first |
 | `pes6r watch -Address 0x3BECC84 [-Seconds 4] [-Read]` | `pes6watch.ps1` | debugger: the instructions that write (or with `-Read` use) an address |
 | `pes6r viewport [-Seconds 3]` | `pes6viewport.ps1` | debugger: the Direct3D `SetViewport` calls |
+| `pes6r window` | `pes6window.ps1` | geometry and DPI handling of the game's windows, in physical pixels |
+| `pes6r capture [-Out shot.png]` | `capture-window.ps1` | screenshot of the main window, even behind others; `-Process PES6Patcher` for the app |
 
 The four debugger commands share one module (they were four copies of it), detach on Ctrl+C too, and stop when the game closes. Checked against the scripts in a live match on 2026-11-14 (same instructions, callers and columns; the game kept running after 8 short sessions). Keep the sessions short.
 
@@ -248,7 +250,7 @@ Every command takes `-Process <name>` to read another process than PES6.
 | `pes6r stick` | memory capture guided by beeps (stick at rest, right, up), which led to the controller state |
 | `pes6r heading` | measures the players' real heading against the stick angle, with and without the free direction |
 | `pes6r turnlog` | beep-guided log of the ball carrier (state, animation, frame, headings, speed, ball direction): one CSV line per change, which showed the sprint turn steps |
-| `pes6window.ps1`, `capture-window.ps1` | geometry and screenshot of the game's or the app's window |
+| `pes6r window`, `pes6r capture` | geometry and screenshot of the game's or the app's window |
 | `make-signatures.ps1` | builds a location's signature: the surrounding bytes, with absolute addresses and call targets masked, extended until they appear only once in the code |
 | `StringRefs.java` | Ghidra script: decompiles the functions that use a string (for example the Kitserver version names in `kload.dll`) |
 | `set-resx.ps1` | adds, changes or removes texts in the English and French resources |

@@ -223,6 +223,8 @@ Ils passent un par un dans un outil console C#, [`Pes6Research`](Pes6Research) (
 | `pes6r hits -Addresses 0x404338,0x4043A3 [-Seconds 3]` | `pes6hits.ps1` | débogueur : combien de fois jusqu'à 4 adresses s'exécutent ; appelants, EDI et premier argument de la première |
 | `pes6r watch -Address 0x3BECC84 [-Seconds 4] [-Read]` | `pes6watch.ps1` | débogueur : les instructions qui écrivent (ou avec `-Read` utilisent) une adresse |
 | `pes6r viewport [-Seconds 3]` | `pes6viewport.ps1` | débogueur : les appels Direct3D `SetViewport` |
+| `pes6r window` | `pes6window.ps1` | géométrie et prise en compte du DPI des fenêtres du jeu, en pixels physiques |
+| `pes6r capture [-Out shot.png]` | `capture-window.ps1` | capture de la fenêtre principale, même derrière d'autres ; `-Process PES6Patcher` pour l'application |
 
 Les quatre commandes du débogueur partagent un seul module (c'étaient quatre copies), se détachent aussi sur Ctrl+C et s'arrêtent quand le jeu se ferme. Comparées aux scripts pendant un match le 14/11/2026 (mêmes instructions, appelants et colonnes ; le jeu a continué de tourner après 8 sessions courtes). Garder les sessions courtes.
 
@@ -248,7 +250,7 @@ Chaque commande accepte `-Process <nom>` pour lire un autre processus que PES6.
 | `pes6r stick` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
 | `pes6r heading` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
 | `pes6r turnlog` | relevé du porteur du ballon guidé par des bips (état, animation, image, orientations, vitesse, direction du ballon) : une ligne CSV à chaque changement, qui a montré les crans de virage en sprint |
-| `pes6window.ps1`, `capture-window.ps1` | géométrie et capture de la fenêtre du jeu ou de l'application |
+| `pes6r window`, `pes6r capture` | géométrie et capture de la fenêtre du jeu ou de l'application |
 | `make-signatures.ps1` | construit la signature d'un emplacement : les octets qui l'entourent, adresses absolues et cibles d'appel masquées, allongés jusqu'à n'apparaître qu'une fois dans le code |
 | `StringRefs.java` | script Ghidra : décompile les fonctions qui utilisent une chaîne (par exemple les noms de versions de Kitserver dans `kload.dll`) |
 | `set-resx.ps1` | ajoute, modifie ou supprime des textes dans les ressources anglaises et françaises |
