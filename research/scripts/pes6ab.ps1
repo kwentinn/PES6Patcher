@@ -21,13 +21,16 @@ $h = [AB]::OpenProcess(0x10, $false, $game.Id)
 function ReadMem([int]$a, [int]$n) { $b = New-Object byte[] $n; $r = 0; [void][AB]::ReadProcessMemory($h, [IntPtr]$a, $b, $n, [ref]$r); ,$b }
 function Avg($v) { if (@($v).Count) { ($v | Measure-Object -Average).Average } else { [double]::NaN } }
 function InMatch {
-    $all = ReadMem (0x3BDC980 + 0x240) (22 * 0x240)
-    $far = 0; for ($i = 0; $i -lt 22; $i++) { if ([math]::Abs([BitConverter]::ToSingle($all, $i * 0x240 + 0xE0)) -gt 1000) { $far++ } }
-    $far -ge 18 -and [math]::Abs([BitConverter]::ToSingle($all, 0xE0)) -gt 9000
+    # the keepers stand near their goals; in the menus the players array is empty
+    $a = [math]::Abs([BitConverter]::ToSingle((ReadMem (0x3BDC980 + 0x240 + 0xE0) 4), 0))
+    $b = [math]::Abs([BitConverter]::ToSingle((ReadMem (0x3BDC980 + 12 * 0x240 + 0xE0) 4), 0))
+    $a -gt 8000 -and $b -gt 8000
 }
 function Patch([string]$verb, [string]$name, [switch]$Force) {
     if (-not $name) { return }
-    if ($Force) { & $patchTool $verb $name -Force } else { & $patchTool $verb $name }
+    $on = $verb -eq '-Apply'
+    if ($Force) { if ($on) { & $patchTool -Apply $name -Force } else { & $patchTool -Revert $name -Force } }
+    elseif ($on) { & $patchTool -Apply $name } else { & $patchTool -Revert $name }
 }
 
 # 1. wait for a match
@@ -43,6 +46,7 @@ Start-Sleep -Seconds 5   # past the kick-off set-up
 Write-Host 'Match found.'
 
 $rows = New-Object System.Collections.Generic.List[object]
+$lost = $null
 $sw = [Diagnostics.Stopwatch]::StartNew()
 try {
     for ($c = 0; $c -lt $Cycles; $c++) {
@@ -53,7 +57,7 @@ try {
             $phaseStart = $sw.Elapsed.TotalSeconds
             while ($sw.Elapsed.TotalSeconds - $phaseStart -lt $Phase) {
                 $t0 = $sw.ElapsedMilliseconds
-                if (-not (InMatch)) { throw 'the match ended' }
+                if (InMatch) { $lost = $null } elseif (-not $lost) { $lost = $sw.Elapsed.TotalSeconds } elseif ($sw.Elapsed.TotalSeconds - $lost -gt 20) { throw 'the match ended' }
                 $carrier = (ReadMem 0x3BE09CC 1)[0]
                 $bp = [BitConverter]::ToInt32((ReadMem 0xBCCE94 4), 0); $bx = [BitConverter]::ToSingle((ReadMem ($bp + 0x10) 4), 0)
                 $all = ReadMem (0x3BDC980 + 0x240) (22 * 0x240)
