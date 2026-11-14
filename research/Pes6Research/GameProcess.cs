@@ -39,6 +39,14 @@ sealed class GameProcess : IDisposable
         return b;
     }
 
+    /// <summary>The bytes, or zeros when the range cannot be read (as the scripts read: a null pointer gives zeros).</summary>
+    public byte[] ReadOrZero(uint address, int length)
+    {
+        var b = new byte[length];
+        if (address == 0 || !TryRead(address, b)) Array.Clear(b);
+        return b;
+    }
+
     public uint ReadU32(uint address) => BitConverter.ToUInt32(Read(address, 4));
     public byte ReadU8(uint address) => Read(address, 1)[0];
 

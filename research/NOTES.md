@@ -101,7 +101,7 @@ Each option is a hook: a few bytes of the game replaced by a jump to added code 
 
 ### Sharp turns when sprinting
 
-Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's fields) and execute breakpoints:
+Measured with `pes6r turnlog` (one line per change of the ball carrier's fields) and execute breakpoints:
 
 - Running with the ball, a stride lasts about 26 frames (0.46 s, animations 65/66) with one touch near frame 7; the stick's new direction is only taken at the next stride. Sprinting, a stride lasts about 0.67 s (animations 29/30 = `0x1D`/`0x1E`). A turn of more than 112° goes through a turning animation (552, about 0.65 s).
 - The sprint stride starts in `0x4E2830` (called from `0x5B7954` when the sprint button is held, `0x4DCBB0` otherwise). It compares the stick direction (`0x4B3010`) with the facing `+0x26`, in 1/256 of a turn: below 8 nothing happens, from `0x50` (112°) the turning animation is used. Otherwise:
@@ -109,12 +109,12 @@ Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's field
   - the **ball's direction** is computed at `0x4E2AFF`: `0x4970F0` (turn a direction towards another by at most a given angle) from the facing rounded to 22.5° (`(+0x26 + 0x800) & 0xF000`) towards the stick, by at most `0x1000` (`push 1000h` at `0x4E2AE6`). Logged at the touch (relay call at `0x5AFB3B`, direction from `[player+0x30]`): `0xA000`, `0xB000`, `0xC000`… exactly one 22.5° step per touch, whatever the stick asked. **That step is what makes the turns go "by stages".**
 - The player then runs after the ball: `0x5AFD45` points `+0x2C` every frame at the ball's predicted position.
 - **Sharper turns when sprinting** replaces the `push 1000h` by the maximum turn of the carrier: 22.5° up to 65 in dribble accuracy (the game's), the chosen maximum (90° by default) from 95, in proportion between. A touch that turns the ball more than 22.5° from its current direction (`[ball+0x58]`) also turns the player's run (`+0x28`) and facing (`+0x26`, `+0x42`) to the touch direction, at both sprint touches: `0x5AFB32` (animation 29) and `0x5AFE5C` (animation 30, the other foot: `xor ecx,ecx ; mov cx,[edi+0x30] ; add esp,0Ch` before the relay call). Until 1.18 only the first was hooked, with a speed loss of up to 40 % instead: on the other foot's touch the player finished his stride straight and only turned at the next one, about 300 ms late. A slowdown of the ball and the player from 45° was tried (30 %, then 15 % at 90°) and dropped with the next point. Snapping the facing at the touch makes the animation jump, so the sprint stride now hands turns from 45° to the normal dribble stride (`cmp ax,50h` at `0x4E287C` → `20h`), which plays the turning animation: validated in game.
-- With those wider touches, the player drifted away from the ball: logged with `pes6driftlog.ps1` (positions of the carrier and the ball every frame), a 45° touch leaves the ball at once while the run direction `+0x28` turns about 15° in half a second, and the gap grows from 100 to 500-700 until the next turning animation. A write breakpoint on the carrier's `+0x28` shows why: running with the ball, `0x497140` turns the facing towards its target by at most `0x100` (1.4°) per frame (`push 100h` at `0x4C2088`, then `+0x26`, `+0x28`, `+0x42` are written; `add ecx,100h` at `0x4C25C9` in another path). **The player turns faster with the ball** raises both steps (22° per frame by default). Tested in memory at 4, 8 and 16 times the game's: 16 felt best. Another with-ball path turns by `0x300` (`push 300h` at `0x4C214A`); it is left as it is.
+- With those wider touches, the player drifted away from the ball: logged with `pes6r driftlog` (positions of the carrier and the ball every frame), a 45° touch leaves the ball at once while the run direction `+0x28` turns about 15° in half a second, and the gap grows from 100 to 500-700 until the next turning animation. A write breakpoint on the carrier's `+0x28` shows why: running with the ball, `0x497140` turns the facing towards its target by at most `0x100` (1.4°) per frame (`push 100h` at `0x4C2088`, then `+0x26`, `+0x28`, `+0x42` are written; `add ecx,100h` at `0x4C25C9` in another path). **The player turns faster with the ball** raises both steps (22° per frame by default). Tested in memory at 4, 8 and 16 times the game's: 16 felt best. Another with-ball path turns by `0x300` (`push 300h` at `0x4C214A`); it is left as it is.
 - Tried and dropped: raising the `push 2Dh` (45°) of other strides (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70`: they never run while dribbling); raising the 15° and 25° steps (no effect: the protected code ignores them); forcing the player's direction to the stick's (`0x4E2A7E`: the body turns, the ball does not) or to the touch's (`0x4E2B04`: the animation jumps, and with the ball change the player stops turning).
 
 ### Stick dead zone
 
-Measured with `pes6turnlog.ps1` while dribbling right and nudging the stick up and down, then with write breakpoints:
+Measured with `pes6r turnlog` while dribbling right and nudging the stick up and down, then with write breakpoints:
 
 - The stick angle (`0x1016680` + pad × 4) never takes a value within about 16° of 0°, 90°, 180° or 270°: it stays exactly on the axis, then jumps to 16-17°. So the player keeps running along a line, whatever the free direction code does with the angle.
 - The angle is written at `0x4B23E7` from 4 axis bytes per pad (`0x3BCEE51`…, one byte per half axis), through an arctangent; there, both axes under `0x19` give the centre dead zone.
@@ -212,6 +212,13 @@ They are moving one by one into a C# console tool, [`Pes6Research`](Pes6Research
 | `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | back line by ball zone from a `positions` CSV (`t`: the players' targets); writes `<in>-<field>-teams.csv` with a decimal point |
 | `pes6r findref -Exe PES6.exe.orig -Values 0x3BCDCAE,0x3BE0A6E` | `pes6findref.ps1` | on the exe file: the places holding a 32-bit value (0.1 s instead of 3.6) |
 | `pes6r readva -Exe PES6.exe.orig -Addresses 0xB8C10C,0x5E23FC [-Length 8]` | `pes6readva.ps1` | on the exe file: float, int32 and bytes at virtual addresses |
+| `pes6r shape [-Seconds 90] [-Every 250] [-Out shape.csv]` | `pes6shape.ps1` | team shape out of possession by ball zone |
+| `pes6r driftlog [-Seconds 30] [-Out drift.csv] [-StartDelay 3]` | `pes6driftlog.ps1` | the carrier and the ball every ~5 ms while the carrier moves |
+| `pes6r turnlog [-Seconds 30] [-Out turn.csv] [-StartDelay 5]` | `pes6turnlog.ps1` | one line per change of the carrier's fields; sleeps 1 ms between reads instead of spinning a core, and still catches every frame |
+| `pes6r heading -Players 0x3BDD700,0x3BDDB80 [-Seconds 10]` | `pes6heading.ps1` | the players' heading against the stick angle; 10 samples a second, as asked (the script took 9) |
+| `pes6r stick [-StartDelay 5] [-Hold 3] [-Out stick.txt]` | `pes6stick.ps1` | memory that follows the stick, guided by beeps |
+
+The commands guided by beeps (high: start, low: end) stop cleanly on Ctrl+C and when the game closes, and keep what they logged.
 
 Every command takes `-Process <name>` to read another process than PES6.
 
@@ -221,16 +228,16 @@ Every command takes `-Process <name>` to read another process than PES6.
 | `pes6r code`, `pes6r dump` | read or change bytes in the running game (memory only) |
 | `pes6r patch`, `patches.json` | named memory patches in the running game: `-List`, `-Apply name`, `-Revert name`, `-RevertAll`; the original bytes are checked first, so nothing is written over another patch or build. Add an entry to `patches.json` for every idea tried in memory |
 | `pes6r players`, `pes6r positions` | read-only (ReadProcessMemory, no debugger): a snapshot of the 22 players and the ball, or a CSV of them every 100-250 ms for a whole match |
-| `pes6r depth`, `pes6shape.ps1` | from that CSV (or sampling live): height of the back line by ball zone, and the team shape (defenders, midfielders, forwards, length, width) while the opponent has the ball |
+| `pes6r depth`, `pes6r shape` | from that CSV (or sampling live): height of the back line by ball zone, and the team shape (defenders, midfielders, forwards, length, width) while the opponent has the ball |
 | `pes6calls.ps1` | execute breakpoint on a function: every call with its caller and arguments. It attaches the debugger (a trace cave in the exe padding, read with ReadProcessMemory, would avoid it; the game also crashes by itself in the graphics driver, see the note on the defensive line) |
 | `pes6r findref`, `pes6r readva` | work on the exe file (the game need not run): find the code holding an address, read constants at virtual addresses |
 | `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | a persistent Ghidra project of the original exe, in a short path (`-Import` once, about 40 s; `-Decompile 5E1BD0,642A90` about 12 s). The functions created and named are saved in it; add what is learned to `ghidra-labels.csv` and run `-Labels` |
 | `pes6watch.ps1` | hardware write or read breakpoint on an address: which instructions touch it |
 | `pes6hits.ps1` | hardware execute breakpoints: how many times some code runs, with which callers and arguments |
 | `pes6viewport.ps1` | records the `SetViewport` calls (rectangle and caller), which led to the list clipping |
-| `pes6stick.ps1` | memory capture guided by beeps (stick at rest, right, up), which led to the controller state |
-| `pes6heading.ps1` | measures the players' real heading against the stick angle, with and without the free direction |
-| `pes6turnlog.ps1` | beep-guided log of the ball carrier (state, animation, frame, headings, speed, ball direction): one CSV line per change, which showed the sprint turn steps |
+| `pes6r stick` | memory capture guided by beeps (stick at rest, right, up), which led to the controller state |
+| `pes6r heading` | measures the players' real heading against the stick angle, with and without the free direction |
+| `pes6r turnlog` | beep-guided log of the ball carrier (state, animation, frame, headings, speed, ball direction): one CSV line per change, which showed the sprint turn steps |
 | `pes6window.ps1`, `capture-window.ps1` | geometry and screenshot of the game's or the app's window |
 | `make-signatures.ps1` | builds a location's signature: the surrounding bytes, with absolute addresses and call targets masked, extended until they appear only once in the code |
 | `StringRefs.java` | Ghidra script: decompiles the functions that use a string (for example the Kitserver version names in `kload.dll`) |

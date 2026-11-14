@@ -9,6 +9,12 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["patch"] = (PatchCommand.Run, PatchCommand.Switches, PatchCommand.Usage),
     ["players"] = (PlayersCommand.Run, [], PlayersCommand.Usage),
     ["positions"] = (PositionsCommand.Run, [], PositionsCommand.Usage),
+    ["shape"] = (ShapeCommand.Run, [], ShapeCommand.Usage),
+    // guided by beeps while someone plays
+    ["driftlog"] = (CarrierLogCommands.Drift, [], CarrierLogCommands.DriftUsage),
+    ["turnlog"] = (CarrierLogCommands.Turn, [], CarrierLogCommands.TurnUsage),
+    ["heading"] = (HeadingCommand.Run, [], HeadingCommand.Usage),
+    ["stick"] = (StickCommand.Run, [], StickCommand.Usage),
     // files (the game need not run)
     ["depth"] = (DepthCommand.Run, [], DepthCommand.Usage),
     ["findref"] = (ExeCommands.FindRef, [], ExeCommands.FindRefUsage),
