@@ -66,8 +66,31 @@ sealed class HardwareBreakpoints
         finally
         {
             foreach (var t in threads) SetDebugRegisters(t, [], 0);
+            Drain(ev);
             DebugActiveProcessStop(processId);
             Console.CancelKeyPress -= cancel;
+        }
+    }
+
+    /// <summary>
+    /// Before detaching: a thread may have hit a breakpoint just before the registers were cleared, and its single-step event may
+    /// still be queued. Delivered to the game after the detach, nobody would handle it and the game would crash (it did, on a
+    /// function called about 200 times a second). So the queued events are taken and continued here until none comes.
+    /// </summary>
+    static void Drain(byte[] ev)
+    {
+        var clock = Stopwatch.StartNew();
+        while (clock.ElapsedMilliseconds < 2000 && WaitForDebugEvent(ev, 50))
+        {
+            int code = BitConverter.ToInt32(ev, 0), pid = BitConverter.ToInt32(ev, 4), tid = BitConverter.ToInt32(ev, 8);
+            var status = DbgContinue;
+            if (code == ExceptionEvent)
+            {
+                var exception = BitConverter.ToUInt32(ev, 16);
+                if (exception is SingleStep or Wow64SingleStep) SetDebugRegisters(tid, [], 0);   // ours: clear DR6 too, then go on
+                else if (exception is not (Breakpoint or Wow64Breakpoint)) status = DbgExceptionNotHandled;
+            }
+            ContinueDebugEvent(pid, tid, status);
         }
     }
 
