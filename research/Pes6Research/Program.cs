@@ -15,6 +15,11 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["turnlog"] = (CarrierLogCommands.Turn, [], CarrierLogCommands.TurnUsage),
     ["heading"] = (HeadingCommand.Run, [], HeadingCommand.Usage),
     ["stick"] = (StickCommand.Run, [], StickCommand.Usage),
+    // attach the debugger (hardware breakpoints): keep the sessions short
+    ["calls"] = (BreakpointCommands.Calls, [], BreakpointCommands.CallsUsage),
+    ["hits"] = (BreakpointCommands.Hits, [], BreakpointCommands.HitsUsage),
+    ["watch"] = (BreakpointCommands.Watch, ["Read"], BreakpointCommands.WatchUsage),
+    ["viewport"] = (BreakpointCommands.Viewport, [], BreakpointCommands.ViewportUsage),
     // unattended runs in a CPU-vs-CPU match
     ["ab"] = (AbCommand.Run, [], AbCommand.Usage),
     ["scoreprobe"] = (ScoreProbeCommand.Run, [], ScoreProbeCommand.Usage),

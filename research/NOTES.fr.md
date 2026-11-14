@@ -219,6 +219,12 @@ Ils passent un par un dans un outil console C#, [`Pes6Research`](Pes6Research) (
 | `pes6r stick [-StartDelay 5] [-Hold 3] [-Out stick.txt]` | `pes6stick.ps1` | la mémoire qui suit le stick, guidé par des bips |
 | `pes6r ab -Patch defence-line [-Phase 90] [-Cycles 3] [-Settle 10] [-SpeedPatch speed-x2] [-SkipScan 1]` | `pes6ab.ps1` | A/B automatique d'un patch pendant un match ordinateur contre ordinateur à vitesse x2 : ligne arrière par zone du ballon, patch désactivé (A) et activé (B) ; les patchs sont remis aussi sur Ctrl+C, et un mot de ligne que l'octet de côté du gardien ne peut pas indexer donne NaN au lieu d'arrêter le relevé |
 | `pes6r scoreprobe [-Seconds 600] [-SkipScan 1]` | `pes6scoreprobe.ps1` | les valeurs 32 bits d'une zone qui ne font que monter de 1, avec la position du ballon (la recherche des compteurs de score) |
+| `pes6r calls -Address 0x4C9DC0 [-Seconds 10] [-Out calls.csv] [-NArgs 3]` | `pes6calls.ps1` | débogueur : chaque appel d'une fonction, avec le joueur, les arguments et les appelants |
+| `pes6r hits -Addresses 0x404338,0x4043A3 [-Seconds 3]` | `pes6hits.ps1` | débogueur : combien de fois jusqu'à 4 adresses s'exécutent ; appelants, EDI et premier argument de la première |
+| `pes6r watch -Address 0x3BECC84 [-Seconds 4] [-Read]` | `pes6watch.ps1` | débogueur : les instructions qui écrivent (ou avec `-Read` utilisent) une adresse |
+| `pes6r viewport [-Seconds 3]` | `pes6viewport.ps1` | débogueur : les appels Direct3D `SetViewport` |
+
+Les quatre commandes du débogueur partagent un seul module (c'étaient quatre copies), se détachent aussi sur Ctrl+C et s'arrêtent quand le jeu se ferme. Comparées aux scripts pendant un match le 14/11/2026 (mêmes instructions, appelants et colonnes ; le jeu a continué de tourner après 8 sessions courtes). Garder les sessions courtes.
 
 `ab` et `scoreprobe` n'envoient la touche pour passer (Échap, le Start de l'utilisateur) que si la fenêtre du jeu est vraiment passée au premier plan, pour qu'elle n'atterrisse jamais dans une autre fenêtre.
 
@@ -233,12 +239,12 @@ Chaque commande accepte `-Process <nom>` pour lire un autre processus que PES6.
 | `pes6r patch`, `patches.json` | modifications nommées de la mémoire du jeu en cours : `-List`, `-Apply nom`, `-Revert nom`, `-RevertAll` ; les octets d'origine sont vérifiés d'abord, rien n'est écrit par-dessus un autre patch ou une autre version. Ajouter une entrée à `patches.json` pour chaque idée essayée en mémoire |
 | `pes6r players`, `pes6r positions` | en lecture seule (ReadProcessMemory, sans débogueur) : un instantané des 22 joueurs et du ballon, ou un CSV toutes les 100 à 250 ms pendant un match entier |
 | `pes6r depth`, `pes6r shape` | à partir de ce CSV (ou en échantillonnant en direct) : hauteur de la ligne arrière par zone du ballon, et forme de l'équipe (défenseurs, milieux, attaquants, longueur, largeur) quand l'adversaire a le ballon |
-| `pes6calls.ps1` | point d'arrêt d'exécution sur une fonction : chaque appel avec son appelant et ses arguments. Il attache le débogueur (une cave de trace dans le padding de l'exe, lue avec ReadProcessMemory, l'éviterait ; le jeu plante aussi tout seul dans le pilote graphique, voir la note sur la ligne défensive) |
+| `pes6r calls` | point d'arrêt d'exécution sur une fonction : chaque appel avec son appelant et ses arguments. Il attache le débogueur (une cave de trace dans le padding de l'exe, lue avec ReadProcessMemory, l'éviterait ; le jeu plante aussi tout seul dans le pilote graphique, voir la note sur la ligne défensive) |
 | `pes6r findref`, `pes6r readva` | travaillent sur le fichier exe (le jeu n'a pas besoin de tourner) : trouver le code qui contient une adresse, lire des constantes à des adresses virtuelles |
 | `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | un projet Ghidra persistant de l'exe d'origine, dans un chemin court (`-Import` une fois, environ 40 s ; `-Decompile 5E1BD0,642A90` environ 12 s). Les fonctions créées et nommées y sont enregistrées ; ajouter ce qu'on apprend à `ghidra-labels.csv` puis lancer `-Labels` |
-| `pes6watch.ps1` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
-| `pes6hits.ps1` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |
-| `pes6viewport.ps1` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |
+| `pes6r watch` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
+| `pes6r hits` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |
+| `pes6r viewport` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |
 | `pes6r stick` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
 | `pes6r heading` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
 | `pes6r turnlog` | relevé du porteur du ballon guidé par des bips (état, animation, image, orientations, vitesse, direction du ballon) : une ligne CSV à chaque changement, qui a montré les crans de virage en sprint |
@@ -247,7 +253,7 @@ Chaque commande accepte `-Process <nom>` pour lire un autre processus que PES6.
 | `StringRefs.java` | script Ghidra : décompile les fonctions qui utilisent une chaîne (par exemple les noms de versions de Kitserver dans `kload.dll`) |
 | `set-resx.ps1` | ajoute, modifie ou supprime des textes dans les ressources anglaises et françaises |
 
-Les options de gameplay ont surtout été trouvées avec des variantes de `pes6watch.ps1` et `pes6hits.ps1` (plusieurs adresses à la fois, registres et pile relevés à chaque passage), et avec des relevés mémoire des joueurs, du ballon et des stats pendant le jeu, ensuite comparés.
+Les options de gameplay ont surtout été trouvées avec des variantes de `pes6r watch` et `pes6r hits` (plusieurs adresses à la fois, registres et pile relevés à chaque passage), et avec des relevés mémoire des joueurs, du ballon et des stats pendant le jeu, ensuite comparés.
 
 ### Plusieurs versions de l'exe
 

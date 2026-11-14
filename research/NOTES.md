@@ -219,6 +219,12 @@ They are moving one by one into a C# console tool, [`Pes6Research`](Pes6Research
 | `pes6r stick [-StartDelay 5] [-Hold 3] [-Out stick.txt]` | `pes6stick.ps1` | memory that follows the stick, guided by beeps |
 | `pes6r ab -Patch defence-line [-Phase 90] [-Cycles 3] [-Settle 10] [-SpeedPatch speed-x2] [-SkipScan 1]` | `pes6ab.ps1` | automatic A/B of a patch in a CPU-vs-CPU match at x2 speed: back line by ball zone, patch off (A) and on (B); the patches are put back on Ctrl+C too, and a line word the keeper's side byte cannot index gives NaN instead of stopping the run |
 | `pes6r scoreprobe [-Seconds 600] [-SkipScan 1]` | `pes6scoreprobe.ps1` | 32-bit values of a region that only ever go up by 1, with the ball's position (the search for the score counters) |
+| `pes6r calls -Address 0x4C9DC0 [-Seconds 10] [-Out calls.csv] [-NArgs 3]` | `pes6calls.ps1` | debugger: every call of a function, with the player, the arguments and the callers |
+| `pes6r hits -Addresses 0x404338,0x4043A3 [-Seconds 3]` | `pes6hits.ps1` | debugger: how many times up to 4 addresses run; callers, EDI and first argument of the first |
+| `pes6r watch -Address 0x3BECC84 [-Seconds 4] [-Read]` | `pes6watch.ps1` | debugger: the instructions that write (or with `-Read` use) an address |
+| `pes6r viewport [-Seconds 3]` | `pes6viewport.ps1` | debugger: the Direct3D `SetViewport` calls |
+
+The four debugger commands share one module (they were four copies of it), detach on Ctrl+C too, and stop when the game closes. Checked against the scripts in a live match on 2026-11-14 (same instructions, callers and columns; the game kept running after 8 short sessions). Keep the sessions short.
 
 `ab` and `scoreprobe` send the skip key (Esc, the user's Start) only when the game window really came to the front, so it never lands in another window.
 
@@ -233,12 +239,12 @@ Every command takes `-Process <name>` to read another process than PES6.
 | `pes6r patch`, `patches.json` | named memory patches in the running game: `-List`, `-Apply name`, `-Revert name`, `-RevertAll`; the original bytes are checked first, so nothing is written over another patch or build. Add an entry to `patches.json` for every idea tried in memory |
 | `pes6r players`, `pes6r positions` | read-only (ReadProcessMemory, no debugger): a snapshot of the 22 players and the ball, or a CSV of them every 100-250 ms for a whole match |
 | `pes6r depth`, `pes6r shape` | from that CSV (or sampling live): height of the back line by ball zone, and the team shape (defenders, midfielders, forwards, length, width) while the opponent has the ball |
-| `pes6calls.ps1` | execute breakpoint on a function: every call with its caller and arguments. It attaches the debugger (a trace cave in the exe padding, read with ReadProcessMemory, would avoid it; the game also crashes by itself in the graphics driver, see the note on the defensive line) |
+| `pes6r calls` | execute breakpoint on a function: every call with its caller and arguments. It attaches the debugger (a trace cave in the exe padding, read with ReadProcessMemory, would avoid it; the game also crashes by itself in the graphics driver, see the note on the defensive line) |
 | `pes6r findref`, `pes6r readva` | work on the exe file (the game need not run): find the code holding an address, read constants at virtual addresses |
 | `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | a persistent Ghidra project of the original exe, in a short path (`-Import` once, about 40 s; `-Decompile 5E1BD0,642A90` about 12 s). The functions created and named are saved in it; add what is learned to `ghidra-labels.csv` and run `-Labels` |
-| `pes6watch.ps1` | hardware write or read breakpoint on an address: which instructions touch it |
-| `pes6hits.ps1` | hardware execute breakpoints: how many times some code runs, with which callers and arguments |
-| `pes6viewport.ps1` | records the `SetViewport` calls (rectangle and caller), which led to the list clipping |
+| `pes6r watch` | hardware write or read breakpoint on an address: which instructions touch it |
+| `pes6r hits` | hardware execute breakpoints: how many times some code runs, with which callers and arguments |
+| `pes6r viewport` | records the `SetViewport` calls (rectangle and caller), which led to the list clipping |
 | `pes6r stick` | memory capture guided by beeps (stick at rest, right, up), which led to the controller state |
 | `pes6r heading` | measures the players' real heading against the stick angle, with and without the free direction |
 | `pes6r turnlog` | beep-guided log of the ball carrier (state, animation, frame, headings, speed, ball direction): one CSV line per change, which showed the sprint turn steps |
@@ -247,7 +253,7 @@ Every command takes `-Process <name>` to read another process than PES6.
 | `StringRefs.java` | Ghidra script: decompiles the functions that use a string (for example the Kitserver version names in `kload.dll`) |
 | `set-resx.ps1` | adds, changes or removes texts in the English and French resources |
 
-The gameplay options were mostly found with variants of `pes6watch.ps1` and `pes6hits.ps1` (several addresses at once, registers and stack logged at each hit), and with memory captures of the players, the ball and the stats sampled while playing, then compared.
+The gameplay options were mostly found with variants of `pes6r watch` and `pes6r hits` (several addresses at once, registers and stack logged at each hit), and with memory captures of the players, the ball and the stats sampled while playing, then compared.
 
 ### Several builds of the exe
 

@@ -26,6 +26,8 @@ sealed class GameProcess : IDisposable
 
     public static bool IsRunning(string name) => Process.GetProcessesByName(name).Length > 0;
 
+    public int Id => process.Id;
+
     public bool HasExited { get { try { return process.HasExited; } catch { return true; } } }
 
     /// <summary>The game's window (0 when it has none, as a suspended stand-in).</summary>
