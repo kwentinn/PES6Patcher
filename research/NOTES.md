@@ -105,7 +105,7 @@ Each option is a hook: a few bytes of the game replaced by a jump to added code 
 
 ### Sharp turns when sprinting
 
-Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's fields) and execute breakpoints:
+Measured with `pes6r turnlog` (one line per change of the ball carrier's fields) and execute breakpoints:
 
 - Running with the ball, a stride lasts about 26 frames (0.46 s, animations 65/66) with one touch near frame 7; the stick's new direction is only taken at the next stride. Sprinting, a stride lasts about 0.67 s (animations 29/30 = `0x1D`/`0x1E`). A turn of more than 112° goes through a turning animation (552, about 0.65 s).
 - The sprint stride starts in `0x4E2830` (called from `0x5B7954` when the sprint button is held, `0x4DCBB0` otherwise). It compares the stick direction (`0x4B3010`) with the facing `+0x26`, in 1/256 of a turn: below 8 nothing happens, from `0x50` (112°) the turning animation is used. Otherwise:
@@ -113,12 +113,12 @@ Measured with `pes6turnlog.ps1` (one line per change of the ball carrier's field
   - the **ball's direction** is computed at `0x4E2AFF`: `0x4970F0` (turn a direction towards another by at most a given angle) from the facing rounded to 22.5° (`(+0x26 + 0x800) & 0xF000`) towards the stick, by at most `0x1000` (`push 1000h` at `0x4E2AE6`). Logged at the touch (relay call at `0x5AFB3B`, direction from `[player+0x30]`): `0xA000`, `0xB000`, `0xC000`… exactly one 22.5° step per touch, whatever the stick asked. **That step is what makes the turns go "by stages".**
 - The player then runs after the ball: `0x5AFD45` points `+0x2C` every frame at the ball's predicted position.
 - **Sharper turns when sprinting** replaces the `push 1000h` by the maximum turn of the carrier: 22.5° up to 65 in dribble accuracy (the game's), the chosen maximum (90° by default) from 95, in proportion between. A touch that turns the ball more than 22.5° from its current direction (`[ball+0x58]`) also turns the player's run (`+0x28`) and facing (`+0x26`, `+0x42`) to the touch direction, at both sprint touches: `0x5AFB32` (animation 29) and `0x5AFE5C` (animation 30, the other foot: `xor ecx,ecx ; mov cx,[edi+0x30] ; add esp,0Ch` before the relay call). Until 1.18 only the first was hooked, with a speed loss of up to 40 % instead: on the other foot's touch the player finished his stride straight and only turned at the next one, about 300 ms late. A slowdown of the ball and the player from 45° was tried (30 %, then 15 % at 90°) and dropped with the next point. Snapping the facing at the touch makes the animation jump, so the sprint stride now hands turns from 45° to the normal dribble stride (`cmp ax,50h` at `0x4E287C` → `20h`), which plays the turning animation: validated in game.
-- With those wider touches, the player drifted away from the ball: logged with `pes6driftlog.ps1` (positions of the carrier and the ball every frame), a 45° touch leaves the ball at once while the run direction `+0x28` turns about 15° in half a second, and the gap grows from 100 to 500-700 until the next turning animation. A write breakpoint on the carrier's `+0x28` shows why: running with the ball, `0x497140` turns the facing towards its target by at most `0x100` (1.4°) per frame (`push 100h` at `0x4C2088`, then `+0x26`, `+0x28`, `+0x42` are written; `add ecx,100h` at `0x4C25C9` in another path). **The player turns faster with the ball** raises both steps (22° per frame by default). Tested in memory at 4, 8 and 16 times the game's: 16 felt best. Another with-ball path turns by `0x300` (`push 300h` at `0x4C214A`); it is left as it is.
+- With those wider touches, the player drifted away from the ball: logged with `pes6r driftlog` (positions of the carrier and the ball every frame), a 45° touch leaves the ball at once while the run direction `+0x28` turns about 15° in half a second, and the gap grows from 100 to 500-700 until the next turning animation. A write breakpoint on the carrier's `+0x28` shows why: running with the ball, `0x497140` turns the facing towards its target by at most `0x100` (1.4°) per frame (`push 100h` at `0x4C2088`, then `+0x26`, `+0x28`, `+0x42` are written; `add ecx,100h` at `0x4C25C9` in another path). **The player turns faster with the ball** raises both steps (22° per frame by default). Tested in memory at 4, 8 and 16 times the game's: 16 felt best. Another with-ball path turns by `0x300` (`push 300h` at `0x4C214A`); it is left as it is.
 - Tried and dropped: raising the `push 2Dh` (45°) of other strides (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70`: they never run while dribbling); raising the 15° and 25° steps (no effect: the protected code ignores them); forcing the player's direction to the stick's (`0x4E2A7E`: the body turns, the ball does not) or to the touch's (`0x4E2B04`: the animation jumps, and with the ball change the player stops turning).
 
 ### Stick dead zone
 
-Measured with `pes6turnlog.ps1` while dribbling right and nudging the stick up and down, then with write breakpoints:
+Measured with `pes6r turnlog` while dribbling right and nudging the stick up and down, then with write breakpoints:
 
 - The stick angle (`0x1016680` + pad × 4) never takes a value within about 16° of 0°, 90°, 180° or 270°: it stays exactly on the axis, then jumps to 16-17°. So the player keeps running along a line, whatever the free direction code does with the angle.
 - The angle is written at `0x4B23E7` from 4 axis bytes per pad (`0x3BCEE51`…, one byte per half axis), through an arctangent; there, both axes under `0x19` give the centre dead zone.
@@ -148,6 +148,17 @@ Measured with a logger of the human-controlled player (buttons held `+0xB0`) aga
 - The **take-ball attempt** `0x461DC0` (player, distance, `0x50`) is only asked for within 160 units of the ball (`cmp edi,0A0h` at `0x572AE8`), and the attempt itself, for most animations, only goes on within speed / 128 + 2 × `0x50` (about 210 when running). So the presser almost never tried: 1 attempt in 15 s of opposing possession; 17 requests, 1 accepted, once the reach was raised alone.
 - **Pressing players challenge for the ball from further** scales both (180 % by default: reach 288, parameter 127, the most a signed byte holds). Measured over 40 s: the presser now comes within 300 of the carrier (closest 116 instead of 337). Both teams are concerned.
 - Not the cause: the players spread wider option (the presser is not in state 7), checked with the spread switched off in memory.
+
+### Defensive line
+
+Measured with a logger of the 22 players (positions, mode, the line word) and read in Ghidra (the exe imported without analysis, functions decompiled from their entry):
+
+- Without the ball, the back four sat on the edge of their box (about 3700 from the goal line) with the ball just inside their half, and never reached the halfway line with the ball in the opponent's last third.
+- The positioning dispatcher `0x528580` switches on the player's mode `+0x1DD` (`0x24` → `0x60CB40`, `0x27` → `0x60CD50`, marking, `8` → `0x619C80`…). Each routine builds a base target in the globals `0x3BCDCBC` (x) / `0x3BCDCC0` (z), with the side's direction in `0x3BCDCC4` (`0x642A90` when defending, `0x642540` when attacking), adjusts it and calls the target setter `0x4C9DC0`.
+- The **defensive line** is a word per side, `0x3BCDCAE` + side × 2 (side = player `+0x13`), computed by `0x5E1BD0` from the smoothed ball x (`0x3BCDCB2`): ball in the other half → half its distance to the centre − `0xA00` (`sub eax,0A00h` at `0x5E1FC5`), kept 4096 behind the ball; ball in the side's own half → −`0xA00` − half that distance (`mov edx,0FFFFF600h` at `0x5E1E66`), kept 4096 − distance / 4 behind the ball (768 at least). Then the attack/defence level `[0x3BE0A6E + team]` (0 to 4): −3072, −1024, 0, +512, +1024; then −2000 (`0xB8C10C`); then −(100 − v) × 40, v being a team value from 0 to 100 returned by `0x531DA0` (a jump into the protection; about 30 for the team measured). The result is clamped to ±11929.
+- **Higher defensive line** lowers the two `0xA00`. Zeroed in memory during a match, the line word rose by about 2000 (ball in the side's own half near the centre: −7503 → −5445 from the centre; just inside the other half: −5401 → −3501), and the back four by 0 to 1500 depending on the zone (75 s before, 75 s after): they already stood about 1400 above the word, which only acts as a floor (`0x60CB40`, and the end of `0x642A90`). Felt better in a match.
+- A player's `+0x12` is not a stable team number (it changed between two snapshots of the same match); ids 1–11 and 12–22 are the two teams. The role is `+0x10` (1–7 defenders, 8–`0x17` midfielders, `0x18` and above forwards).
+- An execute breakpoint held 12 seconds on `0x4C9DC0` was followed, two minutes later, by a crash of the game in the graphics driver. The game crashed the same way (`atidxx32.dll`, access violation) the next day within a minute of starting, in the menus, while only plain memory reads were running: the driver crashes it by itself, not the debugger.
 
 ### Test keys
 
@@ -193,22 +204,62 @@ Ball physics constants (the 40 bytes changed by Rechi's BallPhysics Editor and D
 
 The scripts in [`scripts`](scripts) were used to find the fixes. The app does not need them: the patch itself is in `src/PES6Patcher.Core`.
 
+Most of them now live in a C# console tool, [`Pes6Research`](Pes6Research) (`pes6r.exe`): one shared memory module instead of a `ReadProcessMemory` copy per script, no compile on every run, and steadier sampling (100 ms asked gives 100 ms, not 110-125). Build it once with `dotnet build research/Pes6Research -c Release`, then run `research/Pes6Research/bin/pes6r.exe <command>` (no command: the list). The options keep the scripts' names. The parts that need neither the game nor its files (options, hex, patches on a fake memory, exe sections, depth and shape) are tested: `dotnet test research/Pes6Research.Tests`. The commands, and the script each replaces:
+
+| Command | Was | Purpose |
+|---|---|---|
+| `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | memory as int16 / int32 / float columns (decimal point, whatever the Windows language) |
+| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV of the 22 players and the ball; written as it goes, so Ctrl+C or the game crashing keeps the samples; no line when the players cannot be read |
+| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | named memory patches of `patches.json`, see below; `pes6r ab` and `pes6r scoreprobe` use it |
+| `pes6r code -Address 0x8744F0 [-Length 16] [-Hex "1C 03 00 00"]` | `pes6code.ps1` | read bytes, or write them (memory only, code included) and read them back |
+| `pes6r players` | `pes6players.ps1` | one snapshot of the 22 players and the ball |
+| `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | back line by ball zone from a `positions` CSV (`t`: the players' targets); writes `<in>-<field>-teams.csv` with a decimal point |
+| `pes6r findref -Exe PES6.exe.orig -Values 0x3BCDCAE,0x3BE0A6E` | `pes6findref.ps1` | on the exe file: the places holding a 32-bit value (0.1 s instead of 3.6) |
+| `pes6r readva -Exe PES6.exe.orig -Addresses 0xB8C10C,0x5E23FC [-Length 8]` | `pes6readva.ps1` | on the exe file: float, int32 and bytes at virtual addresses |
+| `pes6r shape [-Seconds 90] [-Every 250] [-Out shape.csv]` | `pes6shape.ps1` | team shape out of possession by ball zone |
+| `pes6r driftlog [-Seconds 30] [-Out drift.csv] [-StartDelay 3]` | `pes6driftlog.ps1` | the carrier and the ball every ~5 ms while the carrier moves |
+| `pes6r turnlog [-Seconds 30] [-Out turn.csv] [-StartDelay 5]` | `pes6turnlog.ps1` | one line per change of the carrier's fields; sleeps 1 ms between reads instead of spinning a core, and still catches every frame |
+| `pes6r heading -Players 0x3BDD700,0x3BDDB80 [-Seconds 10]` | `pes6heading.ps1` | the players' heading against the stick angle; 10 samples a second, as asked (the script took 9) |
+| `pes6r stick [-StartDelay 5] [-Hold 3] [-Out stick.txt]` | `pes6stick.ps1` | memory that follows the stick, guided by beeps |
+| `pes6r ab -Patch defence-line [-Phase 90] [-Cycles 3] [-Settle 10] [-SpeedPatch speed-x2] [-SkipScan 1]` | `pes6ab.ps1` | automatic A/B of a patch in a CPU-vs-CPU match at x2 speed: back line by ball zone, patch off (A) and on (B); at the end (Ctrl+C too) the game is put back exactly as it was, so a patch the patcher applied in the exe stays applied, and a line word the keeper's side byte cannot index gives NaN instead of stopping the run |
+| `pes6r scoreprobe [-Seconds 600] [-SkipScan 1]` | `pes6scoreprobe.ps1` | 32-bit values of a region that only ever go up by 1, with the ball's position (the search for the score counters) |
+| `pes6r calls -Address 0x4C9DC0 [-Seconds 10] [-Out calls.csv] [-NArgs 3]` | `pes6calls.ps1` | debugger: every call of a function, with the player, the arguments and the callers |
+| `pes6r hits -Addresses 0x404338,0x4043A3 [-Seconds 3]` | `pes6hits.ps1` | debugger: how many times up to 4 addresses run; callers, EDI and first argument of the first |
+| `pes6r watch -Address 0x3BECC84 [-Seconds 4] [-Read]` | `pes6watch.ps1` | debugger: the instructions that write (or with `-Read` use) an address |
+| `pes6r viewport [-Seconds 3]` | `pes6viewport.ps1` | debugger: the Direct3D `SetViewport` calls |
+| `pes6r window` | `pes6window.ps1` | geometry and DPI handling of the game's windows, in physical pixels |
+| `pes6r capture [-Out shot.png]` | `capture-window.ps1` | screenshot of the main window, even behind others; `-Process PES6Patcher` for the app |
+
+The four debugger commands share one module (they were four copies of it), detach on Ctrl+C too, and stop when the game closes. Checked against the scripts in a live match on 2026-11-14 (same instructions, callers and columns; the game kept running after 8 short sessions). Keep the sessions short.
+
+`ab` and `scoreprobe` send the skip key (Esc, the user's Start) only when the game window really came to the front, so it never lands in another window.
+
+The commands guided by beeps (high: start, low: end) stop cleanly on Ctrl+C and when the game closes, and keep what they logged.
+
+Every command takes `-Process <name>` to read another process than PES6.
+
 | Script | Purpose |
 |---|---|
 | `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | Ghidra scripts (headless mode): decompile a function, list the references to an address, disassemble a range, find the calls to a Direct3D 8 device method |
-| `pes6code.ps1`, `pes6dump.ps1` | read or change bytes in the running game (memory only) |
-| `pes6watch.ps1` | hardware write or read breakpoint on an address: which instructions touch it |
-| `pes6hits.ps1` | hardware execute breakpoints: how many times some code runs, with which callers and arguments |
-| `pes6viewport.ps1` | records the `SetViewport` calls (rectangle and caller), which led to the list clipping |
-| `pes6stick.ps1` | memory capture guided by beeps (stick at rest, right, up), which led to the controller state |
-| `pes6heading.ps1` | measures the players' real heading against the stick angle, with and without the free direction |
-| `pes6turnlog.ps1` | beep-guided log of the ball carrier (state, animation, frame, headings, speed, ball direction): one CSV line per change, which showed the sprint turn steps |
-| `pes6window.ps1`, `capture-window.ps1` | geometry and screenshot of the game's or the app's window |
+| `pes6r code`, `pes6r dump` | read or change bytes in the running game (memory only) |
+| `pes6r patch`, `patches.json` | named memory patches in the running game: `-List`, `-Apply name`, `-Revert name`, `-RevertAll`; the original bytes are checked first, so nothing is written over another patch or build. Add an entry to `patches.json` for every idea tried in memory |
+| `pes6r players`, `pes6r positions` | read-only (ReadProcessMemory, no debugger): a snapshot of the 22 players and the ball, or a CSV of them every 100-250 ms for a whole match |
+| `pes6r depth`, `pes6r shape` | from that CSV (or sampling live): height of the back line by ball zone, and the team shape (defenders, midfielders, forwards, length, width) while the opponent has the ball |
+| `pes6r calls` | execute breakpoint on a function: every call with its caller and arguments. It attaches the debugger (a trace cave in the exe padding, read with ReadProcessMemory, would avoid it; the game also crashes by itself in the graphics driver, see the note on the defensive line) |
+| `pes6r findref`, `pes6r readva` | work on the exe file (the game need not run): find the code holding an address, read constants at virtual addresses |
+| `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | a persistent Ghidra project of the original exe, in a short path (`-Import` once, about 40 s; `-Decompile 5E1BD0,642A90` about 12 s). The functions created and named are saved in it; add what is learned to `ghidra-labels.csv` and run `-Labels` |
+| `pes6r watch` | hardware write or read breakpoint on an address: which instructions touch it |
+| `pes6r hits` | hardware execute breakpoints: how many times some code runs, with which callers and arguments |
+| `pes6r viewport` | records the `SetViewport` calls (rectangle and caller), which led to the list clipping |
+| `pes6r stick` | memory capture guided by beeps (stick at rest, right, up), which led to the controller state |
+| `pes6r heading` | measures the players' real heading against the stick angle, with and without the free direction |
+| `pes6r turnlog` | beep-guided log of the ball carrier (state, animation, frame, headings, speed, ball direction): one CSV line per change, which showed the sprint turn steps |
+| `pes6r window`, `pes6r capture` | geometry and screenshot of the game's or the app's window |
 | `make-signatures.ps1` | builds a location's signature: the surrounding bytes, with absolute addresses and call targets masked, extended until they appear only once in the code |
 | `StringRefs.java` | Ghidra script: decompiles the functions that use a string (for example the Kitserver version names in `kload.dll`) |
 | `set-resx.ps1` | adds, changes or removes texts in the English and French resources |
 
-The gameplay options were mostly found with variants of `pes6watch.ps1` and `pes6hits.ps1` (several addresses at once, registers and stack logged at each hit), and with memory captures of the players, the ball and the stats sampled while playing, then compared.
+The gameplay options were mostly found with variants of `pes6r watch` and `pes6r hits` (several addresses at once, registers and stack logged at each hit), and with memory captures of the players, the ball and the stats sampled while playing, then compared.
 
 ### Several builds of the exe
 

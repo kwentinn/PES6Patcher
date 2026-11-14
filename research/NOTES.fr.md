@@ -105,7 +105,7 @@ Chaque option est un détournement : quelques octets du jeu remplacés par un sa
 
 ### Virages francs en sprint
 
-Mesuré avec `pes6turnlog.ps1` (une ligne à chaque changement des champs du porteur du ballon) et des points d'arrêt d'exécution :
+Mesuré avec `pes6r turnlog` (une ligne à chaque changement des champs du porteur du ballon) et des points d'arrêt d'exécution :
 
 - En course balle au pied, une foulée dure environ 26 images (0,46 s, animations 65/66), avec une touche vers l'image 7 ; la nouvelle direction du stick n'est prise qu'à la foulée suivante. En sprint, une foulée dure environ 0,67 s (animations 29/30 = `0x1D`/`0x1E`). Un virage de plus de 112° passe par une animation de virage (552, environ 0,65 s).
 - La foulée de sprint démarre dans `0x4E2830` (appelée depuis `0x5B7954` quand le bouton de sprint est tenu, `0x4DCBB0` sinon). Elle compare la direction du stick (`0x4B3010`) à l'orientation `+0x26`, en 256e de tour : en dessous de 8 rien ne se passe, à partir de `0x50` (112°) c'est l'animation de virage. Sinon :
@@ -113,12 +113,12 @@ Mesuré avec `pes6turnlog.ps1` (une ligne à chaque changement des champs du por
   - la **direction du ballon** est calculée en `0x4E2AFF` : `0x4970F0` (tourner une direction vers une autre d'un angle maximum) depuis l'orientation arrondie à 22,5° (`(+0x26 + 0x800) & 0xF000`) vers le stick, d'au plus `0x1000` (`push 1000h` en `0x4E2AE6`). Relevé à la touche (appel du relais en `0x5AFB3B`, direction prise dans `[joueur+0x30]`) : `0xA000`, `0xB000`, `0xC000`… exactement un cran de 22,5° par touche, quoi que demande le stick. **C'est ce cran qui fait tourner « par paliers ».**
 - Le joueur court ensuite après le ballon : `0x5AFD45` oriente `+0x2C` à chaque image vers la position prévue du ballon.
 - **Virages plus francs en sprint** remplace le `push 1000h` par le virage maximum du porteur : 22,5° jusqu'à 65 en précision de dribble (celui du jeu), le maximum choisi (90° par défaut) à partir de 95, proportionnellement entre les deux. Une touche qui tourne le ballon de plus de 22,5° par rapport à sa direction actuelle (`[ballon+0x58]`) tourne aussi la course (`+0x28`) et l'orientation (`+0x26`, `+0x42`) du joueur vers la direction de la touche, aux deux touches de sprint : `0x5AFB32` (animation 29) et `0x5AFE5C` (animation 30, l'autre pied : `xor ecx,ecx ; mov cx,[edi+0x30] ; add esp,0Ch` avant l'appel du relais). Jusqu'à la 1.18, seule la première était branchée, avec à la place une perte de vitesse jusqu'à 40 % : à la touche de l'autre pied, le joueur finissait sa foulée tout droit et ne tournait qu'à la suivante, environ 300 ms trop tard. Un ralentissement du ballon et du joueur à partir de 45° a été essayé (30 %, puis 15 % à 90°) et abandonné avec le point suivant. Imposer l'orientation à la touche fait sauter l'animation : la foulée de sprint confie donc les virages à partir de 45° à la foulée de dribble normale (`cmp ax,50h` en `0x4E287C` → `20h`), qui joue l'animation de virage : validé en jeu.
-- Avec ces touches plus larges, le joueur s'éloignait du ballon : relevé avec `pes6driftlog.ps1` (positions du porteur et du ballon à chaque image), une touche de 45° envoie le ballon tout de suite alors que la course `+0x28` ne tourne que d'environ 15° en une demi-seconde, et l'écart passe de 100 à 500-700 jusqu'à l'animation de virage suivante. Un point d'arrêt en écriture sur `+0x28` du porteur montre pourquoi : en course balle au pied, `0x497140` tourne l'orientation vers sa cible d'au plus `0x100` (1,4°) par image (`push 100h` en `0x4C2088`, puis `+0x26`, `+0x28`, `+0x42` sont écrits ; `add ecx,100h` en `0x4C25C9` dans un autre chemin). **Le joueur tourne plus vite avec le ballon** relève les deux pas (22° par image par défaut). Testé en mémoire à 4, 8 et 16 fois celui du jeu : 16 semblait le meilleur. Un autre chemin balle au pied tourne de `0x300` (`push 300h` en `0x4C214A`) ; il est laissé tel quel.
+- Avec ces touches plus larges, le joueur s'éloignait du ballon : relevé avec `pes6r driftlog` (positions du porteur et du ballon à chaque image), une touche de 45° envoie le ballon tout de suite alors que la course `+0x28` ne tourne que d'environ 15° en une demi-seconde, et l'écart passe de 100 à 500-700 jusqu'à l'animation de virage suivante. Un point d'arrêt en écriture sur `+0x28` du porteur montre pourquoi : en course balle au pied, `0x497140` tourne l'orientation vers sa cible d'au plus `0x100` (1,4°) par image (`push 100h` en `0x4C2088`, puis `+0x26`, `+0x28`, `+0x42` sont écrits ; `add ecx,100h` en `0x4C25C9` dans un autre chemin). **Le joueur tourne plus vite avec le ballon** relève les deux pas (22° par image par défaut). Testé en mémoire à 4, 8 et 16 fois celui du jeu : 16 semblait le meilleur. Un autre chemin balle au pied tourne de `0x300` (`push 300h` en `0x4C214A`) ; il est laissé tel quel.
 - Essayé puis abandonné : relever le `push 2Dh` (45°) d'autres foulées (`0x4E1AAF`, `0x4E2231`, `0x4E2BF1`, `0x4E2D70` : elles ne servent jamais en dribble) ; relever les pas de 15° et 25° (sans effet : le code protégé les ignore) ; forcer la direction du joueur sur celle du stick (`0x4E2A7E` : le corps tourne, pas le ballon) ou sur celle de la touche (`0x4E2B04` : l'animation saute, et avec le changement du ballon le joueur ne tourne plus).
 
 ### Zone morte du stick
 
-Mesuré avec `pes6turnlog.ps1` en dribblant vers la droite et en bougeant légèrement le stick vers le haut et le bas, puis avec des points d'arrêt en écriture :
+Mesuré avec `pes6r turnlog` en dribblant vers la droite et en bougeant légèrement le stick vers le haut et le bas, puis avec des points d'arrêt en écriture :
 
 - L'angle du stick (`0x1016680` + manette × 4) ne prend jamais de valeur à moins d'environ 16° de 0°, 90°, 180° ou 270° : il reste pile sur l'axe, puis saute à 16-17°. Le joueur continue donc sur une ligne, quoi que fasse le code des directions libres avec l'angle.
 - L'angle est écrit en `0x4B23E7` à partir de 4 octets d'axe par manette (`0x3BCEE51`…, un octet par demi-axe), par une arctangente ; là, les deux axes sous `0x19` donnent la zone morte centrale.
@@ -148,6 +148,17 @@ Mesuré avec un relevé du joueur contrôlé par l'humain (boutons tenus `+0xB0`
 - La **tentative de prise de balle** `0x461DC0` (joueur, distance, `0x50`) n'est demandée qu'à moins de 160 unités du ballon (`cmp edi,0A0h` en `0x572AE8`), et la tentative elle-même, pour la plupart des animations, ne se poursuit qu'à moins de vitesse / 128 + 2 × `0x50` (environ 210 en course). Le presseur n'essayait donc presque jamais : 1 tentative en 15 s de possession adverse ; 17 demandes pour 1 acceptée, une fois la portée seule relevée.
 - **Au pressing, les joueurs tentent de prendre le ballon de plus loin** multiplie les deux (180 % par défaut : portée 288, paramètre 127, le maximum d'un octet signé). Mesuré sur 40 s : le presseur vient maintenant à moins de 300 du porteur (au plus près 116 au lieu de 337). Les deux équipes sont concernées.
 - Pas en cause : l'option d'écartement en largeur (le presseur n'est pas dans l'état 7), vérifié en coupant l'écartement en mémoire.
+
+### Ligne défensive
+
+Mesuré avec un enregistreur des 22 joueurs (positions, mode, mot de la ligne) et lu dans Ghidra (exe importé sans analyse, fonctions décompilées depuis leur entrée) :
+
+- Sans le ballon, les quatre défenseurs étaient au bord de leur surface (environ 3700 de la ligne de but) avec le ballon juste dans leur moitié, et n'atteignaient jamais la ligne médiane avec le ballon dans le dernier tiers adverse.
+- L'aiguillage du placement `0x528580` choisit selon le mode du joueur `+0x1DD` (`0x24` → `0x60CB40`, `0x27` → `0x60CD50`, marquage, `8` → `0x619C80`…). Chaque routine construit une cible de base dans les globales `0x3BCDCBC` (x) / `0x3BCDCC0` (z), avec le sens du camp dans `0x3BCDCC4` (`0x642A90` en défense, `0x642540` en attaque), l'ajuste et appelle la fonction de cible `0x4C9DC0`.
+- La **ligne défensive** est un mot par camp, `0x3BCDCAE` + camp × 2 (camp = `+0x13` du joueur), calculé par `0x5E1BD0` à partir du x lissé du ballon (`0x3BCDCB2`) : ballon dans l'autre moitié → la moitié de sa distance au centre − `0xA00` (`sub eax,0A00h` en `0x5E1FC5`), gardée 4096 derrière le ballon ; ballon dans la moitié du camp → −`0xA00` − la moitié de cette distance (`mov edx,0FFFFF600h` en `0x5E1E66`), gardée 4096 − distance / 4 derrière le ballon (768 au moins). Puis le niveau attaque/défense `[0x3BE0A6E + équipe]` (0 à 4) : −3072, −1024, 0, +512, +1024 ; puis −2000 (`0xB8C10C`) ; puis −(100 − v) × 40, v étant une valeur d'équipe de 0 à 100 renvoyée par `0x531DA0` (un saut dans la protection ; environ 30 pour l'équipe mesurée). Le résultat est borné à ±11929.
+- **Ligne défensive plus haute** réduit les deux `0xA00`. Mis à zéro en mémoire pendant un match, le mot de la ligne est monté d'environ 2000 (ballon dans la moitié du camp près du centre : −7503 → −5445 depuis le centre ; juste dans l'autre moitié : −5401 → −3501), et les quatre défenseurs de 0 à 1500 selon la zone (75 s avant, 75 s après) : ils se tenaient déjà environ 1400 au-dessus du mot, qui ne sert que de plancher (`0x60CB40`, et la fin de `0x642A90`). Mieux ressenti en match.
+- Le `+0x12` d'un joueur n'est pas un numéro d'équipe stable (il a changé entre deux relevés du même match) ; les ids 1–11 et 12–22 sont les deux équipes. Le poste est `+0x10` (1–7 défenseurs, 8–`0x17` milieux, `0x18` et plus attaquants).
+- Un point d'arrêt d'exécution tenu 12 secondes sur `0x4C9DC0` a été suivi, deux minutes plus tard, d'un plantage du jeu dans le pilote graphique. Le jeu a planté de la même façon (`atidxx32.dll`, violation d'accès) le lendemain moins d'une minute après son lancement, dans les menus, alors que seules des lectures simples de la mémoire tournaient : c'est le pilote qui le fait planter, pas le débogueur.
 
 ### Touches de test
 
@@ -193,22 +204,62 @@ Constantes physiques du ballon (les 40 octets que changent le BallPhysics Editor
 
 Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'application n'en a pas besoin : le patch lui-même est dans `src/PES6Patcher.Core`.
 
+La plupart vivent maintenant dans un outil console C#, [`Pes6Research`](Pes6Research) (`pes6r.exe`) : un seul module mémoire partagé au lieu d'une copie de `ReadProcessMemory` par script, pas de compilation à chaque lancement, et un échantillonnage plus régulier (100 ms demandées donnent 100 ms, pas 110 à 125). Le compiler une fois avec `dotnet build research/Pes6Research -c Release`, puis lancer `research/Pes6Research/bin/pes6r.exe <commande>` (sans commande : la liste). Les options gardent les noms des scripts. Ce qui n'a besoin ni du jeu ni de ses fichiers (options, hex, patchs sur une fausse mémoire, sections de l'exe, depth et shape) est testé : `dotnet test research/Pes6Research.Tests`. Les commandes, et le script que chacune remplace :
+
+| Commande | Remplace | Rôle |
+|---|---|---|
+| `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | la mémoire en colonnes int16 / int32 / float (point décimal, quelle que soit la langue de Windows) |
+| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV des 22 joueurs et du ballon ; écrit au fur et à mesure, donc Ctrl+C ou un plantage du jeu gardent les échantillons ; pas de ligne quand les joueurs sont illisibles |
+| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | modifications nommées de `patches.json`, voir plus bas ; `pes6r ab` et `pes6r scoreprobe` s'en servent |
+| `pes6r code -Address 0x8744F0 [-Length 16] [-Hex "1C 03 00 00"]` | `pes6code.ps1` | lire des octets, ou les écrire (mémoire uniquement, code compris) puis les relire |
+| `pes6r players` | `pes6players.ps1` | un instantané des 22 joueurs et du ballon |
+| `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | ligne arrière par zone du ballon à partir d'un CSV de `positions` (`t` : les cibles des joueurs) ; écrit `<entrée>-<champ>-teams.csv` avec un point décimal |
+| `pes6r findref -Exe PES6.exe.orig -Values 0x3BCDCAE,0x3BE0A6E` | `pes6findref.ps1` | sur le fichier exe : les endroits qui contiennent une valeur 32 bits (0,1 s au lieu de 3,6) |
+| `pes6r readva -Exe PES6.exe.orig -Addresses 0xB8C10C,0x5E23FC [-Length 8]` | `pes6readva.ps1` | sur le fichier exe : float, int32 et octets à des adresses virtuelles |
+| `pes6r shape [-Seconds 90] [-Every 250] [-Out shape.csv]` | `pes6shape.ps1` | forme de l'équipe sans le ballon, par zone du ballon |
+| `pes6r driftlog [-Seconds 30] [-Out drift.csv] [-StartDelay 3]` | `pes6driftlog.ps1` | le porteur et le ballon toutes les ~5 ms tant que le porteur bouge |
+| `pes6r turnlog [-Seconds 30] [-Out turn.csv] [-StartDelay 5]` | `pes6turnlog.ps1` | une ligne à chaque changement des champs du porteur ; attend 1 ms entre deux lectures au lieu d'occuper un cœur, et attrape toujours chaque image |
+| `pes6r heading -Players 0x3BDD700,0x3BDDB80 [-Seconds 10]` | `pes6heading.ps1` | le cap des joueurs face à l'angle du stick ; 10 mesures par seconde comme demandé (le script en faisait 9) |
+| `pes6r stick [-StartDelay 5] [-Hold 3] [-Out stick.txt]` | `pes6stick.ps1` | la mémoire qui suit le stick, guidé par des bips |
+| `pes6r ab -Patch defence-line [-Phase 90] [-Cycles 3] [-Settle 10] [-SpeedPatch speed-x2] [-SkipScan 1]` | `pes6ab.ps1` | A/B automatique d'un patch pendant un match ordinateur contre ordinateur à vitesse x2 : ligne arrière par zone du ballon, patch désactivé (A) et activé (B) ; à la fin (Ctrl+C compris) le jeu est remis exactement comme avant, donc un patch appliqué dans l'exe par le patcher le reste, et un mot de ligne que l'octet de côté du gardien ne peut pas indexer donne NaN au lieu d'arrêter le relevé |
+| `pes6r scoreprobe [-Seconds 600] [-SkipScan 1]` | `pes6scoreprobe.ps1` | les valeurs 32 bits d'une zone qui ne font que monter de 1, avec la position du ballon (la recherche des compteurs de score) |
+| `pes6r calls -Address 0x4C9DC0 [-Seconds 10] [-Out calls.csv] [-NArgs 3]` | `pes6calls.ps1` | débogueur : chaque appel d'une fonction, avec le joueur, les arguments et les appelants |
+| `pes6r hits -Addresses 0x404338,0x4043A3 [-Seconds 3]` | `pes6hits.ps1` | débogueur : combien de fois jusqu'à 4 adresses s'exécutent ; appelants, EDI et premier argument de la première |
+| `pes6r watch -Address 0x3BECC84 [-Seconds 4] [-Read]` | `pes6watch.ps1` | débogueur : les instructions qui écrivent (ou avec `-Read` utilisent) une adresse |
+| `pes6r viewport [-Seconds 3]` | `pes6viewport.ps1` | débogueur : les appels Direct3D `SetViewport` |
+| `pes6r window` | `pes6window.ps1` | géométrie et prise en compte du DPI des fenêtres du jeu, en pixels physiques |
+| `pes6r capture [-Out shot.png]` | `capture-window.ps1` | capture de la fenêtre principale, même derrière d'autres ; `-Process PES6Patcher` pour l'application |
+
+Les quatre commandes du débogueur partagent un seul module (c'étaient quatre copies), se détachent aussi sur Ctrl+C et s'arrêtent quand le jeu se ferme. Comparées aux scripts pendant un match le 14/11/2026 (mêmes instructions, appelants et colonnes ; le jeu a continué de tourner après 8 sessions courtes). Garder les sessions courtes.
+
+`ab` et `scoreprobe` n'envoient la touche pour passer (Échap, le Start de l'utilisateur) que si la fenêtre du jeu est vraiment passée au premier plan, pour qu'elle n'atterrisse jamais dans une autre fenêtre.
+
+Les commandes guidées par des bips (aigu : début, grave : fin) s'arrêtent proprement sur Ctrl+C et quand le jeu se ferme, en gardant ce qu'elles ont relevé.
+
+Chaque commande accepte `-Process <nom>` pour lire un autre processus que PES6.
+
 | Script | Rôle |
 |---|---|
 | `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | scripts Ghidra (mode headless) : décompiler une fonction, lister les références à une adresse, désassembler une plage, trouver les appels d'une méthode du périphérique Direct3D 8 |
-| `pes6code.ps1`, `pes6dump.ps1` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
-| `pes6watch.ps1` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
-| `pes6hits.ps1` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |
-| `pes6viewport.ps1` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |
-| `pes6stick.ps1` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
-| `pes6heading.ps1` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
-| `pes6turnlog.ps1` | relevé du porteur du ballon guidé par des bips (état, animation, image, orientations, vitesse, direction du ballon) : une ligne CSV à chaque changement, qui a montré les crans de virage en sprint |
-| `pes6window.ps1`, `capture-window.ps1` | géométrie et capture de la fenêtre du jeu ou de l'application |
+| `pes6r code`, `pes6r dump` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
+| `pes6r patch`, `patches.json` | modifications nommées de la mémoire du jeu en cours : `-List`, `-Apply nom`, `-Revert nom`, `-RevertAll` ; les octets d'origine sont vérifiés d'abord, rien n'est écrit par-dessus un autre patch ou une autre version. Ajouter une entrée à `patches.json` pour chaque idée essayée en mémoire |
+| `pes6r players`, `pes6r positions` | en lecture seule (ReadProcessMemory, sans débogueur) : un instantané des 22 joueurs et du ballon, ou un CSV toutes les 100 à 250 ms pendant un match entier |
+| `pes6r depth`, `pes6r shape` | à partir de ce CSV (ou en échantillonnant en direct) : hauteur de la ligne arrière par zone du ballon, et forme de l'équipe (défenseurs, milieux, attaquants, longueur, largeur) quand l'adversaire a le ballon |
+| `pes6r calls` | point d'arrêt d'exécution sur une fonction : chaque appel avec son appelant et ses arguments. Il attache le débogueur (une cave de trace dans le padding de l'exe, lue avec ReadProcessMemory, l'éviterait ; le jeu plante aussi tout seul dans le pilote graphique, voir la note sur la ligne défensive) |
+| `pes6r findref`, `pes6r readva` | travaillent sur le fichier exe (le jeu n'a pas besoin de tourner) : trouver le code qui contient une adresse, lire des constantes à des adresses virtuelles |
+| `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | un projet Ghidra persistant de l'exe d'origine, dans un chemin court (`-Import` une fois, environ 40 s ; `-Decompile 5E1BD0,642A90` environ 12 s). Les fonctions créées et nommées y sont enregistrées ; ajouter ce qu'on apprend à `ghidra-labels.csv` puis lancer `-Labels` |
+| `pes6r watch` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
+| `pes6r hits` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |
+| `pes6r viewport` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |
+| `pes6r stick` | relevé mémoire guidé par bips (stick au repos, à droite, en haut), ce qui a mené à l'état de la manette |
+| `pes6r heading` | mesure le cap réel des joueurs face à l'angle du stick, avec et sans les directions libres |
+| `pes6r turnlog` | relevé du porteur du ballon guidé par des bips (état, animation, image, orientations, vitesse, direction du ballon) : une ligne CSV à chaque changement, qui a montré les crans de virage en sprint |
+| `pes6r window`, `pes6r capture` | géométrie et capture de la fenêtre du jeu ou de l'application |
 | `make-signatures.ps1` | construit la signature d'un emplacement : les octets qui l'entourent, adresses absolues et cibles d'appel masquées, allongés jusqu'à n'apparaître qu'une fois dans le code |
 | `StringRefs.java` | script Ghidra : décompile les fonctions qui utilisent une chaîne (par exemple les noms de versions de Kitserver dans `kload.dll`) |
 | `set-resx.ps1` | ajoute, modifie ou supprime des textes dans les ressources anglaises et françaises |
 
-Les options de gameplay ont surtout été trouvées avec des variantes de `pes6watch.ps1` et `pes6hits.ps1` (plusieurs adresses à la fois, registres et pile relevés à chaque passage), et avec des relevés mémoire des joueurs, du ballon et des stats pendant le jeu, ensuite comparés.
+Les options de gameplay ont surtout été trouvées avec des variantes de `pes6r watch` et `pes6r hits` (plusieurs adresses à la fois, registres et pile relevés à chaque passage), et avec des relevés mémoire des joueurs, du ballon et des stats pendant le jeu, ensuite comparés.
 
 ### Plusieurs versions de l'exe
 

@@ -43,6 +43,7 @@ public static class GameplayPresets
             FreeKick = true, FreeKickWeight = freeKick, ShotPower = shotPower, ShotAccuracy = shotAccuracy, LobPower = PatchOptions.DefaultLobPower,
             LoftedAim = true, PassLead = passLead, Headers = headers, SuperShot = superShot, SuperShotSpeed = superShotSpeed, SuperShotWeight = superShotWeight, SuperShotStar = superShotStar,
             Spread = PatchOptions.DefaultSpread, Tackle = PatchOptions.DefaultTackle, SpeedGap = PatchOptions.DefaultSpeedGap, AccelerationGap = true,
+            DefenceLine = PatchOptions.DefaultDefenceLine,
         };
     }
 
