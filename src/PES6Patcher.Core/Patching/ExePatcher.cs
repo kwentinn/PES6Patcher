@@ -34,12 +34,13 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="AccelerationGap">Acceleration gap between players: the acceleration stat weighs twice as much on the time to reach a speed.</param>
 /// <param name="CloseDribbleStrength">With <paramref name="CloseDribble"/>, how much the touches are shortened, in % of the first version's reduction.</param>
 /// <param name="CloseDribbleStrengthDebug">Test key: F10 in game changes <paramref name="CloseDribbleStrength"/> by 25 % and shows it (through Kitserver).</param>
+/// <param name="DefenceLine">Higher defensive line: share of the fixed drop the game adds to every team's line (2560 units, about 11 m) taken off, in % (0 = unchanged).</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
     int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
-    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false)
+    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0)
 {
     /// <summary>
     /// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -56,6 +57,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     /// Analog stick dead zone of each axis, in % of the axis (the game's: 29 %, 37 of 127): default (tested in game) and limits.
     /// </summary>
     public const int GameStickDeadZone = 29, DefaultStickDeadZone = 18, MinStickDeadZone = 2, MaxStickDeadZone = 26;
+
+    /// <summary>Defensive line: share of the game's fixed drop (2560 units) taken off, in %: default (tested in game) and limits.</summary>
+    public const int DefaultDefenceLine = 100, MinDefenceLine = 25, MaxDefenceLine = 100;
 
     /// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
     public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
@@ -136,7 +140,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
     /// <summary>The acceleration gap between players can be widened.</summary>
     public bool AccelerationGap { get; init; }
 
-    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap;
+    /// <summary>The defensive line can be raised.</summary>
+    public bool DefenceLine { get; init; }
+
+    public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -176,6 +183,7 @@ public static class ExePatcher
                 SprintTurn = dribble != null && ExeLocator.LocateSprintTurn(exe) != null, Tackle = ExeLocator.LocateTackle(exe) != null, LoftedAim = ExeLocator.LocateLoftedAim(exe) != null,
                 PassLead = ExeLocator.LocatePassLead(exe) != null, StickDeadZone = ExeLocator.LocateStickDeadZone(exe) != null,
                 CarrierTurn = ExeLocator.LocateCarrierTurn(exe) != null, AccelerationGap = ExeLocator.LocateAcceleration(exe) != null,
+                DefenceLine = ExeLocator.LocateDefenceLine(exe) != null,
             };
         }
         catch (InvalidDataException ex)
@@ -479,6 +487,17 @@ public static class ExePatcher
         {
             var sites = ExeLocator.LocateAcceleration(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.AccelerationGap"), 0)]);
             foreach (int shift in sites.Shifts) plan.Add((shift, [CodeCaves.AccelerationGapShift]));
+        }
+
+        // defensive line: the game drops every team's line by a fixed 2560 units, in both halves of the pitch; taking it off
+        // brings the back line up (it still stays behind the ball)
+        if (options.DefenceLine > 0)
+        {
+            if (options.DefenceLine is < PatchOptions.MinDefenceLine or > PatchOptions.MaxDefenceLine) throw new ArgumentOutOfRangeException(nameof(options), options.DefenceLine, null);
+            var sites = ExeLocator.LocateDefenceLine(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.DefenceLine"), 0)]);
+            int drop = CodeCaves.DefenceLineDrop(options.DefenceLine);
+            plan.Add((sites.OwnHalf, BitConverter.GetBytes(-drop)));
+            plan.Add((sites.OtherHalf, BitConverter.GetBytes(drop)));
         }
 
         // analog stick dead zone: each axis is zeroed near the centre; a smaller zone lets a stick held near an axis

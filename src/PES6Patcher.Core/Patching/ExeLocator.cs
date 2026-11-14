@@ -152,6 +152,14 @@ internal sealed record StickDeadZoneSites(int[] Limits, int[] Aims, int[] GoalKi
 /// </summary>
 internal sealed record CarrierTurnSites(int First, int Second);
 
+/// <summary>
+/// Defensive line: the function computing each side's line from the ball's x (stored as a word per side, read by the
+/// positioning routines) starts from half the ball's distance to the centre and drops it by a fixed 0xA00 (2560), on top of
+/// the team's own settings. <see cref="OwnHalf"/> = the imm32 of mov edx,-0xA00 (ball in the side's own half);
+/// <see cref="OtherHalf"/> = the imm32 of sub eax,0xA00 (ball in the other half).
+/// </summary>
+internal sealed record DefenceLineSites(int OwnHalf, int OtherHalf);
+
 /// <summary>Acceleration stat (<see cref="Stat"/>) and the shift count of each "sar edx,2" dividing its part of an acceleration time by 10.</summary>
 internal sealed record AccelerationSites(int Stat, int[] Shifts);
 
@@ -437,6 +445,21 @@ internal sealed class ExeLocator
         var first = Find(CarrierTurnFirst);
         var second = Find(CarrierTurnSecond);
         return first.Count == 1 && second.Count == 1 ? new CarrierTurnSites(first[0] + 7, second[0] + 22) : null;
+    }
+
+    /// <summary>cdq ; sub eax,edx ; sar eax,1 ; mov edx,-0xA00 ; sub edx,eax.</summary>
+    private const string DefenceLineOwnHalf = "99 2B C2 D1 F8 BA 00 F6 FF FF 2B D0";
+
+    /// <summary>cdq ; sub eax,edx ; sar eax,1 ; sub eax,0xA00 ; mov [esp+0x18],eax.</summary>
+    private const string DefenceLineOtherHalf = "99 2B C2 D1 F8 2D 00 0A 00 00 89 44 24 18";
+
+    public static DefenceLineSites? LocateDefenceLine(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        List<int> Find(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
+        var own = Find(DefenceLineOwnHalf);
+        var other = Find(DefenceLineOtherHalf);
+        return own.Count == 1 && other.Count == 1 ? new DefenceLineSites(own[0] + 6, other[0] + 6) : null;
     }
 
     /// <summary>

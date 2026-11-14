@@ -467,6 +467,37 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Defence_line_takes_the_fixed_drop_off_in_both_halves()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).DefenceLine);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { DefenceLine = PatchOptions.DefaultDefenceLine });
+        var image = new PeImage(with);
+
+        // read in the line function (0x5E1BD0) and zeroed in memory during a match: mov edx,-0xA00 at 0x5E1E66 (ball in
+        // the side's own half), sub eax,0xA00 at 0x5E1FC5 (ball in the other half)
+        const int ownHalf = 0x5E1E67, otherHalf = 0x5E1FC6;
+        Assert.Equal(-0xA00, BitConverter.ToInt32(without, image.Offset(ownHalf)));
+        Assert.Equal(0xA00, BitConverter.ToInt32(without, image.Offset(otherHalf)));
+        Assert.Equal(0, image.ReadInt32(ownHalf));
+        Assert.Equal(0, image.ReadInt32(otherHalf));
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i => Assert.True(new[] { ownHalf, otherHalf }.Any(va => i - image.Offset(va) is >= 0 and < 4)));
+
+        // half of the drop left at 50 %
+        Assert.Equal(0x500, CodeCaves.DefenceLineDrop(50));
+        var half = new PeImage(ExePatcher.Build(original, options with { DefenceLine = 50 }));
+        Assert.Equal(-0x500, half.ReadInt32(ownHalf));
+        Assert.Equal(0x500, half.ReadInt32(otherHalf));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { DefenceLine = 10 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { DefenceLine = 110 }));
+    }
+
+    [Fact]
     public void Stick_dead_zone_lowers_the_four_axis_limits_and_eases_the_set_piece_aims()
     {
         var original = Load("PES6.orig.exe");

@@ -173,6 +173,8 @@ Issue: [#23](https://github.com/kwentinn/PES6Patcher/issues/23)
 
 Suggested by Tinker on Evo-Web: when defending, the defenders bunch together, the defensive midfielders join the back line and the defenders drop back to their box instead of holding a line. **Players spread wider** already helps across the pitch; keeping a defensive line means changing how the players without the ball place themselves.
 
+Done for the line's height: the game dropped every team's defensive line by a fixed 2560 units (about 11 m), so the back four sat on the edge of their box with the ball near the halfway line. **Higher defensive line** takes that drop off. Still open: the back four only use that line as a floor (their place comes from each player's base target), the part of the drop that comes from a team value, and the midfielders joining the back line.
+
 ## Game speed: the x2 speed from the shop
 
 Issue: [#24](https://github.com/kwentinn/PES6Patcher/issues/24)

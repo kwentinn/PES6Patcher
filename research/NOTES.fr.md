@@ -145,6 +145,17 @@ Mesuré avec un relevé du joueur contrôlé par l'humain (boutons tenus `+0xB0`
 - **Au pressing, les joueurs tentent de prendre le ballon de plus loin** multiplie les deux (180 % par défaut : portée 288, paramètre 127, le maximum d'un octet signé). Mesuré sur 40 s : le presseur vient maintenant à moins de 300 du porteur (au plus près 116 au lieu de 337). Les deux équipes sont concernées.
 - Pas en cause : l'option d'écartement en largeur (le presseur n'est pas dans l'état 7), vérifié en coupant l'écartement en mémoire.
 
+### Ligne défensive
+
+Mesuré avec un enregistreur des 22 joueurs (positions, mode, mot de la ligne) et lu dans Ghidra (exe importé sans analyse, fonctions décompilées depuis leur entrée) :
+
+- Sans le ballon, les quatre défenseurs étaient au bord de leur surface (environ 3700 de la ligne de but) avec le ballon juste dans leur moitié, et n'atteignaient jamais la ligne médiane avec le ballon dans le dernier tiers adverse.
+- L'aiguillage du placement `0x528580` choisit selon le mode du joueur `+0x1DD` (`0x24` → `0x60CB40`, `0x27` → `0x60CD50`, marquage, `8` → `0x619C80`…). Chaque routine construit une cible de base dans les globales `0x3BCDCBC` (x) / `0x3BCDCC0` (z), avec le sens du camp dans `0x3BCDCC4` (`0x642A90` en défense, `0x642540` en attaque), l'ajuste et appelle la fonction de cible `0x4C9DC0`.
+- La **ligne défensive** est un mot par camp, `0x3BCDCAE` + camp × 2 (camp = `+0x13` du joueur), calculé par `0x5E1BD0` à partir du x lissé du ballon (`0x3BCDCB2`) : ballon dans l'autre moitié → la moitié de sa distance au centre − `0xA00` (`sub eax,0A00h` en `0x5E1FC5`), gardée 4096 derrière le ballon ; ballon dans la moitié du camp → −`0xA00` − la moitié de cette distance (`mov edx,0FFFFF600h` en `0x5E1E66`), gardée 4096 − distance / 4 derrière le ballon (768 au moins). Puis le niveau attaque/défense `[0x3BE0A6E + équipe]` (0 à 4) : −3072, −1024, 0, +512, +1024 ; puis −2000 (`0xB8C10C`) ; puis −(100 − v) × 40, v étant une valeur d'équipe de 0 à 100 renvoyée par `0x531DA0` (un saut dans la protection ; environ 30 pour l'équipe mesurée). Le résultat est borné à ±11929.
+- **Ligne défensive plus haute** réduit les deux `0xA00`. Mis à zéro en mémoire pendant un match, le mot de la ligne est monté d'environ 2000 (ballon dans la moitié du camp près du centre : −7503 → −5445 depuis le centre ; juste dans l'autre moitié : −5401 → −3501), et les quatre défenseurs de 0 à 1500 selon la zone (75 s avant, 75 s après) : ils se tenaient déjà environ 1400 au-dessus du mot, qui ne sert que de plancher (`0x60CB40`, et la fin de `0x642A90`). Mieux ressenti en match.
+- Le `+0x12` d'un joueur n'est pas un numéro d'équipe stable (il a changé entre deux relevés du même match) ; les ids 1–11 et 12–22 sont les deux équipes. Le poste est `+0x10` (1–7 défenseurs, 8–`0x17` milieux, `0x18` et plus attaquants).
+- Un point d'arrêt d'exécution tenu 12 secondes sur `0x4C9DC0` a été suivi, deux minutes plus tard, d'un plantage du jeu dans le pilote graphique.
+
 ### Touches de test
 
 F2 à F9 changent une valeur en match et l'affichent par Kitserver, comme F1. Leur mise en place est appelée depuis l'entrée de la fonction de frappe jusqu'à ce qu'elle soit faite ; leur état est dans les 32 octets qui précèdent ceux du dribble resserré (`0xBC3FD0`). F2 à F5 avancent de 10 %, F6 de 25 %, F7 de 15°, F8 de 20 %, F9 de 10 % (les textes de chaque palier sont dans des zones libres à part).

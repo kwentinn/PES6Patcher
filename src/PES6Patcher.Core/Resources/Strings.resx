@@ -594,4 +594,16 @@
   <data name="Log.AccelerationGap" xml:space="preserve">
     <value>Acceleration gap: the acceleration stat weighs twice as much on the time to reach a speed.</value>
   </data>
+  <data name="Hook.DefenceLine" xml:space="preserve">
+    <value>defensive line</value>
+  </data>
+  <data name="Log.DefenceLine" xml:space="preserve">
+    <value>Defensive line: {0} % of the game's fixed drop (about 11 m) taken off, so the back line stands higher up the pitch (both teams).</value>
+  </data>
+  <data name="Gameplay.DefenceLinePercent" xml:space="preserve">
+    <value>% of the game's fixed drop (about 11 m) taken off</value>
+  </data>
+  <data name="Gameplay.DefenceLine" xml:space="preserve">
+    <value>Higher defensive line:</value>
+  </data>
 </root>

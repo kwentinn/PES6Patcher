@@ -173,6 +173,8 @@ Issue : [#23](https://github.com/kwentinn/PES6Patcher/issues/23)
 
 Suggestion de Tinker sur Evo-Web : en défense, les défenseurs se regroupent, les milieux défensifs rejoignent la ligne arrière et les défenseurs reculent jusqu'à leur surface au lieu de tenir une ligne. **Joueurs plus écartés en largeur** aide déjà en largeur ; tenir une ligne défensive demande de changer le placement des joueurs sans le ballon.
 
+Fait pour la hauteur de la ligne : le jeu reculait la ligne défensive de chaque équipe de 2560 unités fixes (environ 11 m), si bien que les quatre défenseurs étaient au bord de leur surface avec le ballon près de la ligne médiane. **Ligne défensive plus haute** retire ce recul. Reste à voir : les défenseurs ne se servent de cette ligne que comme d'un plancher (leur place vient de la cible de base de chaque joueur), la part du recul qui vient d'une valeur d'équipe, et les milieux qui rejoignent la ligne arrière.
+
 ## Vitesse de jeu : la vitesse x2 de la boutique
 
 Issue : [#24](https://github.com/kwentinn/PES6Patcher/issues/24)

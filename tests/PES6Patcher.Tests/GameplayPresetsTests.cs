@@ -18,6 +18,7 @@ public class GameplayPresetsTests
         Assert.Equal(PatchOptions.DefaultPassLead, pro.PassLead);
         Assert.Equal(PatchOptions.DefaultHeaders, pro.Headers);
         Assert.Equal(PatchOptions.DefaultTackle, pro.Tackle);
+        Assert.Equal(PatchOptions.DefaultDefenceLine, pro.DefenceLine);
     }
 
     [Fact]

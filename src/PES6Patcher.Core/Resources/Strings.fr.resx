@@ -594,4 +594,16 @@
   <data name="Log.AccelerationGap" xml:space="preserve">
     <value>Écart d'accélération : la stat d'accélération pèse deux fois plus sur le temps pour atteindre une vitesse.</value>
   </data>
+  <data name="Hook.DefenceLine" xml:space="preserve">
+    <value>ligne défensive</value>
+  </data>
+  <data name="Log.DefenceLine" xml:space="preserve">
+    <value>Ligne défensive : {0} % du recul fixe du jeu (environ 11 m) retiré, la ligne arrière se tient plus haut sur le terrain (les deux équipes).</value>
+  </data>
+  <data name="Gameplay.DefenceLinePercent" xml:space="preserve">
+    <value>% du recul fixe du jeu (environ 11 m) retiré</value>
+  </data>
+  <data name="Gameplay.DefenceLine" xml:space="preserve">
+    <value>Ligne défensive plus haute :</value>
+  </data>
 </root>

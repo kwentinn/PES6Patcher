@@ -1008,6 +1008,12 @@ internal static class CodeCaves
     /// <summary>The carrier's turn step per frame for an angle in degrees, in 1/65536 of a turn (the game's: 0x100, 1.4 degrees).</summary>
     public static int CarrierTurnStep(int degrees) => (int)Math.Round(degrees * 65536 / 360.0);
 
+    /// <summary>The game's fixed drop of the defensive line, in pitch units (about 11 m).</summary>
+    public const int DefenceLineGameDrop = 0xA00;
+
+    /// <summary>What is left of that drop once <paramref name="percent"/> % of it is taken off: 100 % -> 0, 50 % -> 0x500.</summary>
+    public static int DefenceLineDrop(int percent) => (int)Math.Round(DefenceLineGameDrop * (100 - percent) / 100.0);
+
     /// <summary>The pad reader's limit for a dead zone in % of the axis (127 from the centre): 18 % -> 23, the game's 29 % -> 37.</summary>
     public static byte StickDeadZoneLimit(int percent) => (byte)Math.Round(percent * 127 / 100.0);
 

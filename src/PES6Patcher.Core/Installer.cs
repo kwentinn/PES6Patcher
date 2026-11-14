@@ -41,13 +41,14 @@ namespace PES6Patcher.Core;
 /// <param name="AccelerationGap">Acceleration gap between players: the acceleration stat weighs twice as much.</param>
 /// <param name="Headers">Height of the human teams' headers, in % of the game's (100 = unchanged).</param>
 /// <param name="HeadersDebug">Test key: F11 in a match changes the headers share.</param>
+/// <param name="DefenceLine">Higher defensive line: share of the game's fixed drop taken off, in % (0 = unchanged).</param>
 /// <param name="PhysicsMod">Load PityCharly's physics mod DLL (kload.cfg); null = leave as it is.</param>
 public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null, bool FreeKick = false,
     int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
     int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
-    int CloseDribbleStrength = PatchOptions.DefaultCloseDribbleStrength, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false)
+    int CloseDribbleStrength = PatchOptions.DefaultCloseDribbleStrength, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -77,15 +78,16 @@ public static class Installer
             passLead = settings.Gameplay ? settings.PassLead : 100,
             stickDeadZone = settings.Gameplay ? settings.StickDeadZone : PatchOptions.GameStickDeadZone,
             carrierTurn = settings.Gameplay ? settings.CarrierTurn : 0,
-            headers = settings.Gameplay ? settings.Headers : 100;
+            headers = settings.Gameplay ? settings.Headers : 100,
+            defenceLine = settings.Gameplay ? settings.DefenceLine : 0;
         bool accelerationGap = settings.Gameplay && settings.AccelerationGap;
         // without any exe fix, the exe goes back to the original
-        byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || shotPower < 100 || shotAccuracy < 100 || spread > 0 || speedGap != 100 || sprintTurn > 0 || tackle != 100 || (settings.Gameplay && settings.LoftedAim) || passLead < 100 || headers < 100 || stickDeadZone != PatchOptions.GameStickDeadZone || carrierTurn > 0 || accelerationGap || settings.SkipIntro
+        byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || shotPower < 100 || shotAccuracy < 100 || spread > 0 || speedGap != 100 || sprintTurn > 0 || tackle != 100 || (settings.Gameplay && settings.LoftedAim) || passLead < 100 || headers < 100 || stickDeadZone != PatchOptions.GameStickDeadZone || carrierTurn > 0 || accelerationGap || defenceLine > 0 || settings.SkipIntro
             ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro, freeKick, settings.FreeKickWeight,
                 freeKick && settings.FreeKickDebug, shotPower, shotPower < 100 && settings.ShotPowerDebug,
                 shotAccuracy, shotAccuracy < 100 && settings.ShotAccuracyDebug, spread, spread > 0 && settings.SpreadDebug, speedGap, speedGap != 100 && settings.SpeedGapDebug,
                 sprintTurn, sprintTurn > 0 && settings.SprintTurnDebug, tackle, tackle != 100 && settings.TackleDebug, shotAccuracy < 100 ? settings.LobPower : 100, settings.Gameplay && settings.LoftedAim,
-                passLead, passLead < 100 && settings.PassLeadDebug, stickDeadZone, carrierTurn, settings.CloseDribbleStrength, closeDribble && settings.CloseDribbleStrengthDebug, accelerationGap, headers, headers < 100 && settings.HeadersDebug))
+                passLead, passLead < 100 && settings.PassLeadDebug, stickDeadZone, carrierTurn, settings.CloseDribbleStrength, closeDribble && settings.CloseDribbleStrengthDebug, accelerationGap, headers, headers < 100 && settings.HeadersDebug, defenceLine))
             : original;
         string yesNo = Loc.T(freeDirection ? "Common.Yes" : "Common.No");
         log(settings.Display ? Loc.T("Log.ExeBuilt", settings.Half, yesNo) : Loc.T("Log.ExeBuiltNoDisplay", yesNo));
@@ -107,6 +109,7 @@ public static class Installer
         if (sprintTurn > 0 && settings.SprintTurnDebug) log(Loc.T("Log.SprintTurnDebug"));
         if (carrierTurn > 0) log(Loc.T("Log.CarrierTurn", carrierTurn));
         if (accelerationGap) log(Loc.T("Log.AccelerationGap"));
+        if (defenceLine > 0) log(Loc.T("Log.DefenceLine", defenceLine));
         if (tackle != 100) log(Loc.T("Log.Tackle", tackle));
         if (tackle != 100 && settings.TackleDebug) log(Loc.T("Log.TackleDebug"));
         if (settings.Gameplay && settings.LoftedAim) log(Loc.T("Log.LoftedAim"));

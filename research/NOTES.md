@@ -145,6 +145,17 @@ Measured with a logger of the human-controlled player (buttons held `+0xB0`) aga
 - **Pressing players challenge for the ball from further** scales both (180 % by default: reach 288, parameter 127, the most a signed byte holds). Measured over 40 s: the presser now comes within 300 of the carrier (closest 116 instead of 337). Both teams are concerned.
 - Not the cause: the players spread wider option (the presser is not in state 7), checked with the spread switched off in memory.
 
+### Defensive line
+
+Measured with a logger of the 22 players (positions, mode, the line word) and read in Ghidra (the exe imported without analysis, functions decompiled from their entry):
+
+- Without the ball, the back four sat on the edge of their box (about 3700 from the goal line) with the ball just inside their half, and never reached the halfway line with the ball in the opponent's last third.
+- The positioning dispatcher `0x528580` switches on the player's mode `+0x1DD` (`0x24` → `0x60CB40`, `0x27` → `0x60CD50`, marking, `8` → `0x619C80`…). Each routine builds a base target in the globals `0x3BCDCBC` (x) / `0x3BCDCC0` (z), with the side's direction in `0x3BCDCC4` (`0x642A90` when defending, `0x642540` when attacking), adjusts it and calls the target setter `0x4C9DC0`.
+- The **defensive line** is a word per side, `0x3BCDCAE` + side × 2 (side = player `+0x13`), computed by `0x5E1BD0` from the smoothed ball x (`0x3BCDCB2`): ball in the other half → half its distance to the centre − `0xA00` (`sub eax,0A00h` at `0x5E1FC5`), kept 4096 behind the ball; ball in the side's own half → −`0xA00` − half that distance (`mov edx,0FFFFF600h` at `0x5E1E66`), kept 4096 − distance / 4 behind the ball (768 at least). Then the attack/defence level `[0x3BE0A6E + team]` (0 to 4): −3072, −1024, 0, +512, +1024; then −2000 (`0xB8C10C`); then −(100 − v) × 40, v being a team value from 0 to 100 returned by `0x531DA0` (a jump into the protection; about 30 for the team measured). The result is clamped to ±11929.
+- **Higher defensive line** lowers the two `0xA00`. Zeroed in memory during a match, the line word rose by about 2000 (ball in the side's own half near the centre: −7503 → −5445 from the centre; just inside the other half: −5401 → −3501), and the back four by 0 to 1500 depending on the zone (75 s before, 75 s after): they already stood about 1400 above the word, which only acts as a floor (`0x60CB40`, and the end of `0x642A90`). Felt better in a match.
+- A player's `+0x12` is not a stable team number (it changed between two snapshots of the same match); ids 1–11 and 12–22 are the two teams. The role is `+0x10` (1–7 defenders, 8–`0x17` midfielders, `0x18` and above forwards).
+- An execute breakpoint held 12 seconds on `0x4C9DC0` was followed, two minutes later, by a crash of the game in the graphics driver.
+
 ### Test keys
 
 F2 to F9 change a value during a match and show it through Kitserver, like F1. Their set-up is called from the kick function's entry until done; their state is in the 32 bytes before the close dribbling ones (`0xBC3FD0`). F2 to F5 step by 10 %, F6 by 25 %, F7 by 15°, F8 by 20 %, F9 by 10 % (the texts for every step sit in caves of their own).
