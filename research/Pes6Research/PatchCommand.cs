@@ -57,8 +57,26 @@ sealed class PatchSet
     {
         file ??= FindPatchesFile();
         if (!File.Exists(file)) throw new ToolException($"{file}: no such file");
-        return new(JsonSerializer.Deserialize<Dictionary<string, Patch>>(File.ReadAllText(file),
-            new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? []);
+        return Parse(File.ReadAllText(file), file);
+    }
+
+    /// <summary>The patches of a patches.json text; refuses an entry whose bytes cannot be read or compared.</summary>
+    public static PatchSet Parse(string json, string source = "patches.json")
+    {
+        Dictionary<string, Patch>? patches;
+        try { patches = JsonSerializer.Deserialize<Dictionary<string, Patch>>(json, new JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
+        catch (JsonException e) { throw new ToolException($"{source}: {e.Message}"); }
+        foreach (var (name, p) in patches ?? [])
+        {
+            if (p.Bytes is not { Length: > 0 }) throw new ToolException($"{source}: '{name}' has no bytes");
+            foreach (var e in p.Bytes)
+            {
+                Address(e);
+                if (CodeCommand.ParseHex(e.Original).Length != CodeCommand.ParseHex(e.Patched).Length || CodeCommand.ParseHex(e.Original).Length == 0)
+                    throw new ToolException($"{source}: '{name}' at {e.Address}: original and patched must be the same number of bytes");
+            }
+        }
+        return new(patches ?? []);
     }
 
     public IEnumerable<string> Names => patches.Keys;
@@ -68,10 +86,10 @@ sealed class PatchSet
     public string About(string name) => patches[name].About;
 
     /// <summary>"applied", "original", or "other (bytes)"; several states joined by " / " when the places differ.</summary>
-    public string State(GameProcess game, string name) => string.Join(" / ", patches[name].Bytes.Select(e => State(game, e)).Distinct());
+    public string State(IGameMemory game, string name) => string.Join(" / ", patches[name].Bytes.Select(e => State(game, e)).Distinct());
 
     /// <summary>Applies (on) or reverts the patch and prints the outcome; false when refused or not in place afterwards.</summary>
-    public bool Set(GameProcess game, string name, bool on, bool force)
+    public bool Set(IGameMemory game, string name, bool on, bool force)
     {
         if (!patches.TryGetValue(name, out var p)) { Console.Error.WriteLine($"unknown patch '{name}' (see -List)"); return false; }
         var want = on ? "applied" : "original";
@@ -89,17 +107,17 @@ sealed class PatchSet
     }
 
     /// <summary>The bytes now at every place of the patch, to put the game back exactly as it was (see <see cref="Restore"/>).</summary>
-    public (string Name, (uint Address, byte[] Bytes)[] Places) Snapshot(GameProcess game, string name) =>
+    public (string Name, (uint Address, byte[] Bytes)[] Places) Snapshot(IGameMemory game, string name) =>
         (name, [.. patches[name].Bytes.Select(e => (Address(e), game.Read(Address(e), CodeCommand.ParseHex(e.Original).Length)))]);
 
     /// <summary>Writes the bytes of a snapshot back and prints the patch's state: the game is as before the run, whatever it was.</summary>
-    public void Restore(GameProcess game, (string Name, (uint Address, byte[] Bytes)[] Places) snapshot)
+    public void Restore(IGameMemory game, (string Name, (uint Address, byte[] Bytes)[] Places) snapshot)
     {
         foreach (var (address, bytes) in snapshot.Places) game.Write(address, bytes);
         Console.WriteLine($"{snapshot.Name}: put back as before ({State(game, snapshot.Name)})");
     }
 
-    static string State(GameProcess game, Entry e)
+    static string State(IGameMemory game, Entry e)
     {
         var original = CodeCommand.ParseHex(e.Original);
         var now = new byte[original.Length];

@@ -16,4 +16,8 @@
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Pes6Research.Tests" />
+  </ItemGroup>
+
 </Project>

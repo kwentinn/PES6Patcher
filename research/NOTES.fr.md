@@ -200,7 +200,7 @@ Constantes physiques du ballon (les 40 octets que changent le BallPhysics Editor
 
 Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'application n'en a pas besoin : le patch lui-même est dans `src/PES6Patcher.Core`.
 
-Ils passent un par un dans un outil console C#, [`Pes6Research`](Pes6Research) (`pes6r.exe`) : un seul module mémoire partagé au lieu d'une copie de `ReadProcessMemory` par script, pas de compilation à chaque lancement, et un échantillonnage plus régulier (100 ms demandées donnent 100 ms, pas 110 à 125). Le compiler une fois avec `dotnet build research/Pes6Research -c Release`, puis lancer `research/Pes6Research/bin/pes6r.exe <commande>`. Les options gardent les noms des scripts. Pour l'instant :
+La plupart vivent maintenant dans un outil console C#, [`Pes6Research`](Pes6Research) (`pes6r.exe`) : un seul module mémoire partagé au lieu d'une copie de `ReadProcessMemory` par script, pas de compilation à chaque lancement, et un échantillonnage plus régulier (100 ms demandées donnent 100 ms, pas 110 à 125). Le compiler une fois avec `dotnet build research/Pes6Research -c Release`, puis lancer `research/Pes6Research/bin/pes6r.exe <commande>` (sans commande : la liste). Les options gardent les noms des scripts. Ce qui n'a besoin ni du jeu ni de ses fichiers (options, hex, patchs sur une fausse mémoire, sections de l'exe, depth et shape) est testé : `dotnet test research/Pes6Research.Tests`. Les commandes, et le script que chacune remplace :
 
 | Commande | Remplace | Rôle |
 |---|---|---|

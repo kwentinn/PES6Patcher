@@ -31,17 +31,31 @@ sealed class Options
         if (pending != null) Add(pending, null);
     }
 
+    // every value given for the option, as typed (a switch or an option without a value adds none)
     void Add(string name, string? value)
     {
         if (!values.TryGetValue(name, out var list)) values[name] = list = [];
-        if (value != null) list.AddRange(value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        if (!string.IsNullOrEmpty(value)) list.Add(value);
     }
 
     public bool Flag(string name) { used.Add(name); return values.ContainsKey(name); }
 
-    public string? String(string name) { used.Add(name); return values.TryGetValue(name, out var l) && l.Count > 0 ? string.Join(",", l) : null; }
+    /// <summary>The value as typed (a path may hold commas), or null; refuses an option given twice.</summary>
+    public string? String(string name)
+    {
+        used.Add(name);
+        if (!values.TryGetValue(name, out var l) || l.Count == 0) return null;
+        return l.Count == 1 ? l[0] : throw new ToolException($"-{name} is given {l.Count} times");
+    }
 
-    public List<string> List(string name) { used.Add(name); return values.TryGetValue(name, out var l) ? l : []; }
+    /// <summary>Every value, split on commas: <c>-Apply a,b -Apply c</c> gives a, b, c.</summary>
+    public List<string> List(string name)
+    {
+        used.Add(name);
+        return values.TryGetValue(name, out var l)
+            ? [.. l.SelectMany(v => v.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))]
+            : [];
+    }
 
     public int Int(string name, int fallback) => String(name) is { } s ? ParseInt(s, name) : fallback;
 

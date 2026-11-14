@@ -12,6 +12,9 @@ sealed class Sampling : IDisposable
     volatile bool stopped;
     public Stopwatch Clock { get; } = new();
 
+    /// <summary>True once Ctrl+C was pressed.</summary>
+    public bool Stopped => stopped;
+
     public Sampling()
     {
         timeBeginPeriod(1);

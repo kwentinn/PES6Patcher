@@ -82,7 +82,12 @@ static class ScoreProbeCommand
                 run.Pace(every, t0);
             }
         }
-        finally { if (speedPatch != "" && !game.HasExited) patches.Restore(game, before); }
+        finally
+        {
+            if (speedPatch != "" && !game.HasExited)
+                try { patches.Restore(game, before); }
+                catch (ToolException e) { Console.Error.WriteLine($"{speedPatch}: NOT put back ({e.Message})"); }
+        }
 
         var good = increments.Keys.Where(a => !bad.Contains(a)).ToHashSet();
         var lines = new List<string>

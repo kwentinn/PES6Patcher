@@ -33,10 +33,10 @@ static class GameLayout
     public static uint Player(int id) => Players + (uint)((id - 1) * PlayerSize);
 
     /// <summary>The ball pointer, or 0 (before a match, or unreadable).</summary>
-    public static uint BallAddress(GameProcess game) => BitConverter.ToUInt32(game.ReadOrZero(BallPointer, 4));
+    public static uint BallAddress(IGameMemory game) => BitConverter.ToUInt32(game.ReadOrZero(BallPointer, 4));
 
     /// <summary>The ball's x, y, z; zeros when it cannot be read (before a match).</summary>
-    public static (float X, float Y, float Z) Ball(GameProcess game)
+    public static (float X, float Y, float Z) Ball(IGameMemory game)
     {
         var pointer = new byte[4];
         var ball = new byte[12];

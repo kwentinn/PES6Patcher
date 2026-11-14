@@ -13,12 +13,16 @@ sealed class PeFile
     {
         if (!File.Exists(path)) throw new ToolException($"{path}: no such file");
         var b = Bytes = File.ReadAllBytes(path);
+        var notExe = new ToolException($"{path}: not a 32-bit exe");
+        if (b.Length < 0x40 || b[0] != 'M' || b[1] != 'Z') throw notExe;
         var pe = BitConverter.ToInt32(b, 0x3C);
-        if (pe <= 0 || pe + 24 > b.Length || BitConverter.ToUInt32(b, pe) != 0x4550) throw new ToolException($"{path}: not an exe");
+        if (pe <= 0 || pe > b.Length - 24 - 32 || BitConverter.ToUInt32(b, pe) != 0x4550) throw notExe;
         var count = BitConverter.ToUInt16(b, pe + 6);
         var optional = BitConverter.ToUInt16(b, pe + 20);
+        if (BitConverter.ToUInt16(b, pe + 24) != 0x10B) throw notExe; // PE32 optional header (a PE32+ one has the image base elsewhere)
         ImageBase = BitConverter.ToUInt32(b, pe + 24 + 28);
         var first = pe + 24 + optional;
+        if ((long)first + 40L * count > b.Length) throw new ToolException($"{path}: the section table is cut short");
         Sections = [.. Enumerable.Range(0, count).Select(i => first + 40 * i).Select(o => new Section(
             System.Text.Encoding.ASCII.GetString(b, o, 8).TrimEnd('\0'),
             BitConverter.ToUInt32(b, o + 12), BitConverter.ToUInt32(b, o + 16), BitConverter.ToUInt32(b, o + 20)))];

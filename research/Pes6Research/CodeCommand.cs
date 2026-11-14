@@ -10,13 +10,13 @@ static class CodeCommand
     {
         var address = o.Address("Address");
         var length = o.Int("Length", 16);
-        var hex = o.String("Hex");
+        var bytes = o.String("Hex") is { } hex ? ParseHex(hex) : null; // a typo is told before the game is touched
         o.CheckAllUsed();
+        if (bytes is { Length: 0 }) throw new ToolException("-Hex has no bytes");
 
-        using var game = GameProcess.Open(processName, write: hex != null);
-        if (hex != null)
+        using var game = GameProcess.Open(processName, write: bytes != null);
+        if (bytes != null)
         {
-            var bytes = ParseHex(hex);
             game.Write(address, bytes);
             length = Math.Max(length, bytes.Length);
         }
@@ -32,7 +32,7 @@ static class CodeCommand
         {
             return parts.Length == 1 && parts[0].Length > 2 ? Convert.FromHexString(parts[0]) : [.. parts.Select(b => Convert.ToByte(b, 16))];
         }
-        catch (FormatException) { throw new ToolException($"'{hex}' is not hex bytes"); }
+        catch (Exception e) when (e is FormatException or OverflowException) { throw new ToolException($"'{hex}' is not hex bytes"); }
     }
 
     public static string FormatHex(ReadOnlySpan<byte> bytes) => Convert.ToHexString(bytes).Chunk2();

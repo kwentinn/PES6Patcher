@@ -200,7 +200,7 @@ Ball physics constants (the 40 bytes changed by Rechi's BallPhysics Editor and D
 
 The scripts in [`scripts`](scripts) were used to find the fixes. The app does not need them: the patch itself is in `src/PES6Patcher.Core`.
 
-They are moving one by one into a C# console tool, [`Pes6Research`](Pes6Research) (`pes6r.exe`): one shared memory module instead of a `ReadProcessMemory` copy per script, no compile on every run, and steadier sampling (100 ms asked gives 100 ms, not 110-125). Build it once with `dotnet build research/Pes6Research -c Release`, then run `research/Pes6Research/bin/pes6r.exe <command>`. The options keep the scripts' names. So far:
+Most of them now live in a C# console tool, [`Pes6Research`](Pes6Research) (`pes6r.exe`): one shared memory module instead of a `ReadProcessMemory` copy per script, no compile on every run, and steadier sampling (100 ms asked gives 100 ms, not 110-125). Build it once with `dotnet build research/Pes6Research -c Release`, then run `research/Pes6Research/bin/pes6r.exe <command>` (no command: the list). The options keep the scripts' names. The parts that need neither the game nor its files (options, hex, patches on a fake memory, exe sections, depth and shape) are tested: `dotnet test research/Pes6Research.Tests`. The commands, and the script each replaces:
 
 | Command | Was | Purpose |
 |---|---|---|

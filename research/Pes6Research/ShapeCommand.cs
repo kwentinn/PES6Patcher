@@ -14,7 +14,7 @@ static class ShapeCommand
     public const string Usage = "shape [-Seconds 90] [-Every 250] [-Out shape.csv]\n" +
                                 "                                                 team shape out of possession by ball zone: lines, gaps, length, width";
 
-    sealed record Sample(string Poss, double Ball, double Def, double Mid, double Fwd, double SdDef, double SdMid,
+    internal sealed record Sample(string Poss, double Ball, double Def, double Mid, double Fwd, double SdDef, double SdMid,
         double Length, double Width, string Roles);
 
     public static int Run(Options o, string processName)
@@ -53,7 +53,7 @@ static class ShapeCommand
         return 0;
     }
 
-    static IEnumerable<Sample> Take(byte[] all, byte carrier, float bx)
+    internal static IEnumerable<Sample> Take(byte[] all, byte carrier, float bx)
     {
         foreach (var t in new[] { 0, 1 })
         {
@@ -80,7 +80,7 @@ static class ShapeCommand
     static double Avg(IEnumerable<double> v) { var l = v.ToList(); return l.Count > 0 ? l.Average() : double.NaN; }
 
     /// <summary>Population standard deviation; 0 under two values.</summary>
-    static double Sd(List<double> v)
+    internal static double Sd(List<double> v)
     {
         if (v.Count < 2) return 0;
         var m = v.Average();

@@ -3,8 +3,38 @@ using System.Runtime.InteropServices;
 
 namespace Pes6Research;
 
+/// <summary>Memory of the game, 32-bit addresses: the running process, or a buffer in the tests.</summary>
+interface IGameMemory
+{
+    /// <summary>Reads <paramref name="buffer"/>.Length bytes; false when the range is not readable (or the game closed).</summary>
+    bool TryRead(uint address, byte[] buffer);
+
+    /// <summary>Writes bytes (code included); throws <see cref="ToolException"/> when it cannot.</summary>
+    void Write(uint address, byte[] bytes);
+}
+
+static class GameMemoryExtensions
+{
+    public static byte[] Read(this IGameMemory m, uint address, int length)
+    {
+        var b = new byte[length];
+        if (!m.TryRead(address, b)) throw new ToolException($"cannot read 0x{address:X} ({length} bytes)");
+        return b;
+    }
+
+    /// <summary>The bytes, or zeros when the range cannot be read (as the scripts read: a null pointer gives zeros).</summary>
+    public static byte[] ReadOrZero(this IGameMemory m, uint address, int length)
+    {
+        var b = new byte[length];
+        if (address == 0 || !m.TryRead(address, b)) Array.Clear(b);
+        return b;
+    }
+
+    public static byte ReadU8(this IGameMemory m, uint address) => m.Read(address, 1)[0];
+}
+
 /// <summary>The running game's memory, read (and written when opened for it) with ReadProcessMemory / WriteProcessMemory: no debugger.</summary>
-sealed class GameProcess : IDisposable
+sealed class GameProcess : IGameMemory, IDisposable
 {
     const int VmRead = 0x10, VmWrite = 0x20, VmOperation = 0x08, QueryInformation = 0x400;
     const uint PageExecuteReadWrite = 0x40;
@@ -33,34 +63,15 @@ sealed class GameProcess : IDisposable
     /// <summary>The game's window (0 when it has none, as a suspended stand-in).</summary>
     public IntPtr MainWindow { get { try { process.Refresh(); return process.MainWindowHandle; } catch { return IntPtr.Zero; } } }
 
-    /// <summary>Reads <paramref name="buffer"/>.Length bytes; false when the range is not readable (or the game closed).</summary>
     public bool TryRead(uint address, byte[] buffer) =>
         ReadProcessMemory(handle, (IntPtr)address, buffer, buffer.Length, out var n) && n == buffer.Length;
-
-    public byte[] Read(uint address, int length)
-    {
-        var b = new byte[length];
-        if (!TryRead(address, b)) throw new ToolException($"cannot read 0x{address:X} ({length} bytes)");
-        return b;
-    }
-
-    /// <summary>The bytes, or zeros when the range cannot be read (as the scripts read: a null pointer gives zeros).</summary>
-    public byte[] ReadOrZero(uint address, int length)
-    {
-        var b = new byte[length];
-        if (address == 0 || !TryRead(address, b)) Array.Clear(b);
-        return b;
-    }
-
-    public uint ReadU32(uint address) => BitConverter.ToUInt32(Read(address, 4));
-    public byte ReadU8(uint address) => Read(address, 1)[0];
 
     /// <summary>Writes bytes, code included: the page is made writable for the write, then put back.</summary>
     public void Write(uint address, byte[] bytes)
     {
-        VirtualProtectEx(handle, (IntPtr)address, (UIntPtr)bytes.Length, PageExecuteReadWrite, out var old);
+        var unprotected = VirtualProtectEx(handle, (IntPtr)address, (UIntPtr)bytes.Length, PageExecuteReadWrite, out var old);
         var ok = WriteProcessMemory(handle, (IntPtr)address, bytes, bytes.Length, out var n) && n == bytes.Length;
-        VirtualProtectEx(handle, (IntPtr)address, (UIntPtr)bytes.Length, old, out _);
+        if (unprotected) VirtualProtectEx(handle, (IntPtr)address, (UIntPtr)bytes.Length, old, out _);
         if (!ok) throw new ToolException($"cannot write 0x{address:X} ({bytes.Length} bytes)");
     }
 

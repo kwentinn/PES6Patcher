@@ -73,13 +73,15 @@ static class AbCommand
             for (var c = 0; c < cycles; c++)
                 foreach (var label in new[] { "A", "B" })
                 {
-                    patches.Set(game, patchName, on: label == "B", force: false);
+                    // a refused patch (other bytes: another build or patch) would make every phase B the same as A
+                    if (!patches.Set(game, patchName, on: label == "B", force: false)) throw new StopException($"{patchName} could not be set");
                     if (speedPatch != "") patches.Set(game, speedPatch, on: true, force: true);
                     Console.WriteLine($"[{(int)clock.Elapsed.TotalSeconds}] cycle {c + 1}, phase {label}");
                     var phaseStart = clock.Elapsed.TotalSeconds;
                     while (clock.Elapsed.TotalSeconds - phaseStart < phase)
                     {
-                        if (!run.Running(game, double.MaxValue)) throw new StopException(game.HasExited ? "the game closed" : "Ctrl+C");
+                        if (run.Stopped) throw new StopException("Ctrl+C");
+                        if (game.HasExited) throw new StopException("the game closed");
                         var t0 = clock.ElapsedMilliseconds;
                         var now = clock.Elapsed.TotalSeconds;
                         var all = game.ReadOrZero(Players, PlayerCount * PlayerSize);
@@ -135,10 +137,16 @@ static class AbCommand
                     }
                 }
         }
-        catch (StopException e) { Console.WriteLine($"Stopped: {e.Message}"); }
+        // a ToolException here is the game closing during a patch write: keep the samples taken so far
+        catch (Exception e) when (e is StopException or ToolException) { Console.WriteLine($"Stopped: {e.Message}"); }
         finally
         {
-            if (!game.HasExited) foreach (var s in before) patches.Restore(game, s);
+            foreach (var s in before)
+            {
+                if (game.HasExited) break;
+                try { patches.Restore(game, s); }
+                catch (ToolException e) { Console.Error.WriteLine($"{s.Name}: NOT put back ({e.Message})"); }
+            }
             Sampling.End();
         }
 

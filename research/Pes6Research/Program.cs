@@ -51,3 +51,8 @@ catch (ToolException e)
     Console.Error.WriteLine(e.Message);
     return 1;
 }
+catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+{
+    Console.Error.WriteLine(e.Message); // a file that cannot be written (open elsewhere) or read
+    return 1;
+}
