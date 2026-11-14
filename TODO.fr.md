@@ -12,34 +12,33 @@ Les issues ouvertes, de la plus facile à la plus difficile à traiter (novembre
 
 1. [#32](https://github.com/kwentinn/PES6Patcher/issues/32) Dribble resserré sans effet depuis la 1.20 environ (bug) : une régression, qu'on peut donc traquer ; vérifier d'abord que la cave est encore atteinte en match, puis comparer les versions de la 1.19 à la 1.21.
 2. [#25](https://github.com/kwentinn/PES6Patcher/issues/25) Dégagements plus longs : sans doute une seule valeur de puissance à trouver et à tester en mémoire.
-3. [#11](https://github.com/kwentinn/PES6Patcher/issues/11) Changements de direction nets : fait en sprint ; il ne reste que les foulées sans sprint, à côté de code déjà connu.
-4. [#17](https://github.com/kwentinn/PES6Patcher/issues/17) Écran large : écran de démarrage décalé (bug) : un seul appel de dessin qui suppose encore la couche de 512 de large.
+3. [#17](https://github.com/kwentinn/PES6Patcher/issues/17) Écran large : écran de démarrage décalé (bug) : un seul appel de dessin qui suppose encore la couche de 512 de large.
 
 **Moyennes : une fonction à trouver, depuis une adresse connue**
 
-5. [#14](https://github.com/kwentinn/PES6Patcher/issues/14) Penalties : contrôle de la puissance : le point d'entrée est connu (`0x58CC11`).
-6. [#19](https://github.com/kwentinn/PES6Patcher/issues/19) Flèches de forme : effet réglable : se retrouve depuis les stats des joueurs, dont l'adresse est connue.
-7. [#34](https://github.com/kwentinn/PES6Patcher/issues/34) Réception : contrôles trop longs après une passe un peu ratée : proche des touches raccourcies du dribble resserré.
-8. [#33](https://github.com/kwentinn/PES6Patcher/issues/33) Passes en profondeur : le receveur attend le ballon : proche du correctif sur l'avance de ces passes.
-9. [#23](https://github.com/kwentinn/PES6Patcher/issues/23) IA : défendre en bloc : la hauteur de la ligne est faite (1.25.0) ; il reste la cible de base (`0x642A90`).
-10. [#30](https://github.com/kwentinn/PES6Patcher/issues/30) Gardien : plongeons plus longs et sorties sur les centres ; [#35](https://github.com/kwentinn/PES6Patcher/issues/35) Gardien : plus haut avec une ligne défensive haute (à côté de la ligne défensive déjà trouvée).
-11. [#12](https://github.com/kwentinn/PES6Patcher/issues/12) Vitesse de dribble intermédiaire : vérifier d'abord que le code existe encore dans PES6.
-12. [#8](https://github.com/kwentinn/PES6Patcher/issues/8) Dribble dans toutes les directions : il reste les touches moins fréquentes et les gestes techniques.
+4. [#14](https://github.com/kwentinn/PES6Patcher/issues/14) Penalties : contrôle de la puissance : le point d'entrée est connu (`0x58CC11`).
+5. [#19](https://github.com/kwentinn/PES6Patcher/issues/19) Flèches de forme : effet réglable : se retrouve depuis les stats des joueurs, dont l'adresse est connue.
+6. [#34](https://github.com/kwentinn/PES6Patcher/issues/34) Réception : contrôles trop longs après une passe un peu ratée : proche des touches raccourcies du dribble resserré.
+7. [#33](https://github.com/kwentinn/PES6Patcher/issues/33) Passes en profondeur : le receveur attend le ballon : proche du correctif sur l'avance de ces passes.
+8. [#23](https://github.com/kwentinn/PES6Patcher/issues/23) IA : défendre en bloc : la hauteur de la ligne est faite (1.25.0) ; il reste la cible de base (`0x642A90`).
+9. [#30](https://github.com/kwentinn/PES6Patcher/issues/30) Gardien : plongeons plus longs et sorties sur les centres ; [#35](https://github.com/kwentinn/PES6Patcher/issues/35) Gardien : plus haut avec une ligne défensive haute (à côté de la ligne défensive déjà trouvée).
+10. [#12](https://github.com/kwentinn/PES6Patcher/issues/12) Vitesse de dribble intermédiaire : vérifier d'abord que le code existe encore dans PES6.
+11. [#8](https://github.com/kwentinn/PES6Patcher/issues/8) Dribble dans toutes les directions : il reste les touches moins fréquentes et les gestes techniques.
 
 **Difficiles : décisions de l'IA, nouveau comportement ou code protégé**
 
-13. [#13](https://github.com/kwentinn/PES6Patcher/issues/13) Ballon : plus d'effet latéral : l'essai sur la portance de l'effet (effet Magnus) n'a rien changé.
-14. [#6](https://github.com/kwentinn/PES6Patcher/issues/6) Menus : n'élargir que le fond.
-15. [#26](https://github.com/kwentinn/PES6Patcher/issues/26) Gardien : choisir le receveur d'une relance.
-16. [#18](https://github.com/kwentinn/PES6Patcher/issues/18) Arbitres : plus de fautes et de penalties.
-17. [#21](https://github.com/kwentinn/PES6Patcher/issues/21) IA : gardien qui monte sur les corners en fin de match.
-18. [#15](https://github.com/kwentinn/PES6Patcher/issues/15) Passes manuelles : plus d'angles : code protégé.
-19. [#5](https://github.com/kwentinn/PES6Patcher/issues/5) Barre de puissance des passes : code protégé.
+12. [#13](https://github.com/kwentinn/PES6Patcher/issues/13) Ballon : plus d'effet latéral : l'essai sur la portance de l'effet (effet Magnus) n'a rien changé.
+13. [#6](https://github.com/kwentinn/PES6Patcher/issues/6) Menus : n'élargir que le fond.
+14. [#26](https://github.com/kwentinn/PES6Patcher/issues/26) Gardien : choisir le receveur d'une relance.
+15. [#18](https://github.com/kwentinn/PES6Patcher/issues/18) Arbitres : plus de fautes et de penalties.
+16. [#21](https://github.com/kwentinn/PES6Patcher/issues/21) IA : gardien qui monte sur les corners en fin de match.
+17. [#15](https://github.com/kwentinn/PES6Patcher/issues/15) Passes manuelles : plus d'angles : code protégé.
+18. [#5](https://github.com/kwentinn/PES6Patcher/issues/5) Barre de puissance des passes : code protégé.
 
 **Très difficiles, ou gros chantiers**
 
-20. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) IA sans ballon, IA qui dribble plus, dribble à 360° de l'IA : décisions de l'IA ; #2 a déjà été mis de côté.
-21. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Changer de joueur au stick droit, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) frappe flottante sur coup franc (une nouvelle trajectoire), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) module Kitserver.
+19. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) IA sans ballon, IA qui dribble plus, dribble à 360° de l'IA : décisions de l'IA ; #2 a déjà été mis de côté.
+20. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Changer de joueur au stick droit, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) frappe flottante sur coup franc (une nouvelle trajectoire), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) module Kitserver.
 
 Les sections ci-dessous sont sans ordre particulier.
 
@@ -132,7 +131,7 @@ Issue : [#11](https://github.com/kwentinn/PES6Patcher/issues/11)
 
 Quand on tourne brusquement le stick en dribblant, le joueur ne change pas de direction d'un coup : il tourne par paliers, touche après touche. Tourner en une fois (dans la limite de ce que permettent ses stats) rendrait le dribble beaucoup plus vif.
 
-Fait en sprint : **Virages plus francs en sprint, selon la précision de dribble** laisse le ballon tourner jusqu'à 90° par touche en sprint (le jeu : 22,5°) pour les meilleurs dribbleurs ; le joueur tourne avec le ballon à la touche de chaque pied, et à partir de 45° l'animation de virage du jeu se joue. Le joueur s'éloignait alors du ballon, sa course ne tournant que de 1,4° par image : **Le joueur tourne plus vite avec le ballon** relève ce pas (22° par image par défaut). Reste ouvert : les foulées de course sans sprint n'ont pas été changées.
+Fait en sprint : **Virages plus francs en sprint, selon la précision de dribble** laisse le ballon tourner jusqu'à 90° par touche en sprint (le jeu : 22,5°) pour les meilleurs dribbleurs ; le joueur tourne avec le ballon à la touche de chaque pied, et à partir de 45° l'animation de virage du jeu se joue. Le joueur s'éloignait alors du ballon, sa course ne tournant que de 1,4° par image : **Le joueur tourne plus vite avec le ballon** relève ce pas (22° par image par défaut). Sans sprint, rien n'était à faire : mesuré en match (14 novembre 2026), une touche en course envoie déjà le ballon jusqu'à la direction du stick, jusqu'à 111°, car la foulée de dribble normale permet 154° par touche.
 
 ## Joueurs humains : demi-vitesse de dribble
 
