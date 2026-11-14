@@ -2,7 +2,46 @@
 
 *English | [Français](TODO.fr.md)*
 
-Gameplay improvements planned for PES6 Patcher, in no particular order. Each open item has a [GitHub issue](https://github.com/kwentinn/PES6Patcher/issues), where it can be discussed.
+Gameplay improvements planned for PES6 Patcher. Each open item has a [GitHub issue](https://github.com/kwentinn/PES6Patcher/issues), where it can be discussed.
+
+## Priorities
+
+The open issues, from the easiest to the hardest to handle (November 2026). The ranking weighs what the research already knows and how much is left to find, not how much each change is wanted.
+
+**Easy: the lead is clear, little code to find**
+
+1. [#32](https://github.com/kwentinn/PES6Patcher/issues/32) Close dribbling has no effect since about 1.20 (bug): a regression, so it can be tracked down; first check that the cave is still reached in a match, then compare the versions from 1.19 to 1.21.
+2. [#25](https://github.com/kwentinn/PES6Patcher/issues/25) Goal kicks: longer range: probably a single power value to find and try in memory.
+3. [#11](https://github.com/kwentinn/PES6Patcher/issues/11) Sharp changes of direction: done when sprinting; only the running strides without sprint are left, next to code already known.
+4. [#17](https://github.com/kwentinn/PES6Patcher/issues/17) Widescreen: start screen shifted (bug): a single drawing call that still assumes the 512-wide layer.
+
+**Medium: one function to find, from a known address**
+
+5. [#14](https://github.com/kwentinn/PES6Patcher/issues/14) Penalties: control of the power: the entry point is known (`0x58CC11`).
+6. [#19](https://github.com/kwentinn/PES6Patcher/issues/19) Condition arrows: adjustable effect: findable from the player stats, whose address is known.
+7. [#34](https://github.com/kwentinn/PES6Patcher/issues/34) Ball reception: controls too long after a slightly missed pass: close to the shorter touches of close dribbling.
+8. [#33](https://github.com/kwentinn/PES6Patcher/issues/33) Through passes: the receiver waits for the ball: close to the through pass lead fix.
+9. [#23](https://github.com/kwentinn/PES6Patcher/issues/23) AI: defending as a unit: the line's height is done (1.25.0); the base target (`0x642A90`) is left.
+10. [#30](https://github.com/kwentinn/PES6Patcher/issues/30) Keeper: longer dives and coming out for crosses; [#35](https://github.com/kwentinn/PES6Patcher/issues/35) Keeper: stand higher with a high defensive line (next to the defensive line already found).
+11. [#12](https://github.com/kwentinn/PES6Patcher/issues/12) Semi dribbling speed: first check that the code still exists in PES6.
+12. [#8](https://github.com/kwentinn/PES6Patcher/issues/8) Dribbling in any direction: the less frequent touches and the special moves are left.
+
+**Hard: AI decisions, a new behaviour or protected code**
+
+13. [#13](https://github.com/kwentinn/PES6Patcher/issues/13) Ball: more swerve: the try on the spin lift (Magnus effect) changed nothing.
+14. [#6](https://github.com/kwentinn/PES6Patcher/issues/6) Menus: widen only the background.
+15. [#26](https://github.com/kwentinn/PES6Patcher/issues/26) Keeper: choose the receiver of a throw.
+16. [#18](https://github.com/kwentinn/PES6Patcher/issues/18) Referees: more fouls and penalties.
+17. [#21](https://github.com/kwentinn/PES6Patcher/issues/21) AI: keeper going up for late corners.
+18. [#15](https://github.com/kwentinn/PES6Patcher/issues/15) Manual passes: more angles: protected code.
+19. [#5](https://github.com/kwentinn/PES6Patcher/issues/5) Pass power bar: protected code.
+
+**Very hard, or large projects**
+
+20. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) AI movement without the ball, AI dribbling more, AI 360° dribbling: AI decisions; #2 was already shelved.
+21. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Switch player with the right stick, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) knuckleball free kicks (a new trajectory), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) Kitserver module.
+
+The sections below are in no particular order.
 
 ## AI players: 360° dribbling
 
@@ -188,3 +227,9 @@ Issue: [#29](https://github.com/kwentinn/PES6Patcher/issues/29)
 Suggested by kanzi123 on Evo-Web, who preferred the first close dribbling: the ball should stay closer to the feet the higher the dribble rating. The first version (× 14/16 running, × 13/16 sprinting for everyone) is what a player rated 95 or more already gets.
 
 Done: a **strength** setting scales the reduction (125 % by default, 100 % = the first version for the best dribblers, up to 200 %: beyond, the player treads on the ball), with F10 to compare in a match.
+
+## Keeper: stand higher with a high defensive line
+
+Issue: [#35](https://github.com/kwentinn/PES6Patcher/issues/35)
+
+Suggested by kanzi123 on Evo-Web: with **Higher defensive line**, the keeper could also stand higher, near the edge of his box or outside it while his team has the ball, as today's keepers do. The keeper places himself apart from the line found at `0x5E1BD0`: first find what sets his target position without the ball.

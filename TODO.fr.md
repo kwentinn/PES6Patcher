@@ -2,7 +2,46 @@
 
 *[English](TODO.md) | Français*
 
-Améliorations du gameplay prévues pour PES6 Patcher, sans ordre particulier. Chaque piste ouverte a une [issue GitHub](https://github.com/kwentinn/PES6Patcher/issues), où elle peut être discutée.
+Améliorations du gameplay prévues pour PES6 Patcher. Chaque piste ouverte a une [issue GitHub](https://github.com/kwentinn/PES6Patcher/issues), où elle peut être discutée.
+
+## Priorités
+
+Les issues ouvertes, de la plus facile à la plus difficile à traiter (novembre 2026). Le classement tient compte de ce que la recherche sait déjà et de ce qu'il reste à trouver, pas de l'envie qu'on a de chaque changement.
+
+**Faciles : la piste est claire, peu de code à trouver**
+
+1. [#32](https://github.com/kwentinn/PES6Patcher/issues/32) Dribble resserré sans effet depuis la 1.20 environ (bug) : une régression, qu'on peut donc traquer ; vérifier d'abord que la cave est encore atteinte en match, puis comparer les versions de la 1.19 à la 1.21.
+2. [#25](https://github.com/kwentinn/PES6Patcher/issues/25) Dégagements plus longs : sans doute une seule valeur de puissance à trouver et à tester en mémoire.
+3. [#11](https://github.com/kwentinn/PES6Patcher/issues/11) Changements de direction nets : fait en sprint ; il ne reste que les foulées sans sprint, à côté de code déjà connu.
+4. [#17](https://github.com/kwentinn/PES6Patcher/issues/17) Écran large : écran de démarrage décalé (bug) : un seul appel de dessin qui suppose encore la couche de 512 de large.
+
+**Moyennes : une fonction à trouver, depuis une adresse connue**
+
+5. [#14](https://github.com/kwentinn/PES6Patcher/issues/14) Penalties : contrôle de la puissance : le point d'entrée est connu (`0x58CC11`).
+6. [#19](https://github.com/kwentinn/PES6Patcher/issues/19) Flèches de forme : effet réglable : se retrouve depuis les stats des joueurs, dont l'adresse est connue.
+7. [#34](https://github.com/kwentinn/PES6Patcher/issues/34) Réception : contrôles trop longs après une passe un peu ratée : proche des touches raccourcies du dribble resserré.
+8. [#33](https://github.com/kwentinn/PES6Patcher/issues/33) Passes en profondeur : le receveur attend le ballon : proche du correctif sur l'avance de ces passes.
+9. [#23](https://github.com/kwentinn/PES6Patcher/issues/23) IA : défendre en bloc : la hauteur de la ligne est faite (1.25.0) ; il reste la cible de base (`0x642A90`).
+10. [#30](https://github.com/kwentinn/PES6Patcher/issues/30) Gardien : plongeons plus longs et sorties sur les centres ; [#35](https://github.com/kwentinn/PES6Patcher/issues/35) Gardien : plus haut avec une ligne défensive haute (à côté de la ligne défensive déjà trouvée).
+11. [#12](https://github.com/kwentinn/PES6Patcher/issues/12) Vitesse de dribble intermédiaire : vérifier d'abord que le code existe encore dans PES6.
+12. [#8](https://github.com/kwentinn/PES6Patcher/issues/8) Dribble dans toutes les directions : il reste les touches moins fréquentes et les gestes techniques.
+
+**Difficiles : décisions de l'IA, nouveau comportement ou code protégé**
+
+13. [#13](https://github.com/kwentinn/PES6Patcher/issues/13) Ballon : plus d'effet latéral : l'essai sur la portance de l'effet (effet Magnus) n'a rien changé.
+14. [#6](https://github.com/kwentinn/PES6Patcher/issues/6) Menus : n'élargir que le fond.
+15. [#26](https://github.com/kwentinn/PES6Patcher/issues/26) Gardien : choisir le receveur d'une relance.
+16. [#18](https://github.com/kwentinn/PES6Patcher/issues/18) Arbitres : plus de fautes et de penalties.
+17. [#21](https://github.com/kwentinn/PES6Patcher/issues/21) IA : gardien qui monte sur les corners en fin de match.
+18. [#15](https://github.com/kwentinn/PES6Patcher/issues/15) Passes manuelles : plus d'angles : code protégé.
+19. [#5](https://github.com/kwentinn/PES6Patcher/issues/5) Barre de puissance des passes : code protégé.
+
+**Très difficiles, ou gros chantiers**
+
+20. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) IA sans ballon, IA qui dribble plus, dribble à 360° de l'IA : décisions de l'IA ; #2 a déjà été mis de côté.
+21. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Changer de joueur au stick droit, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) frappe flottante sur coup franc (une nouvelle trajectoire), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) module Kitserver.
+
+Les sections ci-dessous sont sans ordre particulier.
 
 ## Joueurs IA : dribble à 360°
 
@@ -188,3 +227,9 @@ Issue : [#29](https://github.com/kwentinn/PES6Patcher/issues/29)
 Suggestion de kanzi123 sur Evo-Web, qui préférait le premier dribble resserré : le ballon doit rester d'autant plus près des pieds que la note de dribble est haute. La première version (× 14/16 en course, × 13/16 en sprint pour tous) est déjà ce qu'a un joueur noté 95 ou plus.
 
 Fait : un réglage d'**intensité** multiplie la réduction (125 % par défaut, 100 % = la première version pour les meilleurs dribbleurs, jusqu'à 200 % : au-delà, le joueur marche sur le ballon), avec F10 pour comparer en match.
+
+## Gardien : plus haut avec une ligne défensive haute
+
+Issue : [#35](https://github.com/kwentinn/PES6Patcher/issues/35)
+
+Suggéré par kanzi123 sur Evo-Web : avec **Ligne défensive plus haute**, le gardien pourrait lui aussi se placer plus haut, près du bord de sa surface ou en dehors quand son équipe a le ballon, comme les gardiens d'aujourd'hui. Le gardien se place à part de la ligne trouvée en `0x5E1BD0` : trouver d'abord ce qui fixe sa position visée sans le ballon.
