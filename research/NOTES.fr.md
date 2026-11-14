@@ -206,7 +206,7 @@ Ils passent un par un dans un outil console C#, [`Pes6Research`](Pes6Research) (
 |---|---|---|
 | `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | la mémoire en colonnes int16 / int32 / float (point décimal, quelle que soit la langue de Windows) |
 | `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV des 22 joueurs et du ballon ; écrit au fur et à mesure, donc Ctrl+C ou un plantage du jeu gardent les échantillons ; pas de ligne quand les joueurs sont illisibles |
-| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | modifications nommées de `patches.json`, voir plus bas ; `pes6ab.ps1` et `pes6scoreprobe.ps1` l'appellent |
+| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | modifications nommées de `patches.json`, voir plus bas ; `pes6r ab` et `pes6r scoreprobe` s'en servent |
 | `pes6r code -Address 0x8744F0 [-Length 16] [-Hex "1C 03 00 00"]` | `pes6code.ps1` | lire des octets, ou les écrire (mémoire uniquement, code compris) puis les relire |
 | `pes6r players` | `pes6players.ps1` | un instantané des 22 joueurs et du ballon |
 | `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | ligne arrière par zone du ballon à partir d'un CSV de `positions` (`t` : les cibles des joueurs) ; écrit `<entrée>-<champ>-teams.csv` avec un point décimal |
@@ -217,6 +217,10 @@ Ils passent un par un dans un outil console C#, [`Pes6Research`](Pes6Research) (
 | `pes6r turnlog [-Seconds 30] [-Out turn.csv] [-StartDelay 5]` | `pes6turnlog.ps1` | une ligne à chaque changement des champs du porteur ; attend 1 ms entre deux lectures au lieu d'occuper un cœur, et attrape toujours chaque image |
 | `pes6r heading -Players 0x3BDD700,0x3BDDB80 [-Seconds 10]` | `pes6heading.ps1` | le cap des joueurs face à l'angle du stick ; 10 mesures par seconde comme demandé (le script en faisait 9) |
 | `pes6r stick [-StartDelay 5] [-Hold 3] [-Out stick.txt]` | `pes6stick.ps1` | la mémoire qui suit le stick, guidé par des bips |
+| `pes6r ab -Patch defence-line [-Phase 90] [-Cycles 3] [-Settle 10] [-SpeedPatch speed-x2] [-SkipScan 1]` | `pes6ab.ps1` | A/B automatique d'un patch pendant un match ordinateur contre ordinateur à vitesse x2 : ligne arrière par zone du ballon, patch désactivé (A) et activé (B) ; les patchs sont remis aussi sur Ctrl+C, et un mot de ligne que l'octet de côté du gardien ne peut pas indexer donne NaN au lieu d'arrêter le relevé |
+| `pes6r scoreprobe [-Seconds 600] [-SkipScan 1]` | `pes6scoreprobe.ps1` | les valeurs 32 bits d'une zone qui ne font que monter de 1, avec la position du ballon (la recherche des compteurs de score) |
+
+`ab` et `scoreprobe` n'envoient la touche pour passer (Échap, le Start de l'utilisateur) que si la fenêtre du jeu est vraiment passée au premier plan, pour qu'elle n'atterrisse jamais dans une autre fenêtre.
 
 Les commandes guidées par des bips (aigu : début, grave : fin) s'arrêtent proprement sur Ctrl+C et quand le jeu se ferme, en gardant ce qu'elles ont relevé.
 

@@ -206,7 +206,7 @@ They are moving one by one into a C# console tool, [`Pes6Research`](Pes6Research
 |---|---|---|
 | `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | memory as int16 / int32 / float columns (decimal point, whatever the Windows language) |
 | `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV of the 22 players and the ball; written as it goes, so Ctrl+C or the game crashing keeps the samples; no line when the players cannot be read |
-| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | named memory patches of `patches.json`, see below; `pes6ab.ps1` and `pes6scoreprobe.ps1` call it |
+| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | named memory patches of `patches.json`, see below; `pes6r ab` and `pes6r scoreprobe` use it |
 | `pes6r code -Address 0x8744F0 [-Length 16] [-Hex "1C 03 00 00"]` | `pes6code.ps1` | read bytes, or write them (memory only, code included) and read them back |
 | `pes6r players` | `pes6players.ps1` | one snapshot of the 22 players and the ball |
 | `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | back line by ball zone from a `positions` CSV (`t`: the players' targets); writes `<in>-<field>-teams.csv` with a decimal point |
@@ -217,6 +217,10 @@ They are moving one by one into a C# console tool, [`Pes6Research`](Pes6Research
 | `pes6r turnlog [-Seconds 30] [-Out turn.csv] [-StartDelay 5]` | `pes6turnlog.ps1` | one line per change of the carrier's fields; sleeps 1 ms between reads instead of spinning a core, and still catches every frame |
 | `pes6r heading -Players 0x3BDD700,0x3BDDB80 [-Seconds 10]` | `pes6heading.ps1` | the players' heading against the stick angle; 10 samples a second, as asked (the script took 9) |
 | `pes6r stick [-StartDelay 5] [-Hold 3] [-Out stick.txt]` | `pes6stick.ps1` | memory that follows the stick, guided by beeps |
+| `pes6r ab -Patch defence-line [-Phase 90] [-Cycles 3] [-Settle 10] [-SpeedPatch speed-x2] [-SkipScan 1]` | `pes6ab.ps1` | automatic A/B of a patch in a CPU-vs-CPU match at x2 speed: back line by ball zone, patch off (A) and on (B); the patches are put back on Ctrl+C too, and a line word the keeper's side byte cannot index gives NaN instead of stopping the run |
+| `pes6r scoreprobe [-Seconds 600] [-SkipScan 1]` | `pes6scoreprobe.ps1` | 32-bit values of a region that only ever go up by 1, with the ball's position (the search for the score counters) |
+
+`ab` and `scoreprobe` send the skip key (Esc, the user's Start) only when the game window really came to the front, so it never lands in another window.
 
 The commands guided by beeps (high: start, low: end) stop cleanly on Ctrl+C and when the game closes, and keep what they logged.
 

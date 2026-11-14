@@ -14,7 +14,7 @@
     ]
   },
   "speed-x2": {
-    "about": "Game speed x2: frame step 0x3BE1740 = 60 / X with X = 30 (byte 0x3BE14B0), float 0x3BE12AC = X * 256 / 60. 1.5 worked in a match 2026-11-05. The game writes them back when the speed is set again, so pes6ab.ps1 re-applies it each phase.",
+    "about": "Game speed x2: frame step 0x3BE1740 = 60 / X with X = 30 (byte 0x3BE14B0), float 0x3BE12AC = X * 256 / 60. 1.5 worked in a match 2026-11-05. The game writes them back when the speed is set again, so pes6r ab re-applies it each phase.",
     "bytes": [
       { "address": "0x3BE1740", "original": "00 00 80 3F", "patched": "00 00 00 40" },
       { "address": "0x3BE14B0", "original": "3C", "patched": "1E" },

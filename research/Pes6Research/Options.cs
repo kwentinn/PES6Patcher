@@ -47,6 +47,8 @@ sealed class Options
 
     public uint Address(string name) => String(name) is { } s ? (uint)ParseInt(s, name) : throw new ToolException($"-{name} is required");
 
+    public uint Address(string name, uint fallback) => String(name) is { } s ? (uint)ParseInt(s, name) : fallback;
+
     /// <summary>Decimal, or hex with 0x (as PowerShell reads them).</summary>
     public static int ParseInt(string s, string what)
     {

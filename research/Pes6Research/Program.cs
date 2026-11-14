@@ -15,6 +15,9 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["turnlog"] = (CarrierLogCommands.Turn, [], CarrierLogCommands.TurnUsage),
     ["heading"] = (HeadingCommand.Run, [], HeadingCommand.Usage),
     ["stick"] = (StickCommand.Run, [], StickCommand.Usage),
+    // unattended runs in a CPU-vs-CPU match
+    ["ab"] = (AbCommand.Run, [], AbCommand.Usage),
+    ["scoreprobe"] = (ScoreProbeCommand.Run, [], ScoreProbeCommand.Usage),
     // files (the game need not run)
     ["depth"] = (DepthCommand.Run, [], DepthCommand.Usage),
     ["findref"] = (ExeCommands.FindRef, [], ExeCommands.FindRefUsage),

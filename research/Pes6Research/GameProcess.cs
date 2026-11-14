@@ -28,6 +28,9 @@ sealed class GameProcess : IDisposable
 
     public bool HasExited { get { try { return process.HasExited; } catch { return true; } } }
 
+    /// <summary>The game's window (0 when it has none, as a suspended stand-in).</summary>
+    public IntPtr MainWindow { get { try { process.Refresh(); return process.MainWindowHandle; } catch { return IntPtr.Zero; } } }
+
     /// <summary>Reads <paramref name="buffer"/>.Length bytes; false when the range is not readable (or the game closed).</summary>
     public bool TryRead(uint address, byte[] buffer) =>
         ReadProcessMemory(handle, (IntPtr)address, buffer, buffer.Length, out var n) && n == buffer.Length;
