@@ -1,4 +1,4 @@
-# Defensive line height from a pes6positions.ps1 CSV. For each sample and team, oriented so that the own goal is at 0
+# Defensive line height from a `pes6r positions` CSV. For each sample and team, oriented so that the own goal is at 0
 # and the opposite goal at 23600: ball depth, back line (mean of the 4 deepest outfielders), deepest and
 # highest outfielder, team length and width, split by who has the ball.
 # Usage: pes6depth.ps1 -In positions.csv   (writes positions-p-teams.csv next to it)

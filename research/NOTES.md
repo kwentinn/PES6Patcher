@@ -200,12 +200,22 @@ Ball physics constants (the 40 bytes changed by Rechi's BallPhysics Editor and D
 
 The scripts in [`scripts`](scripts) were used to find the fixes. The app does not need them: the patch itself is in `src/PES6Patcher.Core`.
 
+They are moving one by one into a C# console tool, [`Pes6Research`](Pes6Research) (`pes6r.exe`): one shared memory module instead of a `ReadProcessMemory` copy per script, no compile on every run, and steadier sampling (100 ms asked gives 100 ms, not 110-125). Build it once with `dotnet build research/Pes6Research -c Release`, then run `research/Pes6Research/bin/pes6r.exe <command>`. The options keep the scripts' names. So far:
+
+| Command | Was | Purpose |
+|---|---|---|
+| `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | memory as int16 / int32 / float columns (decimal point, whatever the Windows language) |
+| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV of the 22 players and the ball; written as it goes, so Ctrl+C or the game crashing keeps the samples; no line when the players cannot be read |
+| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | named memory patches of `patches.json`, see below; `pes6ab.ps1` and `pes6scoreprobe.ps1` call it |
+
+Every command takes `-Process <name>` to read another process than PES6.
+
 | Script | Purpose |
 |---|---|
 | `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | Ghidra scripts (headless mode): decompile a function, list the references to an address, disassemble a range, find the calls to a Direct3D 8 device method |
-| `pes6code.ps1`, `pes6dump.ps1` | read or change bytes in the running game (memory only) |
-| `pes6patch.ps1`, `patches.json` | named memory patches in the running game: `-List`, `-Apply name`, `-Revert name`, `-RevertAll`; the original bytes are checked first, so nothing is written over another patch or build. Add an entry to `patches.json` for every idea tried in memory |
-| `pes6players.ps1`, `pes6positions.ps1` | read-only (ReadProcessMemory, no debugger): a snapshot of the 22 players and the ball, or a CSV of them every 100-250 ms for a whole match |
+| `pes6code.ps1`, `pes6r dump` | read or change bytes in the running game (memory only) |
+| `pes6r patch`, `patches.json` | named memory patches in the running game: `-List`, `-Apply name`, `-Revert name`, `-RevertAll`; the original bytes are checked first, so nothing is written over another patch or build. Add an entry to `patches.json` for every idea tried in memory |
+| `pes6players.ps1`, `pes6r positions` | read-only (ReadProcessMemory, no debugger): a snapshot of the 22 players and the ball, or a CSV of them every 100-250 ms for a whole match |
 | `pes6depth.ps1`, `pes6shape.ps1` | from that CSV (or sampling live): height of the back line by ball zone, and the team shape (defenders, midfielders, forwards, length, width) while the opponent has the ball |
 | `pes6calls.ps1` | execute breakpoint on a function: every call with its caller and arguments. It attaches the debugger (a trace cave in the exe padding, read with ReadProcessMemory, would avoid it; the game also crashes by itself in the graphics driver, see the note on the defensive line) |
 | `pes6findref.ps1`, `pes6readva.ps1` | work on the exe file (the game need not run): find the code holding an address, read constants at virtual addresses |

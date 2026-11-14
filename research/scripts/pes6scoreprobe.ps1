@@ -30,7 +30,8 @@ public static class SP {
     }
 }
 '@
-$patchTool = Join-Path $PSScriptRoot 'pes6patch.ps1'
+$pes6r = Join-Path $PSScriptRoot '..\Pes6Research\bin\pes6r.exe'
+if (-not (Test-Path $pes6r)) { Write-Error 'build the research tool first: dotnet build research/Pes6Research -c Release'; exit 1 }
 $game = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $game) { Write-Error 'PES6 is not running.'; exit 1 }
 $h = [SP]::OpenProcess(0x10, $false, $game.Id)
@@ -41,7 +42,7 @@ function Press-Skip {
     [SP]::keybd_event(0, [byte]$SkipScan, 0x8, [UIntPtr]::Zero); Start-Sleep -Milliseconds 90
     [SP]::keybd_event(0, [byte]$SkipScan, 0xA, [UIntPtr]::Zero)
 }
-if ($SpeedPatch) { & $patchTool -Apply $SpeedPatch -Force }
+if ($SpeedPatch) { & $pes6r patch -Apply $SpeedPatch -Force }
 $presses = New-Object System.Collections.Generic.List[string]
 $sw = [Diagnostics.Stopwatch]::StartNew(); $prev = ReadMem $Start $Length; $prevPl = ReadMem (0x3BDC980 + 0x240) (22 * 0x240); $frozen = $null; $last = -100
 try {
@@ -63,7 +64,7 @@ try {
         $left = $Every - ($sw.ElapsedMilliseconds - $t0); if ($left -gt 0) { Start-Sleep -Milliseconds $left }
     }
 }
-finally { if ($SpeedPatch -and (Get-Process PES6 -ErrorAction SilentlyContinue)) { & $patchTool -Revert $SpeedPatch -Force } }
+finally { if ($SpeedPatch -and (Get-Process PES6 -ErrorAction SilentlyContinue)) { & $pes6r patch -Revert $SpeedPatch -Force } }
 
 $lines = @("score probe: $([int]$sw.Elapsed.TotalSeconds) s, region 0x$('{0:X}' -f $Start) + 0x$('{0:X}' -f $Length), skip key pressed $($presses.Count) time(s)")
 $lines += $presses

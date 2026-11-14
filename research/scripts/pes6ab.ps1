@@ -21,7 +21,8 @@ public static class AB { [DllImport("kernel32.dll")] public static extern IntPtr
 [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr w);
 [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra); }
 '@
-$patchTool = Join-Path $PSScriptRoot 'pes6patch.ps1'
+$pes6r = Join-Path $PSScriptRoot '..\Pes6Research\bin\pes6r.exe'
+if (-not (Test-Path $pes6r)) { Write-Error 'build the research tool first: dotnet build research/Pes6Research -c Release'; exit 1 }
 $game = Get-Process PES6 -ErrorAction SilentlyContinue | Select-Object -First 1
 if (-not $game) { Write-Error 'PES6 is not running.'; exit 1 }
 $h = [AB]::OpenProcess(0x10, $false, $game.Id)
@@ -45,8 +46,7 @@ function Press-Skip {
 function Patch([string]$verb, [string]$name, [switch]$Force) {
     if (-not $name) { return }
     $on = $verb -eq '-Apply'
-    if ($Force) { if ($on) { & $patchTool -Apply $name -Force } else { & $patchTool -Revert $name -Force } }
-    elseif ($on) { & $patchTool -Apply $name } else { & $patchTool -Revert $name }
+    & $pes6r patch $(if ($on) { '-Apply' } else { '-Revert' }) $name $(if ($Force) { '-Force' })
 }
 
 # 1. wait for a match

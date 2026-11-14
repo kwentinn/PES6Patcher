@@ -200,12 +200,22 @@ Constantes physiques du ballon (les 40 octets que changent le BallPhysics Editor
 
 Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'application n'en a pas besoin : le patch lui-même est dans `src/PES6Patcher.Core`.
 
+Ils passent un par un dans un outil console C#, [`Pes6Research`](Pes6Research) (`pes6r.exe`) : un seul module mémoire partagé au lieu d'une copie de `ReadProcessMemory` par script, pas de compilation à chaque lancement, et un échantillonnage plus régulier (100 ms demandées donnent 100 ms, pas 110 à 125). Le compiler une fois avec `dotnet build research/Pes6Research -c Release`, puis lancer `research/Pes6Research/bin/pes6r.exe <commande>`. Les options gardent les noms des scripts. Pour l'instant :
+
+| Commande | Remplace | Rôle |
+|---|---|---|
+| `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | la mémoire en colonnes int16 / int32 / float (point décimal, quelle que soit la langue de Windows) |
+| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV des 22 joueurs et du ballon ; écrit au fur et à mesure, donc Ctrl+C ou un plantage du jeu gardent les échantillons ; pas de ligne quand les joueurs sont illisibles |
+| `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | modifications nommées de `patches.json`, voir plus bas ; `pes6ab.ps1` et `pes6scoreprobe.ps1` l'appellent |
+
+Chaque commande accepte `-Process <nom>` pour lire un autre processus que PES6.
+
 | Script | Rôle |
 |---|---|
 | `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | scripts Ghidra (mode headless) : décompiler une fonction, lister les références à une adresse, désassembler une plage, trouver les appels d'une méthode du périphérique Direct3D 8 |
-| `pes6code.ps1`, `pes6dump.ps1` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
-| `pes6patch.ps1`, `patches.json` | modifications nommées de la mémoire du jeu en cours : `-List`, `-Apply nom`, `-Revert nom`, `-RevertAll` ; les octets d'origine sont vérifiés d'abord, rien n'est écrit par-dessus un autre patch ou une autre version. Ajouter une entrée à `patches.json` pour chaque idée essayée en mémoire |
-| `pes6players.ps1`, `pes6positions.ps1` | en lecture seule (ReadProcessMemory, sans débogueur) : un instantané des 22 joueurs et du ballon, ou un CSV toutes les 100 à 250 ms pendant un match entier |
+| `pes6code.ps1`, `pes6r dump` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
+| `pes6r patch`, `patches.json` | modifications nommées de la mémoire du jeu en cours : `-List`, `-Apply nom`, `-Revert nom`, `-RevertAll` ; les octets d'origine sont vérifiés d'abord, rien n'est écrit par-dessus un autre patch ou une autre version. Ajouter une entrée à `patches.json` pour chaque idée essayée en mémoire |
+| `pes6players.ps1`, `pes6r positions` | en lecture seule (ReadProcessMemory, sans débogueur) : un instantané des 22 joueurs et du ballon, ou un CSV toutes les 100 à 250 ms pendant un match entier |
 | `pes6depth.ps1`, `pes6shape.ps1` | à partir de ce CSV (ou en échantillonnant en direct) : hauteur de la ligne arrière par zone du ballon, et forme de l'équipe (défenseurs, milieux, attaquants, longueur, largeur) quand l'adversaire a le ballon |
 | `pes6calls.ps1` | point d'arrêt d'exécution sur une fonction : chaque appel avec son appelant et ses arguments. Il attache le débogueur (une cave de trace dans le padding de l'exe, lue avec ReadProcessMemory, l'éviterait ; le jeu plante aussi tout seul dans le pilote graphique, voir la note sur la ligne défensive) |
 | `pes6findref.ps1`, `pes6readva.ps1` | travaillent sur le fichier exe (le jeu n'a pas besoin de tourner) : trouver le code qui contient une adresse, lire des constantes à des adresses virtuelles |
