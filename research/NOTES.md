@@ -204,6 +204,12 @@ The scripts in [`scripts`](scripts) were used to find the fixes. The app does no
 |---|---|
 | `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | Ghidra scripts (headless mode): decompile a function, list the references to an address, disassemble a range, find the calls to a Direct3D 8 device method |
 | `pes6code.ps1`, `pes6dump.ps1` | read or change bytes in the running game (memory only) |
+| `pes6patch.ps1`, `patches.json` | named memory patches in the running game: `-List`, `-Apply name`, `-Revert name`, `-RevertAll`; the original bytes are checked first, so nothing is written over another patch or build. Add an entry to `patches.json` for every idea tried in memory |
+| `pes6players.ps1`, `pes6positions.ps1` | read-only (ReadProcessMemory, no debugger): a snapshot of the 22 players and the ball, or a CSV of them every 100-250 ms for a whole match |
+| `pes6depth.ps1`, `pes6shape.ps1` | from that CSV (or sampling live): height of the back line by ball zone, and the team shape (defenders, midfielders, forwards, length, width) while the opponent has the ball |
+| `pes6calls.ps1` | execute breakpoint on a function: every call with its caller and arguments. It attaches the debugger, and one session was followed by a crash of the game: prefer a trace cave in the exe padding |
+| `pes6findref.ps1`, `pes6readva.ps1` | work on the exe file (the game need not run): find the code holding an address, read constants at virtual addresses |
+| `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | a persistent Ghidra project of the original exe, in a short path (`-Import` once, about 40 s; `-Decompile 5E1BD0,642A90` about 12 s). The functions created and named are saved in it; add what is learned to `ghidra-labels.csv` and run `-Labels` |
 | `pes6watch.ps1` | hardware write or read breakpoint on an address: which instructions touch it |
 | `pes6hits.ps1` | hardware execute breakpoints: how many times some code runs, with which callers and arguments |
 | `pes6viewport.ps1` | records the `SetViewport` calls (rectangle and caller), which led to the list clipping |

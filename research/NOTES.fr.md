@@ -204,6 +204,12 @@ Les scripts de [`scripts`](scripts) ont servi à trouver les correctifs. L'appli
 |---|---|
 | `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | scripts Ghidra (mode headless) : décompiler une fonction, lister les références à une adresse, désassembler une plage, trouver les appels d'une méthode du périphérique Direct3D 8 |
 | `pes6code.ps1`, `pes6dump.ps1` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
+| `pes6patch.ps1`, `patches.json` | modifications nommées de la mémoire du jeu en cours : `-List`, `-Apply nom`, `-Revert nom`, `-RevertAll` ; les octets d'origine sont vérifiés d'abord, rien n'est écrit par-dessus un autre patch ou une autre version. Ajouter une entrée à `patches.json` pour chaque idée essayée en mémoire |
+| `pes6players.ps1`, `pes6positions.ps1` | en lecture seule (ReadProcessMemory, sans débogueur) : un instantané des 22 joueurs et du ballon, ou un CSV toutes les 100 à 250 ms pendant un match entier |
+| `pes6depth.ps1`, `pes6shape.ps1` | à partir de ce CSV (ou en échantillonnant en direct) : hauteur de la ligne arrière par zone du ballon, et forme de l'équipe (défenseurs, milieux, attaquants, longueur, largeur) quand l'adversaire a le ballon |
+| `pes6calls.ps1` | point d'arrêt d'exécution sur une fonction : chaque appel avec son appelant et ses arguments. Il attache le débogueur, et une session a été suivie d'un plantage du jeu : préférer une cave de trace dans le padding de l'exe |
+| `pes6findref.ps1`, `pes6readva.ps1` | travaillent sur le fichier exe (le jeu n'a pas besoin de tourner) : trouver le code qui contient une adresse, lire des constantes à des adresses virtuelles |
+| `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | un projet Ghidra persistant de l'exe d'origine, dans un chemin court (`-Import` une fois, environ 40 s ; `-Decompile 5E1BD0,642A90` environ 12 s). Les fonctions créées et nommées y sont enregistrées ; ajouter ce qu'on apprend à `ghidra-labels.csv` puis lancer `-Labels` |
 | `pes6watch.ps1` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
 | `pes6hits.ps1` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |
 | `pes6viewport.ps1` | relève les appels `SetViewport` (rectangle et appelant), ce qui a mené au découpage des listes |

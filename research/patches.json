@@ -1,0 +1,22 @@
+{
+  "defence-line": {
+    "about": "Higher defensive line (#23): the two fixed 0xA00 drops of the line function 0x5E1BD0 taken off. Validated in a match 2026-11-13.",
+    "bytes": [
+      { "address": "0x5E1E67", "original": "00 F6 FF FF", "patched": "00 00 00 00" },
+      { "address": "0x5E1FC6", "original": "00 0A 00 00", "patched": "00 00 00 00" }
+    ]
+  },
+  "defence-line-half": {
+    "about": "The same at 50 %: half of the drop (0x500) is left.",
+    "bytes": [
+      { "address": "0x5E1E67", "original": "00 F6 FF FF", "patched": "00 FB FF FF" },
+      { "address": "0x5E1FC6", "original": "00 0A 00 00", "patched": "00 05 00 00" }
+    ]
+  },
+  "take-ball-range": {
+    "about": "Pressing challenge reach (cmp edi,0A0h at 0x572AE8) raised from 160 to 288. Felt better 2026-11-03; the patcher scales a second limit too, so this is only part of the option.",
+    "bytes": [
+      { "address": "0x572AEA", "original": "A0 00 00 00", "patched": "20 01 00 00" }
+    ]
+  }
+}
