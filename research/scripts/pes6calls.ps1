@@ -1,5 +1,6 @@
-# WARNING: this attaches the debugger. A 12 s session on 0x4C9DC0 was followed 2 minutes later by a crash of the game in the
-# graphics driver (2026-11-13): prefer a trace cave in the exe padding (ring buffer read with ReadProcessMemory) or pes6positions.ps1.
+# NOTE: this attaches the debugger. A 12 s session on 0x4C9DC0 was followed 2 minutes later by a crash of the game in the
+# graphics driver (2026-11-13), but the game also crashed alone in the menus the next day (same atidxx32.dll fault, only memory reads
+# running), so the driver is the likely cause. A trace cave in the exe padding (read with ReadProcessMemory) remains the lighter option.
 # Usage: pes6calls.ps1 -Address 0x4C9DC0 -Seconds 12 -Out calls.csv [-NArgs 3]
 # Columns: ms, return address, player id, team, slot, state, carrier, ball x, then each argument (int, float), then the return addresses found higher on the stack.
 # Execute breakpoint on a function taking (player, x, z): logs every call with its caller, the player
