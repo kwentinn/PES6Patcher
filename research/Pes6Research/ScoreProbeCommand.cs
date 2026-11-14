@@ -31,6 +31,7 @@ static class ScoreProbeCommand
 
         using var game = GameProcess.Open(processName, write: speedPatch != "");
         using var run = new Sampling();
+        var before = speedPatch != "" ? patches.Snapshot(game, speedPatch) : default;
         if (speedPatch != "") patches.Set(game, speedPatch, on: true, force: true);
         var increments = new Dictionary<uint, int>();
         var bad = new HashSet<uint>();
@@ -81,7 +82,7 @@ static class ScoreProbeCommand
                 run.Pace(every, t0);
             }
         }
-        finally { if (speedPatch != "" && !game.HasExited) patches.Set(game, speedPatch, on: false, force: true); }
+        finally { if (speedPatch != "" && !game.HasExited) patches.Restore(game, before); }
 
         var good = increments.Keys.Where(a => !bad.Contains(a)).ToHashSet();
         var lines = new List<string>

@@ -88,6 +88,17 @@ sealed class PatchSet
         return ok;
     }
 
+    /// <summary>The bytes now at every place of the patch, to put the game back exactly as it was (see <see cref="Restore"/>).</summary>
+    public (string Name, (uint Address, byte[] Bytes)[] Places) Snapshot(GameProcess game, string name) =>
+        (name, [.. patches[name].Bytes.Select(e => (Address(e), game.Read(Address(e), CodeCommand.ParseHex(e.Original).Length)))]);
+
+    /// <summary>Writes the bytes of a snapshot back and prints the patch's state: the game is as before the run, whatever it was.</summary>
+    public void Restore(GameProcess game, (string Name, (uint Address, byte[] Bytes)[] Places) snapshot)
+    {
+        foreach (var (address, bytes) in snapshot.Places) game.Write(address, bytes);
+        Console.WriteLine($"{snapshot.Name}: put back as before ({State(game, snapshot.Name)})");
+    }
+
     static string State(GameProcess game, Entry e)
     {
         var original = CodeCommand.ParseHex(e.Original);

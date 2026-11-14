@@ -43,6 +43,8 @@ static class AbCommand
 
         using var game = GameProcess.Open(processName, write: true);
         using var run = new Sampling();
+        // the game as it is now (the patcher may have applied the patch in the exe): put back exactly so at the end
+        var before = new[] { patchName, speedPatch }.Where(n => n != "").Select(n => patches.Snapshot(game, n)).ToList();
         var rows = new List<Row>();
         var pressLog = new List<string>();
 
@@ -136,11 +138,7 @@ static class AbCommand
         catch (StopException e) { Console.WriteLine($"Stopped: {e.Message}"); }
         finally
         {
-            if (!game.HasExited)
-            {
-                patches.Set(game, patchName, on: false, force: false);
-                if (speedPatch != "") patches.Set(game, speedPatch, on: false, force: true);
-            }
+            if (!game.HasExited) foreach (var s in before) patches.Restore(game, s);
             Sampling.End();
         }
 
