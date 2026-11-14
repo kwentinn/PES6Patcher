@@ -3,9 +3,16 @@ using Pes6Research;
 // pes6r <command> [options]. Every command takes -Process <name> (PES6 by default).
 var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] Switches, string Usage)>(StringComparer.OrdinalIgnoreCase)
 {
+    // the running game's memory
     ["dump"] = (DumpCommand.Run, [], DumpCommand.Usage),
-    ["positions"] = (PositionsCommand.Run, [], PositionsCommand.Usage),
+    ["code"] = (CodeCommand.Run, [], CodeCommand.Usage),
     ["patch"] = (PatchCommand.Run, PatchCommand.Switches, PatchCommand.Usage),
+    ["players"] = (PlayersCommand.Run, [], PlayersCommand.Usage),
+    ["positions"] = (PositionsCommand.Run, [], PositionsCommand.Usage),
+    // files (the game need not run)
+    ["depth"] = (DepthCommand.Run, [], DepthCommand.Usage),
+    ["findref"] = (ExeCommands.FindRef, [], ExeCommands.FindRefUsage),
+    ["readva"] = (ExeCommands.ReadVa, [], ExeCommands.ReadVaUsage),
 };
 
 if (args.Length == 0 || !commands.TryGetValue(args[0], out var command))

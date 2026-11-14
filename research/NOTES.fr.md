@@ -207,18 +207,23 @@ Ils passent un par un dans un outil console C#, [`Pes6Research`](Pes6Research) (
 | `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | la mémoire en colonnes int16 / int32 / float (point décimal, quelle que soit la langue de Windows) |
 | `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV des 22 joueurs et du ballon ; écrit au fur et à mesure, donc Ctrl+C ou un plantage du jeu gardent les échantillons ; pas de ligne quand les joueurs sont illisibles |
 | `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | modifications nommées de `patches.json`, voir plus bas ; `pes6ab.ps1` et `pes6scoreprobe.ps1` l'appellent |
+| `pes6r code -Address 0x8744F0 [-Length 16] [-Hex "1C 03 00 00"]` | `pes6code.ps1` | lire des octets, ou les écrire (mémoire uniquement, code compris) puis les relire |
+| `pes6r players` | `pes6players.ps1` | un instantané des 22 joueurs et du ballon |
+| `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | ligne arrière par zone du ballon à partir d'un CSV de `positions` (`t` : les cibles des joueurs) ; écrit `<entrée>-<champ>-teams.csv` avec un point décimal |
+| `pes6r findref -Exe PES6.exe.orig -Values 0x3BCDCAE,0x3BE0A6E` | `pes6findref.ps1` | sur le fichier exe : les endroits qui contiennent une valeur 32 bits (0,1 s au lieu de 3,6) |
+| `pes6r readva -Exe PES6.exe.orig -Addresses 0xB8C10C,0x5E23FC [-Length 8]` | `pes6readva.ps1` | sur le fichier exe : float, int32 et octets à des adresses virtuelles |
 
 Chaque commande accepte `-Process <nom>` pour lire un autre processus que PES6.
 
 | Script | Rôle |
 |---|---|
 | `DumpAt.java`, `DumpRefs.java`, `ListRefs.java`, `Disasm.java`, `FindDevCalls.java` | scripts Ghidra (mode headless) : décompiler une fonction, lister les références à une adresse, désassembler une plage, trouver les appels d'une méthode du périphérique Direct3D 8 |
-| `pes6code.ps1`, `pes6r dump` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
+| `pes6r code`, `pes6r dump` | lire ou modifier des octets dans le jeu en cours d'exécution (mémoire uniquement) |
 | `pes6r patch`, `patches.json` | modifications nommées de la mémoire du jeu en cours : `-List`, `-Apply nom`, `-Revert nom`, `-RevertAll` ; les octets d'origine sont vérifiés d'abord, rien n'est écrit par-dessus un autre patch ou une autre version. Ajouter une entrée à `patches.json` pour chaque idée essayée en mémoire |
-| `pes6players.ps1`, `pes6r positions` | en lecture seule (ReadProcessMemory, sans débogueur) : un instantané des 22 joueurs et du ballon, ou un CSV toutes les 100 à 250 ms pendant un match entier |
-| `pes6depth.ps1`, `pes6shape.ps1` | à partir de ce CSV (ou en échantillonnant en direct) : hauteur de la ligne arrière par zone du ballon, et forme de l'équipe (défenseurs, milieux, attaquants, longueur, largeur) quand l'adversaire a le ballon |
+| `pes6r players`, `pes6r positions` | en lecture seule (ReadProcessMemory, sans débogueur) : un instantané des 22 joueurs et du ballon, ou un CSV toutes les 100 à 250 ms pendant un match entier |
+| `pes6r depth`, `pes6shape.ps1` | à partir de ce CSV (ou en échantillonnant en direct) : hauteur de la ligne arrière par zone du ballon, et forme de l'équipe (défenseurs, milieux, attaquants, longueur, largeur) quand l'adversaire a le ballon |
 | `pes6calls.ps1` | point d'arrêt d'exécution sur une fonction : chaque appel avec son appelant et ses arguments. Il attache le débogueur (une cave de trace dans le padding de l'exe, lue avec ReadProcessMemory, l'éviterait ; le jeu plante aussi tout seul dans le pilote graphique, voir la note sur la ligne défensive) |
-| `pes6findref.ps1`, `pes6readva.ps1` | travaillent sur le fichier exe (le jeu n'a pas besoin de tourner) : trouver le code qui contient une adresse, lire des constantes à des adresses virtuelles |
+| `pes6r findref`, `pes6r readva` | travaillent sur le fichier exe (le jeu n'a pas besoin de tourner) : trouver le code qui contient une adresse, lire des constantes à des adresses virtuelles |
 | `pes6ghidra.ps1`, `ApplyLabels.java`, `DecompIn.java`, `../ghidra-labels.csv` | un projet Ghidra persistant de l'exe d'origine, dans un chemin court (`-Import` une fois, environ 40 s ; `-Decompile 5E1BD0,642A90` environ 12 s). Les fonctions créées et nommées y sont enregistrées ; ajouter ce qu'on apprend à `ghidra-labels.csv` puis lancer `-Labels` |
 | `pes6watch.ps1` | point d'arrêt matériel en écriture ou en lecture sur une adresse : quelles instructions la touchent |
 | `pes6hits.ps1` | points d'arrêt matériels en exécution : combien de fois du code s'exécute, avec quels appelants et arguments |

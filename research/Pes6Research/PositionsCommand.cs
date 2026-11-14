@@ -1,11 +1,12 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using static Pes6Research.GameLayout;
 
 namespace Pes6Research;
 
 /// <summary>
 /// The 22 players and the ball every ~100 ms, one CSV line per sample and player (was pes6positions.ps1). Read-only, safe during
-/// a whole match; feed the file to pes6depth.ps1. Columns: ms, carrier, ball x/z, then per player: id (1-11 and 12-22 are the two
+/// a whole match; feed the file to <c>pes6r depth</c>. Columns: ms, carrier, ball x/z, then per player: id (1-11 and 12-22 are the two
 /// teams), team, slot (0 = keeper), state, x, z, target x/z, speed.
 /// Lines are written as they come, so Ctrl+C or the game closing (it crashes by itself now and then) keeps what was sampled.
 /// </summary>
@@ -13,9 +14,6 @@ static class PositionsCommand
 {
     public const string Usage = "positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]\n" +
                                 "                                                 CSV of the 22 players and the ball (beeps when StartDelay is given)";
-
-    const uint Carrier = 0x3BE09CC, BallPointer = 0xBCCE94, Players = 0x3BDC980 + 0x240;
-    const int PlayerSize = 0x240, PlayerCount = 22;
 
     public static int Run(Options o, string processName)
     {
@@ -35,8 +33,6 @@ static class PositionsCommand
             using var w = new StreamWriter(outPath) { AutoFlush = false };
             w.WriteLine("ms,carrier,bx,bz,id,team,slot,state,px,pz,tx,tz,speed");
             var carrier = new byte[1];
-            var ballPointer = new byte[4];
-            var ball = new byte[0x10];
             var all = new byte[PlayerCount * PlayerSize];
             var samples = 0;
             var sw = Stopwatch.StartNew();
@@ -51,16 +47,14 @@ static class PositionsCommand
                     Sleep(every, sw, ms); continue;
                 }
                 if (!game.TryRead(Carrier, carrier)) carrier[0] = 0;
-                var bp = game.TryRead(BallPointer, ballPointer) ? BitConverter.ToUInt32(ballPointer) : 0;
-                if (bp == 0 || !game.TryRead(bp + 0x10, ball)) Array.Clear(ball);
-                var bx = BitConverter.ToSingle(ball, 0); var bz = BitConverter.ToSingle(ball, 8);
+                var (bx, _, bz) = Ball(game);
                 for (var i = 0; i < PlayerCount; i++)
                 {
                     var p = i * PlayerSize;
-                    w.WriteLine($"{ms},{carrier[0]},{bx:F0},{bz:F0},{i + 1},{all[p + 0x12]},{all[p + 0x11]},{all[p + 0x16]}," +
-                                $"{BitConverter.ToSingle(all, p + 0xE0):F0},{BitConverter.ToSingle(all, p + 0xE8):F0}," +
-                                $"{BitConverter.ToSingle(all, p + 0x6C):F0},{BitConverter.ToSingle(all, p + 0x70):F0}," +
-                                $"{BitConverter.ToInt32(all, p + 0x1C)}");
+                    w.WriteLine($"{ms},{carrier[0]},{bx:F0},{bz:F0},{i + 1},{all[p + Team]},{all[p + Slot]},{all[p + State]}," +
+                                $"{BitConverter.ToSingle(all, p + X):F0},{BitConverter.ToSingle(all, p + Z):F0}," +
+                                $"{BitConverter.ToSingle(all, p + TargetX):F0},{BitConverter.ToSingle(all, p + TargetZ):F0}," +
+                                $"{BitConverter.ToInt32(all, p + Speed)}");
                 }
                 if (++samples % 10 == 0) w.Flush();
                 Sleep(every, sw, ms);

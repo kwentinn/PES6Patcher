@@ -3,7 +3,7 @@ namespace Pes6Research;
 /// <summary>A memory range of the running game as int16 / int32 / float columns, one line per 4 bytes (was pes6dump.ps1).</summary>
 static class DumpCommand
 {
-    public const string Usage = "dump -Address 0x3BECC60 [-Length 0x40]          memory as int16 / int32 / float columns";
+    public const string Usage = "dump -Address 0x3BECC60 [-Length 0x40]           memory as int16 / int32 / float columns";
 
     public static int Run(Options o, string processName)
     {

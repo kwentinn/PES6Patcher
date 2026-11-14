@@ -73,13 +73,12 @@ static class PatchCommand
         if (!game.TryRead(Address(e), now)) return "other (unreadable)";
         if (now.AsSpan().SequenceEqual(Hex(e.Patched))) return "applied";
         if (now.AsSpan().SequenceEqual(original)) return "original";
-        return $"other ({BitConverter.ToString(now).Replace('-', ' ')})";
+        return $"other ({CodeCommand.FormatHex(now)})";
     }
 
     static uint Address(Entry e) => (uint)Options.ParseInt(e.Address, "address");
 
-    static byte[] Hex(string hex) =>
-        [.. hex.Split(' ', StringSplitOptions.RemoveEmptyEntries).Select(b => Convert.ToByte(b, 16))];
+    static byte[] Hex(string hex) => CodeCommand.ParseHex(hex);
 
     /// <summary>research/patches.json, found from the exe (research/Pes6Research/bin) or the current folder.</summary>
     static string FindPatchesFile()
