@@ -98,7 +98,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     /// (strong shots measured in game got 18 463 to 23 011), and the kick function takes more: 36 300 was tried in a
     /// match and still lacked bite, 38 000 settled on, 40 000 felt too fast.
     /// </summary>
-    public const int DefaultSuperShotSpeed = 38000, MinSuperShotSpeed = 20000, MaxSuperShotSpeed = 60000;
+    public const int DefaultSuperShotSpeed = 40000, MinSuperShotSpeed = 20000, MaxSuperShotSpeed = 60000;
 
     /// <summary>
     /// Super shot of a star: extra ball weight while it flies, in % of the game's weight (0 = none), and the shot

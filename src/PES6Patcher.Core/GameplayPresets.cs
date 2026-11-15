@@ -30,8 +30,8 @@ public static class GameplayPresets
         // dipping ball of a star follows it too: Normal gives it to more shooters and dips less, Hardcore the opposite
         var (closeDribble, sprintTurn, carrierTurn, freeKick, shotPower, shotAccuracy, passLead, headers, superShot, superShotSpeed, superShotWeight, superShotStar) = preset switch
         {
-            GameplayPreset.Normal => (150, 90, 22, 70, 75, 30, 50, 60, 26, 40000, 45, 85),
-            GameplayPreset.Hardcore => (100, 45, 11, 30, 90, 75, 80, 80, 38, 32000, 70, 95),
+            GameplayPreset.Normal => (150, 90, 22, 70, 75, 30, 50, 60, 26, 42000, 45, 85),
+            GameplayPreset.Hardcore => (100, 45, 11, 30, 90, 75, 80, 80, 38, 38000, 70, 95),
             _ => (PatchOptions.DefaultCloseDribbleStrength, PatchOptions.DefaultSprintTurn, PatchOptions.DefaultCarrierTurn,
                 PatchOptions.DefaultFreeKickWeight, PatchOptions.DefaultShotPower, PatchOptions.DefaultShotAccuracy, PatchOptions.DefaultPassLead, PatchOptions.DefaultHeaders,
                 PatchOptions.DefaultSuperShot, PatchOptions.DefaultSuperShotSpeed, PatchOptions.DefaultSuperShotWeight, PatchOptions.DefaultSuperShotStar),
