@@ -134,7 +134,7 @@ internal sealed class MainForm : Form
     private readonly NumericUpDown _superShotPercent = new()
     {
         Minimum = PatchOptions.MinSuperShot, Maximum = PatchOptions.MaxSuperShot, Increment = 2,
-        Value = PatchOptions.DefaultSuperShot, Width = 60, Enabled = false,
+        Value = PatchOptions.DefaultSuperShot, Width = 60, Enabled = false, Margin = new Padding(22, 3, 3, 3),
     };
     private readonly NumericUpDown _superShotSpeed = new()
     {
@@ -264,7 +264,8 @@ internal sealed class MainForm : Form
             Flow(_lobPower, LabelText(Loc.T("Gameplay.LobPower"))),
             Flow(_headers, _headersPercent, LabelText(Loc.T("Gameplay.HeadersPercent"))),
             _headersDebug,
-            Flow(_superShot, _superShotPercent, LabelText(Loc.T("Gameplay.SuperShotPercent"))),
+            _superShot,   // its text is long: the height goes on a line of its own, like the other three values
+            Flow(_superShotPercent, LabelText(Loc.T("Gameplay.SuperShotPercent"))),
             Flow(_superShotSpeed, LabelText(Loc.T("Gameplay.SuperShotSpeed"))),
             Flow(_superShotWeight, LabelText(Loc.T("Gameplay.SuperShotWeight"))),
             Flow(_superShotStar, LabelText(Loc.T("Gameplay.SuperShotStar"))),
