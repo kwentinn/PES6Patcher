@@ -10,35 +10,34 @@ Les issues ouvertes, de la plus facile à la plus difficile à traiter (novembre
 
 **Faciles : la piste est claire, peu de code à trouver**
 
-1. [#32](https://github.com/kwentinn/PES6Patcher/issues/32) Dribble resserré sans effet depuis la 1.20 environ (bug) : une régression, qu'on peut donc traquer ; vérifier d'abord que la cave est encore atteinte en match, puis comparer les versions de la 1.19 à la 1.21.
-2. [#25](https://github.com/kwentinn/PES6Patcher/issues/25) Dégagements plus longs : sans doute une seule valeur de puissance à trouver et à tester en mémoire.
-3. [#17](https://github.com/kwentinn/PES6Patcher/issues/17) Écran large : écran de démarrage décalé (bug) : un seul appel de dessin qui suppose encore la couche de 512 de large.
+1. [#25](https://github.com/kwentinn/PES6Patcher/issues/25) Dégagements plus longs : sans doute une seule valeur de puissance à trouver et à tester en mémoire.
 
 **Moyennes : une fonction à trouver, depuis une adresse connue**
 
-4. [#14](https://github.com/kwentinn/PES6Patcher/issues/14) Penalties : contrôle de la puissance : le point d'entrée est connu (`0x58CC11`).
-5. [#19](https://github.com/kwentinn/PES6Patcher/issues/19) Flèches de forme : effet réglable : se retrouve depuis les stats des joueurs, dont l'adresse est connue.
-6. [#34](https://github.com/kwentinn/PES6Patcher/issues/34) Réception : contrôles trop longs après une passe un peu ratée : proche des touches raccourcies du dribble resserré.
-7. [#33](https://github.com/kwentinn/PES6Patcher/issues/33) Passes en profondeur : le receveur attend le ballon : proche du correctif sur l'avance de ces passes.
-8. [#23](https://github.com/kwentinn/PES6Patcher/issues/23) IA : défendre en bloc : la hauteur de la ligne est faite (1.25.0) ; il reste la cible de base (`0x642A90`).
-9. [#30](https://github.com/kwentinn/PES6Patcher/issues/30) Gardien : plongeons plus longs et sorties sur les centres ; [#35](https://github.com/kwentinn/PES6Patcher/issues/35) Gardien : plus haut avec une ligne défensive haute (à côté de la ligne défensive déjà trouvée).
-10. [#12](https://github.com/kwentinn/PES6Patcher/issues/12) Vitesse de dribble intermédiaire : vérifier d'abord que le code existe encore dans PES6.
-11. [#8](https://github.com/kwentinn/PES6Patcher/issues/8) Dribble dans toutes les directions : il reste les touches moins fréquentes et les gestes techniques.
+2. [#14](https://github.com/kwentinn/PES6Patcher/issues/14) Penalties : contrôle de la puissance : le point d'entrée est connu (`0x58CC11`).
+3. [#19](https://github.com/kwentinn/PES6Patcher/issues/19) Flèches de forme : effet réglable : se retrouve depuis les stats des joueurs, dont l'adresse est connue.
+4. [#34](https://github.com/kwentinn/PES6Patcher/issues/34) Réception : contrôles trop longs après une passe un peu ratée : proche des touches raccourcies du dribble resserré.
+5. [#33](https://github.com/kwentinn/PES6Patcher/issues/33) Passes en profondeur : le receveur attend le ballon : proche du correctif sur l'avance de ces passes.
+6. [#23](https://github.com/kwentinn/PES6Patcher/issues/23) IA : défendre en bloc : la hauteur de la ligne est faite (1.25.0) ; il reste la cible de base (`0x642A90`).
+7. [#30](https://github.com/kwentinn/PES6Patcher/issues/30) Gardien : plongeons plus longs et sorties sur les centres ; [#35](https://github.com/kwentinn/PES6Patcher/issues/35) Gardien : plus haut avec une ligne défensive haute (à côté de la ligne défensive déjà trouvée).
+8. [#12](https://github.com/kwentinn/PES6Patcher/issues/12) Vitesse de dribble intermédiaire : vérifier d'abord que le code existe encore dans PES6.
+9. [#8](https://github.com/kwentinn/PES6Patcher/issues/8) Dribble dans toutes les directions : il reste les touches moins fréquentes et les gestes techniques.
 
 **Difficiles : décisions de l'IA, nouveau comportement ou code protégé**
 
-12. [#13](https://github.com/kwentinn/PES6Patcher/issues/13) Ballon : plus d'effet latéral : l'essai sur la portance de l'effet (effet Magnus) n'a rien changé.
-13. [#6](https://github.com/kwentinn/PES6Patcher/issues/6) Menus : n'élargir que le fond.
-14. [#26](https://github.com/kwentinn/PES6Patcher/issues/26) Gardien : choisir le receveur d'une relance.
-15. [#18](https://github.com/kwentinn/PES6Patcher/issues/18) Arbitres : plus de fautes et de penalties.
-16. [#21](https://github.com/kwentinn/PES6Patcher/issues/21) IA : gardien qui monte sur les corners en fin de match.
-17. [#15](https://github.com/kwentinn/PES6Patcher/issues/15) Passes manuelles : plus d'angles : code protégé.
-18. [#5](https://github.com/kwentinn/PES6Patcher/issues/5) Barre de puissance des passes : code protégé.
+10. [#17](https://github.com/kwentinn/PES6Patcher/issues/17) Écran large : écran de démarrage décalé (bug) : environ 30 minutes en novembre 2026 ont écarté le rectangle de vue 2D, la découpe, les conversions 2D et les appels de la largeur 2D à chaque image ; il reste les 7 appels qui tournent à la création d'un écran.
+11. [#13](https://github.com/kwentinn/PES6Patcher/issues/13) Ballon : plus d'effet latéral : l'essai sur la portance de l'effet (effet Magnus) n'a rien changé.
+12. [#6](https://github.com/kwentinn/PES6Patcher/issues/6) Menus : n'élargir que le fond.
+13. [#26](https://github.com/kwentinn/PES6Patcher/issues/26) Gardien : choisir le receveur d'une relance.
+14. [#18](https://github.com/kwentinn/PES6Patcher/issues/18) Arbitres : plus de fautes et de penalties.
+15. [#21](https://github.com/kwentinn/PES6Patcher/issues/21) IA : gardien qui monte sur les corners en fin de match.
+16. [#15](https://github.com/kwentinn/PES6Patcher/issues/15) Passes manuelles : plus d'angles : code protégé.
+17. [#5](https://github.com/kwentinn/PES6Patcher/issues/5) Barre de puissance des passes : code protégé.
 
 **Très difficiles, ou gros chantiers**
 
-19. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) IA sans ballon, IA qui dribble plus, dribble à 360° de l'IA : décisions de l'IA ; #2 a déjà été mis de côté.
-20. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Changer de joueur au stick droit, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) frappe flottante sur coup franc (une nouvelle trajectoire), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) module Kitserver.
+18. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) IA sans ballon, IA qui dribble plus, dribble à 360° de l'IA : décisions de l'IA ; #2 a déjà été mis de côté.
+19. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Changer de joueur au stick droit, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) frappe flottante sur coup franc (une nouvelle trajectoire), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) module Kitserver.
 
 Les sections ci-dessous sont sans ordre particulier.
 
@@ -170,6 +169,8 @@ Fait : **Écart d'accélération plus marqué entre joueurs** fait compter la st
 Issue : [#17](https://github.com/kwentinn/PES6Patcher/issues/17)
 
 Signalé par denton_ajax et rds084 sur Evo-Web : en écran large, l'écran de démarrage (« Press Start ») est décalé vers la gauche, avec ou sans Menu Server. Il suppose sans doute encore la couche 2D d'origine, large de 512 ; il faut d'abord trouver quel appel de dessin le place.
+
+Essayé le 14 novembre 2026 sans succès : tout l'écran est dessiné dans les 512/796 de gauche de la fenêtre. Écartés en match : le bord gauche du rectangle de vue 2D (`0xBEE2D4`, tenu à la valeur d'origine dès le démarrage), la découpe (`0x40D740`, plein écran), les conversions 2D patchées (seule `0x87AEB0` tourne) et les appels de la largeur 2D (`0x8744F0`) à chaque image. Reste à essayer : ses 7 appels qui ne tournent qu'à la création d'un écran (`0x417083`, `0x845245`, `0x8CE20E`, `0x8CE2D3`, `0x956711`, `0xB3F925`, `0xB7A88F`), patchés avant que l'écran de démarrage soit construit.
 
 ## Arbitres : plus de fautes et de penalties
 
