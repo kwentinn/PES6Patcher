@@ -19,6 +19,18 @@ public class GameplayPresetsTests
         Assert.Equal(PatchOptions.DefaultHeaders, pro.Headers);
         Assert.Equal(PatchOptions.DefaultTackle, pro.Tackle);
         Assert.Equal(PatchOptions.DefaultDefenceLine, pro.DefenceLine);
+        Assert.Equal((PatchOptions.DefaultSuperShot, PatchOptions.DefaultSuperShotSpeed), (pro.SuperShot, pro.SuperShotSpeed));
+    }
+
+    [Fact]
+    public void The_super_shot_is_flatter_and_faster_the_more_help_the_preset_gives()
+    {
+        var (normal, pro, hardcore) = (Apply(GameplayPreset.Normal), Apply(GameplayPreset.Pro), Apply(GameplayPreset.Hardcore));
+        Assert.True(normal.SuperShot < pro.SuperShot && pro.SuperShot < hardcore.SuperShot);
+        Assert.True(normal.SuperShotSpeed > pro.SuperShotSpeed && pro.SuperShotSpeed > hardcore.SuperShotSpeed);
+        Assert.True(normal.SuperShotWeight < pro.SuperShotWeight && pro.SuperShotWeight < hardcore.SuperShotWeight);
+        Assert.True(normal.SuperShotStar < pro.SuperShotStar && pro.SuperShotStar < hardcore.SuperShotStar);
+        static InstallSettings Apply(GameplayPreset preset) => GameplayPresets.Apply(Start, preset);
     }
 
     [Fact]
@@ -51,6 +63,10 @@ public class GameplayPresetsTests
             Assert.InRange(s.ShotAccuracy, PatchOptions.MinShotAccuracy, PatchOptions.MaxShotAccuracy - 1);
             Assert.InRange(s.PassLead, PatchOptions.MinPassLead, PatchOptions.MaxPassLead - 1);
             Assert.InRange(s.Headers, PatchOptions.MinHeaders, PatchOptions.MaxHeaders - 1);
+            Assert.InRange(s.SuperShot, PatchOptions.MinSuperShot, PatchOptions.MaxSuperShot);
+            Assert.InRange(s.SuperShotSpeed, PatchOptions.MinSuperShotSpeed, PatchOptions.MaxSuperShotSpeed);
+            Assert.InRange(s.SuperShotWeight, PatchOptions.MinSuperShotWeight, PatchOptions.MaxSuperShotWeight);
+            Assert.InRange(s.SuperShotStar, PatchOptions.MinSuperShotStar, PatchOptions.MaxSuperShotStar);
         }
     }
 }

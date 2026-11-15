@@ -486,6 +486,36 @@
   <data name="Log.Headers" xml:space="preserve">
     <value>Têtes : celles des équipes des joueurs partent à {0} % de la hauteur du jeu (la vitesse est gardée), pour ne plus passer au-dessus de la barre.</value>
   </data>
+  <data name="Gameplay.SuperShot" xml:space="preserve">
+    <value>Super frappe : maintenir L1 + R1 en tirant (une frappe, pas un lob, au-dessus de la vitesse maximale du jeu)</value>
+  </data>
+  <data name="Gameplay.SuperShotPercent" xml:space="preserve">
+    <value>hauteur du ballon (tirs du jeu : 13 à 35)</value>
+  </data>
+  <data name="Gameplay.SuperShotSpeed" xml:space="preserve">
+    <value>vitesse du ballon (frappes les plus fortes du jeu : environ 30700)</value>
+  </data>
+  <data name="Gameplay.SuperShotWeight" xml:space="preserve">
+    <value>% de poids en plus pendant le vol, pour une star (0 = aucun)</value>
+  </data>
+  <data name="Gameplay.SuperShotStar" xml:space="preserve">
+    <value>à partir de cette précision de tir</value>
+  </data>
+  <data name="Log.SuperShotWeight" xml:space="preserve">
+    <value>Super frappe d'une star (précision de tir {1} et plus) : le ballon garde {0} % de poids en plus pendant son vol, il monte au-dessus des défenseurs puis replonge sous la barre.</value>
+  </data>
+  <data name="Gameplay.SuperShotDebug" xml:space="preserve">
+    <value>Test : F12 en match la change (+2)</value>
+  </data>
+  <data name="Log.SuperShotDebug" xml:space="preserve">
+    <value>Touche de test de la super frappe : F12 en match ajoute 2 à la hauteur (retour à 10 après 45), affiché à l'écran.</value>
+  </data>
+  <data name="Overlay.SuperShot" xml:space="preserve">
+    <value>HAUTEUR SUPER FRAPPE : {0} (F12)</value>
+  </data>
+  <data name="Log.SuperShot" xml:space="preserve">
+    <value>Super frappe (expérimental) : un tir des équipes des joueurs pris en maintenant L1 et R1 n&apos;est plus un lob et part à la vitesse {0} (les frappes les plus fortes du jeu : environ 30700) et à la hauteur {1}.</value>
+  </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Zone morte du stick analogique réduite :</value>
   </data>
@@ -506,6 +536,9 @@
   </data>
   <data name="Gameplay.CarrierTurnDegrees" xml:space="preserve">
     <value>degrés max par image (jeu : 1,4)</value>
+  </data>
+  <data name="Hook.SuperShot" xml:space="preserve">
+    <value>super frappe (décision du lob)</value>
   </data>
   <data name="Hook.CarrierTurn" xml:space="preserve">
     <value>virage avec le ballon</value>

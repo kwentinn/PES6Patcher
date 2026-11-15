@@ -128,6 +128,14 @@ internal sealed record LoftedAimSites(int Gauge, int Angle);
 internal sealed record PassLeadSites(int First, int Second);
 
 /// <summary>
+/// Where the game decides a shot is a lob (L1 held). <see cref="ButtonReads"/>: every "mov eax,[esi+0xB0]" whose
+/// buttons are then tested for L1 ("test ah,4"), set pieces excepted. <see cref="ButtonRebuild"/>: the "and ecx,400h"
+/// of the per-frame rebuild of a player's buttons ([+0xB0] = held &amp; L1 | pressed), where the raw buttons are still
+/// whole (R1 is dropped by then) — the only place the super shot can be told apart.
+/// </summary>
+internal sealed record LobSites(int[] ButtonReads, int ButtonRebuild);
+
+/// <summary>
 /// Analog stick dead zone, in the pad reader: each of the 4 axis bytes (0-255, centre 128) is zeroed when its distance from the
 /// centre is at most 0x25; <see cref="Limits"/> = the imm8 of those 4 "cmp eax,25h". A stick held within about 16 degrees of
 /// an axis therefore reads as exactly on it.
@@ -372,6 +380,28 @@ internal sealed class ExeLocator
     /// add edx,0x1D76 ; mov [esi+0x46],edx (at +23). 7542 + 12 * (stat - 40) * 100 / 60 - 16 * player[0x5C].
     /// </summary>
     private const string MaxSpeed = "8D 14 40 0F B6 46 4A C1 E2 02 C1 E0 04 2B D0 81 C2 76 1D 00 00 89 56 46";
+
+    /// <summary>Lob decision: mov eax,[esi+0xB0] ; test ah,4 (L1). Seven sites; the eighth pushes edi first.</summary>
+    private const string LobButtons = "8B 86 B0 00 00 00 F6 C4 04";
+    private const string LobButtonsPushEdi = "8B 86 B0 00 00 00 57 33 FF F6 C4 04";
+    private const int LobButtonReadCount = 8;
+
+    /// <summary>
+    /// Buttons rebuilt every frame: mov ecx,[esi+0xB0] ; mov eax,[esi+0xB4] ; and ecx,400h (at +12) ; or ecx,eax ;
+    /// mov [esi+0xB0],ecx. Only L1 survives there, so the super shot's L1 + R1 is read just before the "and".
+    /// </summary>
+    private const string ButtonRebuild = "8B 8E B0 00 00 00 8B 86 B4 00 00 00 81 E1 00 04 00 00 0B C8";
+    private const int ButtonRebuildAnd = 12;
+
+    public static LobSites? LocateLob(byte[] exe)
+    {
+        var image = new PeImage(exe);
+        List<int> All(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
+        var reads = All(LobButtons);
+        reads.AddRange(All(LobButtonsPushEdi));
+        var rebuild = All(ButtonRebuild);
+        return reads.Count == LobButtonReadCount && rebuild.Count == 1 ? new LobSites([.. reads], rebuild[0] + ButtonRebuildAnd) : null;
+    }
 
     public static SpeedSites? LocateSpeed(byte[] exe)
     {

@@ -21,6 +21,11 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="PassLeadDebug">Test key: F9 in game changes <paramref name="PassLead"/> by 10 % and shows it (through Kitserver).</param>
 /// <param name="Headers">Height of the human teams' headers, in % of the game's (100 = unchanged): headers no longer fly over the bar.</param>
 /// <param name="HeadersDebug">Test key: F11 in game changes <paramref name="Headers"/> by 10 % and shows it (through Kitserver).</param>
+/// <param name="SuperShot">Height of a human team's shot taken with L1 and R1 held (the super shot: a shot, not a lob), in the kick function's units (the game's shots: 13 to 35; 0 = off).</param>
+/// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
+/// <param name="SuperShotSpeed">Speed of a super shot, in the kick function's units (the game's shots peak around 30 700).</param>
+/// <param name="SuperShotWeight">Extra ball weight while a star's super shot flies, in % of the game's weight (0 = none): it rises, then dips.</param>
+/// <param name="SuperShotStar">Shot accuracy stat from which a shooter gets that dipping ball.</param>
 /// <param name="CarrierTurn">Running with the ball, the most the player's facing and run turn per frame, in degrees (0 = unchanged; the game's is 1.4): after a sharp touch, he follows the ball instead of running on along his old line.</param>
 /// <param name="StickDeadZone">Analog stick dead zone of each axis, in % (<see cref="GameStickDeadZone"/> = unchanged): smaller, a stick held near an axis no longer snaps onto it.</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>
@@ -40,7 +45,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
     int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
     int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
     int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
-    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0)
+    int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
+    int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
+    int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar)
 {
     /// <summary>
     /// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -78,6 +85,29 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
     /// <summary>Headers of the human teams: height, in % of the game's (100 = unchanged): default and limits.</summary>
     public const int DefaultHeaders = 70, MinHeaders = 30, MaxHeaders = 100;
+
+    /// <summary>
+    /// Super shot (L1 + R1 held on a shot of a human team): the height it leaves at, in the kick function's units
+    /// (the game's shots: 13 to 35; 0 = off). Default 32, tuned in a match together with the weight that makes a
+    /// star's ball dip: flatter, the shot goes in every time; higher, it sails over the bar.
+    /// </summary>
+    public const int DefaultSuperShot = 32, MinSuperShot = 10, MaxSuperShot = 60;
+
+    /// <summary>
+    /// Super shot: the speed it leaves at, in the kick function's units. The game's own shots peak around 30 700
+    /// (strong shots measured in game got 18 463 to 23 011), and the kick function takes more: 36 300 was tried in a
+    /// match and still lacked bite, 38 000 settled on, 40 000 felt too fast.
+    /// </summary>
+    public const int DefaultSuperShotSpeed = 40000, MinSuperShotSpeed = 20000, MaxSuperShotSpeed = 60000;
+
+    /// <summary>
+    /// Super shot of a star: extra ball weight while it flies, in % of the game's weight (0 = none), and the shot
+    /// accuracy stat from which a shooter gets it. Tuned in a match: the gravity added every frame went from 198
+    /// (PityCharly's physics mod; the game's own is 188) to 300, so the shot rises over the defenders and dips
+    /// under the bar; 55 % of 188 is that same +103.
+    /// </summary>
+    public const int DefaultSuperShotWeight = 55, MinSuperShotWeight = 0, MaxSuperShotWeight = 150;
+    public const int DefaultSuperShotStar = 90, MinSuperShotStar = 70, MaxSuperShotStar = 99;
 
     /// <summary>Weight added to the ball of a free kick shot, in % of the game's weight: default (tuned in game) and limits.</summary>
     public const int DefaultFreeKickWeight = 50, MinFreeKickWeight = 10, MaxFreeKickWeight = 200;
@@ -208,7 +238,16 @@ public static class ExePatcher
         if (options.CloseDribble && dribble == null) throw new PatchException(problems);
         if (options.SkipIntro && intro == null) throw new PatchException(problems);
         if (options.FreeKick && freeKick == null) throw new PatchException(problems);
-        if ((options.ShotPower < 100 || options.ShotAccuracy < 100 || options.Headers < 100) && shot == null) throw new PatchException(problems);
+        if ((options.ShotPower < 100 || options.ShotAccuracy < 100 || options.Headers < 100 || options.SuperShot > 0) && shot == null) throw new PatchException(problems);
+        if (options.SuperShot != 0 && options.SuperShot is < PatchOptions.MinSuperShot or > PatchOptions.MaxSuperShot)
+            throw new ArgumentOutOfRangeException(nameof(options), options.SuperShot, null);
+        if (options.SuperShot != 0 && options.SuperShotSpeed is < PatchOptions.MinSuperShotSpeed or > PatchOptions.MaxSuperShotSpeed)
+            throw new ArgumentOutOfRangeException(nameof(options), options.SuperShotSpeed, null);
+        if (options.SuperShot != 0 && options.SuperShotWeight is < PatchOptions.MinSuperShotWeight or > PatchOptions.MaxSuperShotWeight)
+            throw new ArgumentOutOfRangeException(nameof(options), options.SuperShotWeight, null);
+        if (options.SuperShot != 0 && options.SuperShotWeight > 0 && options.SuperShotStar is < PatchOptions.MinSuperShotStar or > PatchOptions.MaxSuperShotStar)
+            throw new ArgumentOutOfRangeException(nameof(options), options.SuperShotStar, null);
+        if (options.SuperShot != 0 && options.SuperShotWeight > 0 && freeKick == null) throw new PatchException(problems);
         if (options.Headers is < PatchOptions.MinHeaders or > PatchOptions.MaxHeaders)
             throw new ArgumentOutOfRangeException(nameof(options), options.Headers, null);
         if (options.ShotPower is < PatchOptions.MinShotPower or > PatchOptions.MaxShotPower)
@@ -271,8 +310,9 @@ public static class ExePatcher
             speedKey = options.SpeedGap != 100 && options.SpeedGapDebug, sprintKey = options.SprintTurn > 0 && options.SprintTurnDebug,
             tackleKey = options.Tackle != 100 && options.TackleDebug,
             passLeadKey = options.PassLead < 100 && options.PassLeadDebug,
-            headersKey = options.Headers < 100 && options.HeadersDebug;
-        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey || strengthKey || headersKey) && freeKick == null) throw new PatchException(problems);
+            headersKey = options.Headers < 100 && options.HeadersDebug,
+            superShotKey = options.SuperShot > 0 && options.SuperShotDebug;
+        if ((freeKickKey || shotKey || accuracyKey || spreadKey || speedKey || sprintKey || tackleKey || passLeadKey || strengthKey || headersKey || superShotKey) && freeKick == null) throw new PatchException(problems);
         var keys = new List<CodeCaves.TestKey>();
         (int Texts, int Stride) KeyTexts(int max, string key, int step = CodeCaves.TestKeyStep)
         {
@@ -332,6 +372,11 @@ public static class ExePatcher
             var (texts, stride) = KeyTexts(PatchOptions.MaxHeaders, "Overlay.Headers");
             keys.Add(CodeCaves.HeadersTestKey(options.Headers, texts, stride));
         }
+        if (superShotKey)
+        {
+            var (texts, stride) = KeyTexts(PatchOptions.MaxSuperShot, "Overlay.SuperShot", CodeCaves.SuperShotStep);
+            keys.Add(CodeCaves.SuperShotTestKey(options.SuperShot, texts, stride));
+        }
         int testKeysSetUp = 0;
         if (keys.Count > 0)
         {
@@ -343,19 +388,25 @@ public static class ExePatcher
         // free kicks: heavier ball after a free kick shot; its state lives in the end of .rdata
         bool shots = options.ShotPower < 100 || options.ShotAccuracy < 100;
         bool headers = options.Headers < 100;
-        var humans = shots || headers ? shot : null;   // human teams learnt at the kick function's entry
+        bool superShot = options.SuperShot > 0;
+        var humans = shots || headers || superShot ? shot : null;   // human teams learnt at the kick function's entry
+        bool superWeight = superShot && options.SuperShotWeight > 0;
+        var superFix = superShot
+            ? new CodeCaves.SuperShotFix(options.SuperShotSpeed, options.SuperShot, superShotKey ? CodeCaves.SuperShotStateAddress(freeKick!) : 0,
+                superWeight ? options.SuperShotWeight : 0, options.SuperShotStar, superWeight ? CodeCaves.SuperShotHeavyAddress(freeKick!) : 0)
+            : null;
         // headers of the human teams: height scaled at the kick function's entry (state word of the F11 key, when set)
         var headerFix = headers ? new CodeCaves.HeaderFix(options.Headers, headersKey ? CodeCaves.HeadersStateAddress(freeKick!) : 0) : null;
-        if (headers) image.MakeWritable(image.SectionOf(shot!.HumanScores)!);
+        if (headers || superShot) image.MakeWritable(image.SectionOf(shot!.HumanScores)!);
         int freeKickShotReturn = 0;
         if (options.FreeKick)
         {
             if (options.FreeKickWeight is < PatchOptions.MinFreeKickWeight or > PatchOptions.MaxFreeKickWeight)
                 throw new ArgumentOutOfRangeException(nameof(options), options.FreeKickWeight, null);
             float unit = image.ReadFloat(freeKick!.Weight) / 100f;
-            int size = CodeCaves.FreeKick(0, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans, headerFix).Cave.Length;
+            int size = CodeCaves.FreeKick(0, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans, headerFix, superFix).Cave.Length;
             int at = Cave(size);
-            var (cave, entries, shotReturn) = CodeCaves.FreeKick(at, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans, headerFix);
+            var (cave, entries, shotReturn) = CodeCaves.FreeKick(at, freeKick, unit, options.FreeKickWeight, testKeysSetUp, humans, headerFix, superFix);
             plan.Add((at, cave));
             plan.AddRange(entries);
             image.MakeWritable(image.SectionOf(freeKick.State)!);
@@ -366,10 +417,35 @@ public static class ExePatcher
             // without the free kick hook at the kick function's entry, the test keys and human teams get one of their own
             int kickEntry = humans?.KickEntry ?? freeKick!.KickEntry;
             var testKeys = keys.Count > 0 ? freeKick : null;
-            var hook = CodeCaves.KickEntryExtras(0, kickEntry, testKeys, testKeysSetUp, humans, headerFix);
-            hook = CodeCaves.KickEntryExtras(Cave(hook.CaveBytes.Length), kickEntry, testKeys, testKeysSetUp, humans, headerFix);
+            var hook = CodeCaves.KickEntryExtras(0, kickEntry, testKeys, testKeysSetUp, humans, headerFix, superFix);
+            hook = CodeCaves.KickEntryExtras(Cave(hook.CaveBytes.Length), kickEntry, testKeys, testKeysSetUp, humans, headerFix, superFix);
             plan.Add((hook.Cave, hook.CaveBytes));
             plan.Add((hook.Entry, hook.EntryBytes));
+        }
+
+        // a star's super shot keeps extra weight while it flies: with the free kick fix the ball flight is already
+        // hooked (above), otherwise it gets a hook of its own
+        if (superWeight && !options.FreeKick)
+        {
+            float unit = image.ReadFloat(freeKick!.Weight) / 100f;
+            int size = CodeCaves.SuperShotWeight(0, freeKick, unit, superFix!).CaveBytes.Length;
+            var weight = CodeCaves.SuperShotWeight(Cave(size), freeKick, unit, superFix!);
+            plan.Add((weight.Cave, weight.CaveBytes));
+            plan.Add((weight.Entry, weight.EntryBytes));
+            image.MakeWritable(image.SectionOf(freeKick.State)!);
+        }
+
+        // super shot: while L1 and a right shoulder are held, the lob decisions no longer see L1, so the shot keeps
+        // the plain shot's animation and contact (the speed and height are set at the kick function's entry above)
+        if (superShot)
+        {
+            var sites = ExeLocator.LocateLob(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.SuperShot"), 0)]);
+            int flag = CodeCaves.LobFlagAddress(shot!);
+            int size = CodeCaves.LobSuppression(0, sites, flag).Cave.Length;
+            int at = Cave(size);
+            var (cave, entries) = CodeCaves.LobSuppression(at, sites, flag);
+            plan.Add((at, cave));
+            plan.AddRange(entries);
         }
 
         // shot power: scaled at the shot function's entry, free kicks excepted (the entry also keeps the direction

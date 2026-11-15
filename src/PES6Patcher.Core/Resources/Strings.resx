@@ -486,6 +486,36 @@
   <data name="Log.Headers" xml:space="preserve">
     <value>Headers: the human teams' headers leave at {0} % of the game's height (the speed is kept), so they stop flying over the bar.</value>
   </data>
+  <data name="Gameplay.SuperShot" xml:space="preserve">
+    <value>Super shot: hold L1 + R1 when shooting (a shot, not a lob, above the game&apos;s top speed)</value>
+  </data>
+  <data name="Gameplay.SuperShotPercent" xml:space="preserve">
+    <value>ball height (the game's shots: 13 to 35)</value>
+  </data>
+  <data name="Gameplay.SuperShotSpeed" xml:space="preserve">
+    <value>ball speed (the game's hardest shots: about 30700)</value>
+  </data>
+  <data name="Gameplay.SuperShotWeight" xml:space="preserve">
+    <value>% extra ball weight in flight, for a star (0 = none)</value>
+  </data>
+  <data name="Gameplay.SuperShotStar" xml:space="preserve">
+    <value>from this shot accuracy</value>
+  </data>
+  <data name="Log.SuperShotWeight" xml:space="preserve">
+    <value>Super shot of a star (shot accuracy {1} and above): the ball keeps {0} % more weight while it flies, so it rises over the defenders and dips under the bar.</value>
+  </data>
+  <data name="Gameplay.SuperShotDebug" xml:space="preserve">
+    <value>Test: F12 in a match changes it (+2)</value>
+  </data>
+  <data name="Log.SuperShotDebug" xml:space="preserve">
+    <value>Super shot test key: F12 in a match adds 2 to the height (back to 10 after 45), shown on screen.</value>
+  </data>
+  <data name="Overlay.SuperShot" xml:space="preserve">
+    <value>SUPER SHOT HEIGHT: {0} (F12)</value>
+  </data>
+  <data name="Log.SuperShot" xml:space="preserve">
+    <value>Super shot (experimental): a shot of the human teams taken with L1 and R1 held is no longer a lob, and leaves at a speed of {0} (the game&apos;s hardest shots: about 30700) and a height of {1}.</value>
+  </data>
   <data name="Gameplay.StickDeadZone" xml:space="preserve">
     <value>Smaller analog stick dead zone:</value>
   </data>
@@ -506,6 +536,9 @@
   </data>
   <data name="Gameplay.CarrierTurnDegrees" xml:space="preserve">
     <value>degrees max per frame (game: 1.4)</value>
+  </data>
+  <data name="Hook.SuperShot" xml:space="preserve">
+    <value>super shot (lob decision)</value>
   </data>
   <data name="Hook.CarrierTurn" xml:space="preserve">
     <value>turn rate with the ball</value>

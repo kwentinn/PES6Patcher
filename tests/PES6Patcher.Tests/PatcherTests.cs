@@ -445,6 +445,93 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Super_shot_makes_a_human_l1_r1_shot_flat_and_fast()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var options = new PatchOptions(398, FreeDirection: false, Display: false, SuperShotWeight: 0);
+        // mov esi,[esp+0x24] ; cmp dword [esp+0x20],... : the kick comes from the shot function, not from a pass
+        byte[] shot = [0x8B, 0x74, 0x24, 0x24, 0x81, 0x7C, 0x24, 0x20];
+        Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(shot) < 0);
+
+        var built = ExePatcher.Build(original, options with { SuperShot = 14 });
+        int at = built.AsSpan().IndexOf(shot);
+        Assert.True(at > 0);
+        var body = built.AsSpan(at, 110);
+        // mov eax,[esi+0xB0] ; and eax,0x01000C00 ; cmp eax,0x01000C00 (L1 and a right shoulder, measured at the kick)
+        Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x0C, 0x00, 0x01, 0x3D, 0x00, 0x0C, 0x00, 0x01 }) > 0);
+        Assert.True(body.IndexOf(new byte[] { 0xB9, 14, 0, 0, 0 }) > 0);                // mov ecx,14 (the height)
+        byte[] speed = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(PatchOptions.DefaultSuperShotSpeed)];   // mov dword [esp+0x2C],speed
+        Assert.True(body.IndexOf(speed) > 0);
+        // the speed is a setting of its own
+        var faster = ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 42000 });
+        byte[] chosen = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(42000)];
+        Assert.True(faster.AsSpan().IndexOf(chosen) > 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 9000 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 70000 }));
+        Assert.True(body.IndexOf(new byte[] { 0x89, 0x4C, 0x24, 0x30 }) > 0);           // mov [esp+0x30],ecx
+        Assert.Equal(0xE9, built[new PeImage(built).Offset(0x478020)]);
+
+        var debug = ExePatcher.Build(original, options with { SuperShot = 14, SuperShotDebug = true });
+        Assert.True(debug.AsSpan().IndexOf(new byte[] { 0x6A, CodeCaves.SuperShotKey, 0xFF, 0x15 }) > 0);   // F12 is read
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 3 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 70 }));
+    }
+
+    [Fact]
+    public void A_stars_super_shot_keeps_extra_weight_while_it_flies()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var options = new PatchOptions(398, FreeDirection: false, Display: false, SuperShot: 46);
+        // movzx eax,byte [eax+shot accuracy] ; and eax,0x7F ; cmp eax,star : only a star gets the dipping ball
+        byte[] star = [0x83, 0xE0, 0x7F, 0x83, 0xF8, PatchOptions.DefaultSuperShotStar, 0x72];
+        Assert.True(ExePatcher.Build(original, options with { SuperShotWeight = 0 }).AsSpan().IndexOf(star) < 0);
+
+        var built = ExePatcher.Build(original, options);
+        Assert.True(built.AsSpan().IndexOf(star) > 0);
+        // mov eax,percent ; push eax ; fild dword [esp] ; fmul dword [unit] ; faddp st(1),st
+        byte[] weight = [.. BitConverter.GetBytes(PatchOptions.DefaultSuperShotWeight), 0x50, 0xDB, 0x04, 0x24, 0xD8, 0x0D];
+        Assert.True(built.AsSpan().IndexOf(weight) > 0);
+        Assert.True(ExePatcher.Build(original, options with { FreeKick = true }).AsSpan().IndexOf(weight) > 0);
+        // everything on at once: the longest the block gets, where its jumps to the end stopped being short ones
+        var every = ExePatcher.Build(original, options with { FreeKick = true, SuperShotDebug = true, ShotPower = 80, ShotAccuracy = 50, Headers = 70 });
+        Assert.True(every.AsSpan().IndexOf(star) > 0);
+        Assert.True(every.AsSpan().IndexOf(weight) > 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShotWeight = 200 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShotStar = 50 }));
+    }
+
+    [Fact]
+    public void Super_shot_hides_l1_from_every_lob_decision()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        var sites = ExeLocator.LocateLob(original);
+        Assert.NotNull(sites);
+        Assert.Equal(8, sites!.ButtonReads.Length);
+
+        var options = new PatchOptions(398, FreeDirection: false, Display: false);
+        // mov eax,[esi+0xB0] ; test ah,4: the lob decisions, left alone until the super shot is asked for
+        byte[] read = [0x8B, 0x86, 0xB0, 0, 0, 0, 0xF6, 0xC4, 0x04];
+        Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(read) > 0);
+
+        var built = ExePatcher.Build(original, options with { SuperShot = 34 });
+        Assert.True(built.AsSpan().IndexOf(read) < 0);                                  // every one of them now calls the cave
+        var image = new PeImage(built);
+        foreach (int site in sites.ButtonReads) Assert.Equal(0xE8, built[image.Offset(site)]);
+        Assert.Equal(0xE9, built[image.Offset(sites.ButtonRebuild)]);
+        // the cave: mov eax,[esi+0xB0] ; cmp esi,[flag] ; jne ; and eax,~0x400 (the flag holds the shooter)
+        byte[] hide = [0x8B, 0x86, 0xB0, 0, 0, 0, 0x3B, 0x35];
+        int cave = built.AsSpan().IndexOf(hide);
+        Assert.True(cave > 0);
+        Assert.True(built.AsSpan(cave, 24).IndexOf(new byte[] { 0x25, 0xFF, 0xFB, 0xFF, 0xFF }) > 0);
+    }
+
+    [Fact]
     public void Carrier_turn_raises_the_two_turn_steps_with_the_ball()
     {
         var original = Load("PES6.orig.exe");
@@ -960,5 +1047,40 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(0, built.Length % 0x200);
         Assert.Equal(new PeImage(crowded).Sections.Count + 1, image.Sections.Count);
         Assert.True(ExePatcher.Analyze(built)!.AlreadyPatched);
+    }
+}
+
+public class EveryPresetBuildsTests(ITestOutputHelper output)
+{
+    /// <summary>
+    /// Each preset with every test key on (F1 to F12) builds on the reference exe: the super shot and the defensive line
+    /// came from two branches, and together with the other fixes they share the caves, the .rdata state and the key texts.
+    /// </summary>
+    [Fact]
+    public void Each_preset_with_every_test_key_builds_on_the_reference_exe()
+    {
+        var path = FindReference();
+        if (path == null) { output.WriteLine("Fichier de référence absent, test ignoré : PES6.orig.exe"); return; }
+        var original = File.ReadAllBytes(path);
+        foreach (var preset in GameplayPresets.All)
+        {
+            var s = GameplayPresets.Apply(new InstallSettings(2560, 1440, false, true, 1.0), preset);
+            var options = new PatchOptions(s.Half, s.FreeDirection, true, s.CloseDribble, true, s.FreeKick, s.FreeKickWeight, true, s.ShotPower, true,
+                s.ShotAccuracy, true, s.Spread, true, s.SpeedGap, true, s.SprintTurn, true, s.Tackle, true, s.LobPower, s.LoftedAim,
+                s.PassLead, true, s.StickDeadZone, s.CarrierTurn, s.CloseDribbleStrength, true, s.AccelerationGap, s.Headers, true, s.DefenceLine,
+                s.SuperShot, true, s.SuperShotSpeed, s.SuperShotWeight, s.SuperShotStar);
+            var built = ExePatcher.Build(original, options);
+            Assert.True(ExePatcher.Analyze(built).AlreadyPatched, preset.ToString());
+        }
+    }
+
+    private static string? FindReference()
+    {
+        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
+        {
+            var candidate = Path.Combine(dir.FullName, "research", "reference", "PES6.orig.exe");
+            if (File.Exists(candidate)) return candidate;
+        }
+        return null;
     }
 }

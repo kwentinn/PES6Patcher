@@ -80,11 +80,16 @@ internal sealed class CodeBuilder
         return [.. code];
     }
 
+    /// <summary>CALL rel32 from <paramref name="from"/> to <paramref name="to"/>, padded with NOPs.</summary>
+    public static byte[] CallPatch(int from, int to, int totalLength) => Rel32Patch(0xE8, from, to, totalLength);
+
     /// <summary>JMP rel32 from <paramref name="from"/> to <paramref name="to"/>, padded with NOPs.</summary>
-    public static byte[] JumpPatch(int from, int to, int totalLength)
+    public static byte[] JumpPatch(int from, int to, int totalLength) => Rel32Patch(0xE9, from, to, totalLength);
+
+    private static byte[] Rel32Patch(byte opcode, int from, int to, int totalLength)
     {
         var bytes = new byte[totalLength];
-        bytes[0] = 0xE9;
+        bytes[0] = opcode;
         BitConverter.GetBytes(to - (from + 5)).CopyTo(bytes, 1);
         for (int i = 5; i < totalLength; i++) bytes[i] = 0x90;
         return bytes;
