@@ -133,8 +133,13 @@ static class PlacementCommand
                     var key = $"{(mate ? "mate" : "foe")} st{p.State} m{p.Mode:X2}";
                     states5[key] = states5.GetValueOrDefault(key) + 1;
                 }
-                if (k + 1 < sel.Count && sel[k + 1].Ms - s.Ms < 200 && sel[k + 1].Carrier is >= 1 and <= 22 && Side(sel[k + 1].Carrier) != Side(s.Carrier) &&
-                    Dist(s.Ps[sel[k + 1].Carrier - 1].X, s.Ps[sel[k + 1].Carrier - 1].Z, c.X, c.Z) < 700) won++;
+                // the carrier loses the ball (often loose for a moment), and within 0.5 s an opponent who stood within 3 m of him has it
+                if (k + 1 < sel.Count && sel[k + 1].Carrier != s.Carrier)
+                {
+                    var next = sel.Skip(k + 1).Take(10).TakeWhile(n => n.Ms - s.Ms < 600).FirstOrDefault(n => n.Carrier is >= 1 and <= 22);
+                    if (next != null && Side(next.Carrier) != Side(s.Carrier) &&
+                        Dist(s.Ps[next.Carrier - 1].X, s.Ps[next.Carrier - 1].Z, c.X, c.Z) < 700) won++;
+                }
             }
             if (with == 0) return;
             var seconds = with * 0.05;

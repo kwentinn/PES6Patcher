@@ -1,4 +1,11 @@
 {
+  "tackle-180": {
+    "about": "Pressing challenge at 180 % (the patcher's default, both teams): reach 0xA0 -> 0x120 (cmp edi at 0x572AE8) and attempt parameter 0x50 -> 0x7F (push at 0x572AF0), as the patcher writes them without the F8 test key. Original = the game's 100 %.",
+    "bytes": [
+      { "address": "0x572AEA", "original": "A0 00 00 00", "patched": "20 01 00 00" },
+      { "address": "0x572AF1", "original": "50", "patched": "7F" }
+    ]
+  },
   "goalkick-x125": {
     "about": "#25 longer goal kicks, test (dropped 2026-11-15: felt fine in a match, but the request was not judged a real problem): at the kick function's entry, a keeper (slot 0) in state 48 (goal kick; corners are not taken by keepers) gets x 1.25 speed. Cave in 0xCC padding at 0x5E2920, then on to the 1.26.1 exe's own kick-entry cave 0x411DC8 (user's exe only).",
     "bytes": [
