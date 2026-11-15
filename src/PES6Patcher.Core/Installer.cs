@@ -48,14 +48,50 @@ namespace PES6Patcher.Core;
 /// <param name="SuperShotWeight">Extra ball weight while a star's super shot flies, in % of the game's (0 = none).</param>
 /// <param name="SuperShotStar">Shot accuracy stat from which a shooter gets that dipping ball.</param>
 /// <param name="PhysicsMod">Load PityCharly's physics mod DLL (kload.cfg); null = leave as it is.</param>
-public sealed record InstallSettings(int Width, int Height, bool BorderlessWindow, bool FreeDirection, double Speed, bool Display = true, bool Gameplay = true, bool CloseDribble = false, bool SkipIntro = false, bool? PhysicsMod = null, bool FreeKick = false,
-    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
-    int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
-    int SprintTurn = 0, bool SprintTurnDebug = false, int Tackle = 100, bool TackleDebug = false,
-    int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
-    int CloseDribbleStrength = PatchOptions.DefaultCloseDribbleStrength, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
-    int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
-    int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar)
+public sealed record InstallSettings(
+    int Width,
+    int Height,
+    bool BorderlessWindow,
+    bool FreeDirection,
+    double Speed,
+    bool Display = true,
+    bool Gameplay = true,
+    bool CloseDribble = false,
+    bool SkipIntro = false,
+    bool? PhysicsMod = null,
+    bool FreeKick = false,
+    int FreeKickWeight = PatchOptions.DefaultFreeKickWeight,
+    bool FreeKickDebug = false,
+    int ShotPower = 100,
+    bool ShotPowerDebug = false,
+    int ShotAccuracy = 100,
+    bool ShotAccuracyDebug = false,
+    int Spread = 0,
+    bool SpreadDebug = false,
+    int SpeedGap = 100,
+    bool SpeedGapDebug = false,
+    int SprintTurn = 0,
+    bool SprintTurnDebug = false,
+    int Tackle = 100,
+    bool TackleDebug = false,
+    int LobPower = 100,
+    bool LoftedAim = false,
+    int PassLead = 100,
+    bool PassLeadDebug = false,
+    int StickDeadZone = PatchOptions.GameStickDeadZone,
+    int CarrierTurn = 0,
+    int CloseDribbleStrength = PatchOptions.DefaultCloseDribbleStrength,
+    bool CloseDribbleStrengthDebug = false,
+    bool AccelerationGap = false,
+    int Headers = 100,
+    bool HeadersDebug = false,
+    int DefenceLine = 0,
+    int SuperShot = 0,
+    bool SuperShotDebug = false,
+    int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
+    int SuperShotWeight = PatchOptions.DefaultSuperShotWeight,
+    int SuperShotStar = PatchOptions.DefaultSuperShotStar
+)
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
     public int Half => (int)Math.Round(224.0 * Width / Height);
@@ -66,84 +102,193 @@ public static class Installer
 {
     public static void Apply(GameInstall game, InstallSettings settings, Action<string> log)
     {
-        if (GameInstall.IsGameRunning()) throw new InvalidOperationException(Loc.T("Error.GameRunning"));
-        if (!game.HasKitserver) throw new InvalidOperationException(Loc.T("Error.NoKitserver"));
+        if (GameInstall.IsGameRunning())
+            throw new InvalidOperationException(Loc.T("Error.GameRunning"));
+        if (!game.HasKitserver)
+            throw new InvalidOperationException(Loc.T("Error.NoKitserver"));
 
-        if (!settings.Display && !settings.Gameplay && !settings.SkipIntro) throw new InvalidOperationException(Loc.T("Error.NothingSelected"));
+        if (!settings.Display && !settings.Gameplay && !settings.SkipIntro)
+            throw new InvalidOperationException(Loc.T("Error.NothingSelected"));
 
         // Prepare every file first: nothing is touched if one of them cannot be handled.
         byte[] original = game.ReadOriginalExe();
         var report = ExePatcher.Analyze(original);
-        if (!report.Validated) log(Loc.T("Log.Untested", report.Sha256));
+        if (!report.Validated)
+            log(Loc.T("Log.Untested", report.Sha256));
         bool freeDirection = settings.Gameplay && settings.FreeDirection;
         bool closeDribble = settings.Gameplay && settings.CloseDribble;
         bool freeKick = settings.Gameplay && settings.FreeKick;
-        int shotPower = settings.Gameplay ? settings.ShotPower : 100, shotAccuracy = settings.Gameplay ? settings.ShotAccuracy : 100;
-        int spread = settings.Gameplay ? settings.Spread : 0, speedGap = settings.Gameplay ? settings.SpeedGap : 100,
+        int shotPower = settings.Gameplay ? settings.ShotPower : 100,
+            shotAccuracy = settings.Gameplay ? settings.ShotAccuracy : 100;
+        int spread = settings.Gameplay ? settings.Spread : 0,
+            speedGap = settings.Gameplay ? settings.SpeedGap : 100,
             sprintTurn = settings.Gameplay ? settings.SprintTurn : 0,
             tackle = settings.Gameplay ? settings.Tackle : 100,
             passLead = settings.Gameplay ? settings.PassLead : 100,
-            stickDeadZone = settings.Gameplay ? settings.StickDeadZone : PatchOptions.GameStickDeadZone,
+            stickDeadZone = settings.Gameplay
+                ? settings.StickDeadZone
+                : PatchOptions.GameStickDeadZone,
             carrierTurn = settings.Gameplay ? settings.CarrierTurn : 0,
             headers = settings.Gameplay ? settings.Headers : 100,
             defenceLine = settings.Gameplay ? settings.DefenceLine : 0,
             superShot = settings.Gameplay ? settings.SuperShot : 0;
         bool accelerationGap = settings.Gameplay && settings.AccelerationGap;
         // without any exe fix, the exe goes back to the original
-        byte[] patched = settings.Display || freeDirection || closeDribble || freeKick || shotPower < 100 || shotAccuracy < 100 || spread > 0 || speedGap != 100 || sprintTurn > 0 || tackle != 100 || (settings.Gameplay && settings.LoftedAim) || passLead < 100 || headers < 100 || superShot > 0 || stickDeadZone != PatchOptions.GameStickDeadZone || carrierTurn > 0 || accelerationGap || defenceLine > 0 || settings.SkipIntro
-            ? ExePatcher.Build(original, new PatchOptions(settings.Half, freeDirection, settings.Display, closeDribble, settings.SkipIntro, freeKick, settings.FreeKickWeight,
-                freeKick && settings.FreeKickDebug, shotPower, shotPower < 100 && settings.ShotPowerDebug,
-                shotAccuracy, shotAccuracy < 100 && settings.ShotAccuracyDebug, spread, spread > 0 && settings.SpreadDebug, speedGap, speedGap != 100 && settings.SpeedGapDebug,
-                sprintTurn, sprintTurn > 0 && settings.SprintTurnDebug, tackle, tackle != 100 && settings.TackleDebug, shotAccuracy < 100 ? settings.LobPower : 100, settings.Gameplay && settings.LoftedAim,
-                passLead, passLead < 100 && settings.PassLeadDebug, stickDeadZone, carrierTurn, settings.CloseDribbleStrength, closeDribble && settings.CloseDribbleStrengthDebug, accelerationGap, headers, headers < 100 && settings.HeadersDebug, defenceLine,
-                superShot, superShot > 0 && settings.SuperShotDebug, settings.SuperShotSpeed, settings.SuperShotWeight, settings.SuperShotStar))
-            : original;
+        byte[] patched =
+            settings.Display
+            || freeDirection
+            || closeDribble
+            || freeKick
+            || shotPower < 100
+            || shotAccuracy < 100
+            || spread > 0
+            || speedGap != 100
+            || sprintTurn > 0
+            || tackle != 100
+            || (settings.Gameplay && settings.LoftedAim)
+            || passLead < 100
+            || headers < 100
+            || superShot > 0
+            || stickDeadZone != PatchOptions.GameStickDeadZone
+            || carrierTurn > 0
+            || accelerationGap
+            || defenceLine > 0
+            || settings.SkipIntro
+                ? ExePatcher.Build(
+                    original,
+                    new PatchOptions(
+                        settings.Half,
+                        freeDirection,
+                        settings.Display,
+                        closeDribble,
+                        settings.SkipIntro,
+                        freeKick,
+                        settings.FreeKickWeight,
+                        freeKick && settings.FreeKickDebug,
+                        shotPower,
+                        shotPower < 100 && settings.ShotPowerDebug,
+                        shotAccuracy,
+                        shotAccuracy < 100 && settings.ShotAccuracyDebug,
+                        spread,
+                        spread > 0 && settings.SpreadDebug,
+                        speedGap,
+                        speedGap != 100 && settings.SpeedGapDebug,
+                        sprintTurn,
+                        sprintTurn > 0 && settings.SprintTurnDebug,
+                        tackle,
+                        tackle != 100 && settings.TackleDebug,
+                        shotAccuracy < 100 ? settings.LobPower : 100,
+                        settings.Gameplay && settings.LoftedAim,
+                        passLead,
+                        passLead < 100 && settings.PassLeadDebug,
+                        stickDeadZone,
+                        carrierTurn,
+                        settings.CloseDribbleStrength,
+                        closeDribble && settings.CloseDribbleStrengthDebug,
+                        accelerationGap,
+                        headers,
+                        headers < 100 && settings.HeadersDebug,
+                        defenceLine,
+                        superShot,
+                        superShot > 0 && settings.SuperShotDebug,
+                        settings.SuperShotSpeed,
+                        settings.SuperShotWeight,
+                        settings.SuperShotStar
+                    )
+                )
+                : original;
         string yesNo = Loc.T(freeDirection ? "Common.Yes" : "Common.No");
-        log(settings.Display ? Loc.T("Log.ExeBuilt", settings.Half, yesNo) : Loc.T("Log.ExeBuiltNoDisplay", yesNo));
-        if (stickDeadZone != PatchOptions.GameStickDeadZone) log(Loc.T("Log.StickDeadZone", stickDeadZone));
-        if (closeDribble) log(Loc.T("Log.CloseDribble", settings.CloseDribbleStrength));
-        if (closeDribble && settings.CloseDribbleStrengthDebug) log(Loc.T("Log.CloseDribbleStrengthDebug"));
-        if (freeKick) log(Loc.T("Log.FreeKick", settings.FreeKickWeight));
-        if (freeKick && settings.FreeKickDebug) log(Loc.T("Log.FreeKickDebug"));
-        if (shotPower < 100) log(Loc.T("Log.Shot", shotPower));
-        if (shotPower < 100 && settings.ShotPowerDebug) log(Loc.T("Log.ShotPowerDebug"));
-        if (shotAccuracy < 100) log(Loc.T("Log.ShotAccuracy", shotAccuracy));
-        if (shotAccuracy < 100 && settings.ShotAccuracyDebug) log(Loc.T("Log.ShotAccuracyDebug"));
-        if (shotAccuracy < 100) log(Loc.T("Log.LobPower", settings.LobPower));
-        if (spread > 0) log(Loc.T("Log.Spread", spread));
-        if (spread > 0 && settings.SpreadDebug) log(Loc.T("Log.SpreadDebug"));
-        if (speedGap != 100) log(Loc.T("Log.SpeedGap", speedGap));
-        if (speedGap != 100 && settings.SpeedGapDebug) log(Loc.T("Log.SpeedGapDebug"));
-        if (sprintTurn > 0) log(Loc.T("Log.SprintTurn", sprintTurn));
-        if (sprintTurn > 0 && settings.SprintTurnDebug) log(Loc.T("Log.SprintTurnDebug"));
-        if (carrierTurn > 0) log(Loc.T("Log.CarrierTurn", carrierTurn));
-        if (accelerationGap) log(Loc.T("Log.AccelerationGap"));
-        if (defenceLine > 0) log(Loc.T("Log.DefenceLine", defenceLine));
-        if (tackle != 100) log(Loc.T("Log.Tackle", tackle));
-        if (tackle != 100 && settings.TackleDebug) log(Loc.T("Log.TackleDebug"));
-        if (settings.Gameplay && settings.LoftedAim) log(Loc.T("Log.LoftedAim"));
-        if (passLead < 100) log(Loc.T("Log.PassLead", passLead));
-        if (passLead < 100 && settings.PassLeadDebug) log(Loc.T("Log.PassLeadDebug"));
-        if (headers < 100) log(Loc.T("Log.Headers", headers));
-        if (headers < 100 && settings.HeadersDebug) log(Loc.T("Log.HeadersDebug"));
-        if (superShot > 0) log(Loc.T("Log.SuperShot", settings.SuperShotSpeed, superShot));
-        if (superShot > 0 && settings.SuperShotWeight > 0) log(Loc.T("Log.SuperShotWeight", settings.SuperShotWeight, settings.SuperShotStar));
-        if (superShot > 0 && settings.SuperShotDebug) log(Loc.T("Log.SuperShotDebug"));
-        if (settings.SkipIntro) log(Loc.T("Log.SkipIntro"));
+        log(
+            settings.Display
+                ? Loc.T("Log.ExeBuilt", settings.Half, yesNo)
+                : Loc.T("Log.ExeBuiltNoDisplay", yesNo)
+        );
+        if (stickDeadZone != PatchOptions.GameStickDeadZone)
+            log(Loc.T("Log.StickDeadZone", stickDeadZone));
+        if (closeDribble)
+            log(Loc.T("Log.CloseDribble", settings.CloseDribbleStrength));
+        if (closeDribble && settings.CloseDribbleStrengthDebug)
+            log(Loc.T("Log.CloseDribbleStrengthDebug"));
+        if (freeKick)
+            log(Loc.T("Log.FreeKick", settings.FreeKickWeight));
+        if (freeKick && settings.FreeKickDebug)
+            log(Loc.T("Log.FreeKickDebug"));
+        if (shotPower < 100)
+            log(Loc.T("Log.Shot", shotPower));
+        if (shotPower < 100 && settings.ShotPowerDebug)
+            log(Loc.T("Log.ShotPowerDebug"));
+        if (shotAccuracy < 100)
+            log(Loc.T("Log.ShotAccuracy", shotAccuracy));
+        if (shotAccuracy < 100 && settings.ShotAccuracyDebug)
+            log(Loc.T("Log.ShotAccuracyDebug"));
+        if (shotAccuracy < 100)
+            log(Loc.T("Log.LobPower", settings.LobPower));
+        if (spread > 0)
+            log(Loc.T("Log.Spread", spread));
+        if (spread > 0 && settings.SpreadDebug)
+            log(Loc.T("Log.SpreadDebug"));
+        if (speedGap != 100)
+            log(Loc.T("Log.SpeedGap", speedGap));
+        if (speedGap != 100 && settings.SpeedGapDebug)
+            log(Loc.T("Log.SpeedGapDebug"));
+        if (sprintTurn > 0)
+            log(Loc.T("Log.SprintTurn", sprintTurn));
+        if (sprintTurn > 0 && settings.SprintTurnDebug)
+            log(Loc.T("Log.SprintTurnDebug"));
+        if (carrierTurn > 0)
+            log(Loc.T("Log.CarrierTurn", carrierTurn));
+        if (accelerationGap)
+            log(Loc.T("Log.AccelerationGap"));
+        if (defenceLine > 0)
+            log(Loc.T("Log.DefenceLine", defenceLine));
+        if (tackle != 100)
+            log(Loc.T("Log.Tackle", tackle));
+        if (tackle != 100 && settings.TackleDebug)
+            log(Loc.T("Log.TackleDebug"));
+        if (settings.Gameplay && settings.LoftedAim)
+            log(Loc.T("Log.LoftedAim"));
+        if (passLead < 100)
+            log(Loc.T("Log.PassLead", passLead));
+        if (passLead < 100 && settings.PassLeadDebug)
+            log(Loc.T("Log.PassLeadDebug"));
+        if (headers < 100)
+            log(Loc.T("Log.Headers", headers));
+        if (headers < 100 && settings.HeadersDebug)
+            log(Loc.T("Log.HeadersDebug"));
+        if (superShot > 0)
+            log(Loc.T("Log.SuperShot", settings.SuperShotSpeed, superShot));
+        if (superShot > 0 && settings.SuperShotWeight > 0)
+            log(Loc.T("Log.SuperShotWeight", settings.SuperShotWeight, settings.SuperShotStar));
+        if (superShot > 0 && settings.SuperShotDebug)
+            log(Loc.T("Log.SuperShotDebug"));
+        if (settings.SkipIntro)
+            log(Loc.T("Log.SkipIntro"));
 
-        string kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii), kload = kloadBefore;
-        byte[]? lodmixer = null, gameSettings = null;
+        string kloadBefore = File.ReadAllText(game.Kload, TextFiles.Ascii),
+            kload = kloadBefore;
+        byte[]? lodmixer = null,
+            gameSettings = null;
         bool lodmixerKnown = false;
         if (settings.Display)
         {
-            kload = KloadConfig.Apply(kloadBefore, settings.Width, settings.Height, settings.BorderlessWindow);
+            kload = KloadConfig.Apply(
+                kloadBefore,
+                settings.Width,
+                settings.Height,
+                settings.BorderlessWindow
+            );
 
             lodmixer = File.Exists(game.Lodmixer) ? File.ReadAllBytes(game.Lodmixer) : null;
             lodmixerKnown = lodmixer != null && LodmixerData.IsRecognized(lodmixer);
-            if (lodmixerKnown) lodmixer = LodmixerData.SetAspect(lodmixer!, settings.Aspect);
+            if (lodmixerKnown)
+                lodmixer = LodmixerData.SetAspect(lodmixer!, settings.Aspect);
 
             gameSettings = File.Exists(GameInstall.GameSettings)
-                ? GameSettingsData.SetResolution(File.ReadAllBytes(GameInstall.GameSettings), settings.Width, settings.Height)
+                ? GameSettingsData.SetResolution(
+                    File.ReadAllBytes(GameInstall.GameSettings),
+                    settings.Width,
+                    settings.Height
+                )
                 : null;
         }
 
@@ -152,8 +297,10 @@ public static class Installer
         File.WriteAllBytes(game.Exe, patched);
         log(Loc.T("Log.ExeInstalled"));
         // what this exe has, for the next opening of the window (an unpatched exe needs no record)
-        if (patched == original) PatchRecord.Delete(game);
-        else PatchRecord.Save(game, settings, patched);
+        if (patched == original)
+            PatchRecord.Delete(game);
+        else
+            PatchRecord.Save(game, settings, patched);
 
         // physics mod: only its line in the DLL list, never the rest of kload.cfg
         bool? physicsMod = settings.Gameplay ? settings.PhysicsMod : null;
@@ -162,23 +309,38 @@ public static class Installer
             log(Loc.T("Log.PhysicsModMissing", PhysicsMod.FileName));
             physicsMod = null;
         }
-        if (physicsMod is bool loaded) kload = KloadConfig.SetDll(kload, PhysicsMod.KloadPath, loaded);
-        if (kload != kloadBefore) File.WriteAllText(game.Kload, kload, TextFiles.Ascii);
+        if (physicsMod is bool loaded)
+            kload = KloadConfig.SetDll(kload, PhysicsMod.KloadPath, loaded);
+        if (kload != kloadBefore)
+            File.WriteAllText(game.Kload, kload, TextFiles.Ascii);
         if (physicsMod == true)
         {
             log(Loc.T("Log.PhysicsModOn", PhysicsMod.Credit));
-            if (!report.Validated) log(Loc.T("Log.PhysicsModUntested"));
+            if (!report.Validated)
+                log(Loc.T("Log.PhysicsModUntested"));
         }
-        else if (physicsMod == false) log(Loc.T("Log.PhysicsModOff"));
+        else if (physicsMod == false)
+            log(Loc.T("Log.PhysicsModOff"));
 
         if (settings.Display)
         {
-            log(Loc.T(settings.BorderlessWindow ? "Log.KloadBorderless" : "Log.Kload", settings.Width, settings.Height));
-            if (KloadConfig.KeptInternalResolution(kloadBefore, settings.Width, settings.Height) is var (w, h))
+            log(
+                Loc.T(
+                    settings.BorderlessWindow ? "Log.KloadBorderless" : "Log.Kload",
+                    settings.Width,
+                    settings.Height
+                )
+            );
+            if (
+                KloadConfig.KeptInternalResolution(kloadBefore, settings.Width, settings.Height)
+                is var (w, h)
+            )
                 log(Loc.T("Log.KloadInternalKept", w, h));
 
-            if (lodmixer == null) log(Loc.T("Log.LodmixerMissing"));
-            else if (!lodmixerKnown) log(Loc.T("Log.LodmixerUnknown", settings.Aspect));
+            if (lodmixer == null)
+                log(Loc.T("Log.LodmixerMissing"));
+            else if (!lodmixerKnown)
+                log(Loc.T("Log.LodmixerUnknown", settings.Aspect));
             else
             {
                 File.WriteAllBytes(game.Lodmixer, lodmixer);
@@ -190,9 +352,11 @@ public static class Installer
                 File.WriteAllBytes(GameInstall.GameSettings, gameSettings);
                 log(Loc.T("Log.Settings", settings.Width, settings.Height));
             }
-            else log(Loc.T("Log.SettingsMissing"));
+            else
+                log(Loc.T("Log.SettingsMissing"));
         }
-        else log(Loc.T("Log.DisplayUntouched"));
+        else
+            log(Loc.T("Log.DisplayUntouched"));
 
         if (settings.Gameplay)
         {
@@ -205,12 +369,14 @@ public static class Installer
 
     public static void Restore(GameInstall game, Action<string> log)
     {
-        if (GameInstall.IsGameRunning()) throw new InvalidOperationException(Loc.T("Error.GameRunning"));
+        if (GameInstall.IsGameRunning())
+            throw new InvalidOperationException(Loc.T("Error.GameRunning"));
         int restored = 0;
         foreach (var file in game.ConfigFiles.Prepend(game.Exe))
         {
             string backup = GameInstall.BackupOf(file);
-            if (!File.Exists(backup)) continue;
+            if (!File.Exists(backup))
+                continue;
             File.Copy(backup, file, overwrite: true);
             File.Delete(backup);
             log(Loc.T("Log.Restored", Path.GetFileName(file)));

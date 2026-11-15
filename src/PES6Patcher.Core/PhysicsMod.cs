@@ -7,8 +7,8 @@ namespace PES6Patcher.Core;
 /// </summary>
 public static class PhysicsMod
 {
-    public const string FileName = "pes6_game_physics_mod.dll";
-    public const string KloadPath = @"kitserver\" + FileName;
-    public const string Url = "https://github.com/angelballay/pes6_game_physics_mod";
-    public const string Credit = "Mod de Física Original creado por PityCharly.";
+	public const string FileName = "pes6_game_physics_mod.dll";
+	public const string KloadPath = @"kitserver\" + FileName;
+	public const string Url = "https://github.com/angelballay/pes6_game_physics_mod";
+	public const string Credit = "Mod de Física Original creado por PityCharly.";
 }
