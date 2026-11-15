@@ -1,4 +1,11 @@
 {
+  "goalkick-x125": {
+    "about": "#25 longer goal kicks, test (dropped 2026-11-15: felt fine in a match, but the request was not judged a real problem): at the kick function's entry, a keeper (slot 0) in state 48 (goal kick; corners are not taken by keepers) gets x 1.25 speed. Cave in 0xCC padding at 0x5E2920, then on to the 1.26.1 exe's own kick-entry cave 0x411DC8 (user's exe only).",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "50 51 8B 44 24 0C 80 78 16 30 75 14 80 78 11 00 75 0E 8B 4C 24 14 8D 0C 89 C1 F9 02 89 4C 24 14 59 58 E9 81 F4 E2 FF" },
+      { "address": "0x478020", "original": "E9 A3 9D F9 FF", "patched": "E9 FB A8 16 00" }
+    ]
+  },
   "defence-line": {
     "about": "Higher defensive line (#23): the two fixed 0xA00 drops of the line function 0x5E1BD0 taken off. Validated in a match 2026-11-13.",
     "bytes": [
