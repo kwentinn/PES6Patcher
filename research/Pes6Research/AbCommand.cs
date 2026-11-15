@@ -13,6 +13,7 @@ namespace Pes6Research;
 /// without a goal lasting over 6 s) the key of scan code -ResumeScan (28 = Enter, the cross on the user's keyboard; "resume the
 /// match" is already selected) is pressed, after the skip key for the summary, up to 4 presses in all; the later breaks (the end of the match) are left alone. The samples taken before -Settle
 /// seconds after a phase start or a resume are left out. The run stops after -GiveUpAfter seconds without a match.
+/// -Patch none switches nothing (both phases are the game as it is): a whole match logged with the goals and half-time handled.
 /// -SpeedPatch '' keeps the game's own speed. Read-only apart from the named patches (research/patches.json).</para>
 /// </summary>
 static class AbCommand
@@ -42,12 +43,12 @@ static class AbCommand
         var outPath = Path.GetFullPath(o.String("Out") ?? Path.Combine(Path.GetTempPath(), "pes6-ab.csv"));
         var patches = PatchSet.Load(o.String("File"));
         o.CheckAllUsed();
-        foreach (var n in new[] { patchName, speedPatch }.Where(n => n != "" && !patches.Contains(n))) throw new ToolException($"unknown patch '{n}'");
+        foreach (var n in new[] { patchName, speedPatch }.Where(n => n != "" && n != "none" && !patches.Contains(n))) throw new ToolException($"unknown patch '{n}'");
 
         using var game = GameProcess.Open(processName, write: true);
         using var run = new Sampling();
         // the game as it is now (the patcher may have applied the patch in the exe): put back exactly so at the end
-        var before = new[] { patchName, speedPatch }.Where(n => n != "").Select(n => patches.Snapshot(game, n)).ToList();
+        var before = new[] { patchName, speedPatch }.Where(n => n != "" && n != "none").Select(n => patches.Snapshot(game, n)).ToList();
         var rows = new List<Row>();
         var pressLog = new List<string>();
 
@@ -78,7 +79,7 @@ static class AbCommand
                 foreach (var label in new[] { "A", "B" })
                 {
                     // a refused patch (other bytes: another build or patch) would make every phase B the same as A
-                    if (!patches.Set(game, patchName, on: label == "B", force: false)) throw new StopException($"{patchName} could not be set");
+                    if (patchName != "none" && !patches.Set(game, patchName, on: label == "B", force: false)) throw new StopException($"{patchName} could not be set");
                     if (speedPatch != "") patches.Set(game, speedPatch, on: true, force: true);
                     Console.WriteLine($"[{(int)clock.Elapsed.TotalSeconds}] cycle {c + 1}, phase {label}");
                     var phaseStart = clock.Elapsed.TotalSeconds;

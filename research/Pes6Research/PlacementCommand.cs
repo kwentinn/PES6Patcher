@@ -152,6 +152,91 @@ static class PlacementCommand
         Crowd("all", samples);
         foreach (var ph in phases) Crowd($"phase {ph}", samples.Where(s => s.Phase == ph).ToList());
 
+        w.WriteLine("\nattack support, passes and reactions (moving = more than 100 units in 0.25 s, about 1.7 m/s at x2):");
+        Play("all", samples);
+        foreach (var ph in phases) Play($"phase {ph}", samples.Where(s => s.Phase == ph).ToList());
+        void Play(string label, List<S> sel)
+        {
+            // where a player goes over the next 5 samples (0.25 s), along his attacking direction (x) and across (z)
+            (double Ahead, double Across)? Move(int k, int i, int side)
+            {
+                if (k + 5 >= sel.Count || sel[k + 5].Ms - sel[k].Ms > 400) return null;
+                var d = Dir(sel[k], side);
+                return ((sel[k + 5].Ps[i].X - sel[k].Ps[i].X) * d, sel[k + 5].Ps[i].Z - sel[k].Ps[i].Z);
+            }
+
+            // support: the carrier in the opponents' half; his outfield team-mates within 15 m, ahead of the ball, and running forward
+            int with = 0, near = 0, ahead = 0, forward = 0, back = 0, still = 0, mates = 0;
+            for (int k = 0; k < sel.Count; k++)
+            {
+                var s = sel[k];
+                if (s.Carrier is < 1 or > 22) continue;
+                int side = Side(s.Carrier), d = Dir(s, side);
+                var c = s.Ps[s.Carrier - 1];
+                if (c.X * d < 0) continue;
+                with++;
+                for (int i = side * 11 + 1; i < side * 11 + 11; i++)
+                {
+                    if (i == s.Carrier - 1) continue;
+                    var p = s.Ps[i];
+                    if (Dist(p.X, p.Z, c.X, c.Z) < 3500) near++;
+                    if (p.X * d > c.X * d) ahead++;
+                    if (Move(k, i, side) is not { } m) continue;
+                    mates++;
+                    if (m.Ahead > 100) forward++; else if (m.Ahead < -100) back++; else if (Math.Abs(m.Across) < 100) still++;
+                }
+            }
+            if (with > 0 && mates > 0)
+                w.WriteLine($"  {label}: support (carrier in the opponents' half, {with} samples): {(double)near / with:F2} team-mates within 15 m, " +
+                            $"{(double)ahead / with:F2} ahead of the ball; team-mates running forward {100.0 * forward / mates:F0}%, back {100.0 * back / mates:F0}%, standing {100.0 * still / mates:F0}%");
+
+            // releases: the carrier lets the ball go (not taken by a challenge); who has it next within 3 s
+            int kept = 0, lost = 0; var reach = new List<double>();
+            for (int k = 0; k + 1 < sel.Count; k++)
+            {
+                var s = sel[k];
+                if (s.Carrier is < 1 or > 22 || sel[k + 1].Carrier == s.Carrier) continue;
+                var c = s.Ps[s.Carrier - 1];
+                if (c.State is 47 or 48) continue;   // set pieces
+                var next = sel.Skip(k + 1).Take(60).TakeWhile(n => n.Ms - s.Ms < 3200).FirstOrDefault(n => n.Carrier is >= 1 and <= 22 && n.Carrier != s.Carrier);
+                if (next == null) continue;
+                var taker = s.Ps[next.Carrier - 1];
+                bool sameSide = Side(next.Carrier) == Side(s.Carrier);
+                if (!sameSide && Dist(taker.X, taker.Z, c.X, c.Z) < 700) continue;   // a challenge, not a release
+                if (sameSide) { kept++; reach.Add((next.Ms - s.Ms) / 1000.0); } else lost++;
+            }
+            if (kept + lost > 0)
+                w.WriteLine($"  {label}: releases (passes, crosses, clearances): {kept + lost}, a team-mate has it next {100.0 * kept / (kept + lost):F0}%, " +
+                            $"an opponent {100.0 * lost / (kept + lost):F0}%; median time to the team-mate {(reach.Count > 0 ? reach.Order().ElementAt(reach.Count / 2) : 0):F2} s (real, x2 game)");
+
+            // reactions: after the ball changes side, how long until each outfield player's run turns by more than 60°
+            var delays = new List<double>[2] { [], [] };   // 0: the side that lost the ball, 1: the side that won it
+            for (int k = 6; k + 1 < sel.Count; k++)
+            {
+                if (sel[k].Carrier is < 1 or > 22) continue;
+                var prev = sel.Take(k).Reverse().Take(60).FirstOrDefault(n => n.Carrier is >= 1 and <= 22);
+                if (prev == null || Side(prev.Carrier) == Side(sel[k].Carrier)) continue;
+                int winner = Side(sel[k].Carrier);
+                for (int i = 0; i < 22; i++)
+                {
+                    if (sel[k].Ps[i].Slot == 0) continue;
+                    var before = Move(k - 6, i, 0);
+                    if (before is not { } b || Math.Abs(b.Ahead) + Math.Abs(b.Across) < 150) continue;
+                    for (int t = k; t < k + 40; t++)
+                    {
+                        if (Move(t, i, 0) is not { } a) break;
+                        if (Math.Abs(a.Ahead) + Math.Abs(a.Across) < 150) continue;
+                        var cos = (a.Ahead * b.Ahead + a.Across * b.Across) / (Math.Sqrt(a.Ahead * a.Ahead + a.Across * a.Across) * Math.Sqrt(b.Ahead * b.Ahead + b.Across * b.Across));
+                        if (cos < 0.5) { delays[Side(i + 1) == winner ? 1 : 0].Add((sel[t].Ms - sel[k].Ms) / 1000.0); break; }
+                    }
+                }
+                k += 40;
+            }
+            string Med(List<double> v) => v.Count == 0 ? "-" : $"{v.Order().ElementAt(v.Count / 2):F2} s (n={v.Count})";
+            w.WriteLine($"  {label}: reaction after the ball changes side (median until a run turns by > 60 deg, real time at x2): " +
+                        $"side that lost it {Med(delays[0])}, side that won it {Med(delays[1])}");
+        }
+
         // facing against run and target jumps, off the ball
         var facing = new List<double>(); var aimed = new List<double>();
         var jumpBy = new Dictionary<string, int>(); var allBy = new Dictionary<string, int>();
