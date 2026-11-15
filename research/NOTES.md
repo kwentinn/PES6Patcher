@@ -209,11 +209,12 @@ Most of them now live in a C# console tool, [`Pes6Research`](Pes6Research) (`pes
 | Command | Was | Purpose |
 |---|---|---|
 | `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | memory as int16 / int32 / float columns (decimal point, whatever the Windows language) |
-| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV of the 22 players and the ball; written as it goes, so Ctrl+C or the game crashing keeps the samples; no line when the players cannot be read |
+| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5] [-Patch name]` | `pes6positions.ps1` | CSV of the 22 players and the ball, with each player's role (`+0x10`), placement mode (`+0x1DD`), facing, run and aimed direction, and the ball's height (`by`, growing downwards: about -23 on the ground); `-Patch` adds a column A/B telling whether that patch is on (to run beside `ab`); written as it goes, so Ctrl+C or the game crashing keeps the samples; no line when the players cannot be read |
 | `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | named memory patches of `patches.json`, see below; `pes6r ab` and `pes6r scoreprobe` use it |
 | `pes6r code -Address 0x8744F0 [-Length 16] [-Hex "1C 03 00 00"]` | `pes6code.ps1` | read bytes, or write them (memory only, code included) and read them back |
 | `pes6r players` | `pes6players.ps1` | one snapshot of the 22 players and the ball |
 | `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | back line by ball zone from a `positions` CSV (`t`: the players' targets); writes `<in>-<field>-teams.csv` with a decimal point |
+| `pes6r placement -In positions.csv` | (new, 2026-11-15) | off-ball placement of a `positions` log: each player's place, role and modes; crosses (team-mates and strikers at the landing); the crowd around the carrier and the balls won by a challenge; facing against run; target jumps by mode; the defensive midfielder against the back four. Split by phase when the log has the `patch` column |
 | `pes6r findref -Exe PES6.exe.orig -Values 0x3BCDCAE,0x3BE0A6E` | `pes6findref.ps1` | on the exe file: the places holding a 32-bit value (0.1 s instead of 3.6) |
 | `pes6r readva -Exe PES6.exe.orig -Addresses 0xB8C10C,0x5E23FC [-Length 8]` | `pes6readva.ps1` | on the exe file: float, int32 and bytes at virtual addresses |
 | `pes6r shape [-Seconds 90] [-Every 250] [-Out shape.csv]` | `pes6shape.ps1` | team shape out of possession by ball zone |

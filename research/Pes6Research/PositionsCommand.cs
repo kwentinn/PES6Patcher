@@ -10,8 +10,8 @@ namespace Pes6Research;
 /// </summary>
 static class PositionsCommand
 {
-    public const string Usage = "positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]\n" +
-                                "                                                 CSV of the 22 players and the ball (beeps when StartDelay is given)";
+    public const string Usage = "positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5] [-Patch name]\n" +
+                                "                                                 CSV of the 22 players and the ball, with role, placement mode and angles; -Patch adds whether that patch is on (A/B)";
 
     public static int Run(Options o, string processName)
     {
@@ -19,13 +19,16 @@ static class PositionsCommand
         var every = o.Int("Every", 100);
         var startDelay = o.Int("StartDelay", 0);
         var outPath = Path.GetFullPath(o.String("Out") ?? "positions.csv");
+        var patchName = o.String("Patch");
+        var patches = patchName != null ? PatchSet.Load(o.String("File")) : null;
         o.CheckAllUsed();
+        if (patchName != null && !patches!.Contains(patchName)) throw new ToolException($"unknown patch '{patchName}'");
 
         using var game = GameProcess.Open(processName);
         using var run = new Sampling();
         run.Start(startDelay, beep: startDelay > 0);
         using var w = new StreamWriter(outPath);
-        w.WriteLine("ms,carrier,bx,bz,id,team,slot,state,px,pz,tx,tz,speed");
+        w.WriteLine("ms,carrier,bx,bz,id,team,slot,state,px,pz,tx,tz,speed,role,mode,facing,run,heading,by" + (patchName != null ? ",patch" : ""));
         var all = new byte[PlayerCount * PlayerSize];
         var samples = 0;
         while (run.Running(game, seconds))
@@ -36,14 +39,18 @@ static class PositionsCommand
             if (game.TryRead(Players, all))
             {
                 var carrier = game.ReadOrZero(Carrier, 1)[0];
-                var (bx, _, bz) = Ball(game);
+                var (bx, by, bz) = Ball(game);
+                // A: the patch is off, B: it is on (for an A/B run beside pes6r ab)
+                var phase = patchName == null ? "" : patches!.State(game, patchName) == "applied" ? ",B" : ",A";
                 for (var i = 0; i < PlayerCount; i++)
                 {
                     var p = i * PlayerSize;
                     w.WriteLine($"{ms},{carrier},{bx:F0},{bz:F0},{i + 1},{all[p + Team]},{all[p + Slot]},{all[p + State]}," +
                                 $"{BitConverter.ToSingle(all, p + X):F0},{BitConverter.ToSingle(all, p + Z):F0}," +
                                 $"{BitConverter.ToSingle(all, p + TargetX):F0},{BitConverter.ToSingle(all, p + TargetZ):F0}," +
-                                $"{BitConverter.ToInt32(all, p + Speed)}");
+                                $"{BitConverter.ToInt32(all, p + Speed)},{all[p + Role]},{all[p + PlacementMode]}," +
+                                $"{Degrees(BitConverter.ToUInt16(all, p + Facing))},{Degrees(BitConverter.ToUInt16(all, p + Move))}," +
+                                $"{Degrees(BitConverter.ToUInt16(all, p + Heading))},{by:F0}{phase}");
                 }
                 if (++samples % 10 == 0) w.Flush();
             }

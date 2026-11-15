@@ -209,11 +209,12 @@ La plupart vivent maintenant dans un outil console C#, [`Pes6Research`](Pes6Rese
 | Commande | Remplace | Rôle |
 |---|---|---|
 | `pes6r dump -Address 0x3BECC60 [-Length 0x40]` | `pes6dump.ps1` | la mémoire en colonnes int16 / int32 / float (point décimal, quelle que soit la langue de Windows) |
-| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5]` | `pes6positions.ps1` | CSV des 22 joueurs et du ballon ; écrit au fur et à mesure, donc Ctrl+C ou un plantage du jeu gardent les échantillons ; pas de ligne quand les joueurs sont illisibles |
+| `pes6r positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5] [-Patch nom]` | `pes6positions.ps1` | CSV des 22 joueurs et du ballon, avec le rôle de chaque joueur (`+0x10`), son mode de placement (`+0x1DD`), son orientation, sa course et la direction visée, et la hauteur du ballon (`by`, qui croît vers le bas : environ -23 au sol) ; `-Patch` ajoute une colonne A/B indiquant si ce patch est en place (à lancer à côté de `ab`) ; écrit au fur et à mesure, donc Ctrl+C ou un plantage du jeu gardent les échantillons ; pas de ligne quand les joueurs sont illisibles |
 | `pes6r patch [-List] [-Apply a,b] [-Revert a,b] [-RevertAll] [-Force]` | `pes6patch.ps1` | modifications nommées de `patches.json`, voir plus bas ; `pes6r ab` et `pes6r scoreprobe` s'en servent |
 | `pes6r code -Address 0x8744F0 [-Length 16] [-Hex "1C 03 00 00"]` | `pes6code.ps1` | lire des octets, ou les écrire (mémoire uniquement, code compris) puis les relire |
 | `pes6r players` | `pes6players.ps1` | un instantané des 22 joueurs et du ballon |
 | `pes6r depth -In positions.csv [-Field p\|t]` | `pes6depth.ps1` | ligne arrière par zone du ballon à partir d'un CSV de `positions` (`t` : les cibles des joueurs) ; écrit `<entrée>-<champ>-teams.csv` avec un point décimal |
+| `pes6r placement -In positions.csv` | (nouveau, 15 novembre 2026) | placement sans ballon d'un relevé `positions` : place, rôle et modes de chaque joueur ; centres (coéquipiers et attaquants au point de chute) ; foule autour du porteur et ballons gagnés sur un tacle ; orientation contre course ; sauts de cible par mode ; milieu défensif face à la ligne arrière. Séparé par phase quand le relevé a la colonne `patch` |
 | `pes6r findref -Exe PES6.exe.orig -Values 0x3BCDCAE,0x3BE0A6E` | `pes6findref.ps1` | sur le fichier exe : les endroits qui contiennent une valeur 32 bits (0,1 s au lieu de 3,6) |
 | `pes6r readva -Exe PES6.exe.orig -Addresses 0xB8C10C,0x5E23FC [-Length 8]` | `pes6readva.ps1` | sur le fichier exe : float, int32 et octets à des adresses virtuelles |
 | `pes6r shape [-Seconds 90] [-Every 250] [-Out shape.csv]` | `pes6shape.ps1` | forme de l'équipe sans le ballon, par zone du ballon |

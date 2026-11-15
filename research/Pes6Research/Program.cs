@@ -9,6 +9,7 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["patch"] = (PatchCommand.Run, PatchCommand.Switches, PatchCommand.Usage),
     ["players"] = (PlayersCommand.Run, [], PlayersCommand.Usage),
     ["positions"] = (PositionsCommand.Run, [], PositionsCommand.Usage),
+    ["placement"] = (PlacementCommand.Run, [], PlacementCommand.Usage),
     ["shape"] = (ShapeCommand.Run, [], ShapeCommand.Usage),
     // guided by beeps while someone plays
     ["driftlog"] = (CarrierLogCommands.Drift, [], CarrierLogCommands.DriftUsage),

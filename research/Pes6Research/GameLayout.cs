@@ -15,7 +15,8 @@ static class GameLayout
 
     // Offsets in a player. Angles are 16-bit (0x10000 = 360 degrees).
     public const int AnimationPointer = 0x04, Role = 0x10, Slot = 0x11, Team = 0x12, State = 0x16, Timer = 0x18, Speed = 0x1C,
-        Facing = 0x26, Move = 0x28, Heading = 0x2C, Asked = 0x2E, TargetX = 0x6C, TargetZ = 0x70, Buttons = 0xB0, X = 0xE0, Z = 0xE8;
+        Facing = 0x26, Move = 0x28, Heading = 0x2C, Asked = 0x2E, TargetX = 0x6C, TargetZ = 0x70, Buttons = 0xB0, X = 0xE0, Z = 0xE8,
+        PlacementMode = 0x1DD;   // the positioning dispatcher 0x528580 switches on it (one placement routine per mode)
 
     // Offsets in the animation a player's +0x04 points to.
     public const int AnimationId = 0x30, AnimationFrame = 0x34;
