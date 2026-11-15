@@ -32,7 +32,9 @@ internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTou
 
     /// <summary>
     /// Dribble accuracy of the players in the match: low 7 bits of the dword at this address +
-    /// (player[0x12] * 32 + player[0x11]) * 0x348 (read by the game's dribble touch direction noise).
+    /// (player[0x12] * 32 + player[0x11]) * 0x348. Found from the game's dribble touch direction noise, which reads the
+    /// technique 14 bytes further: until 1.26 the patcher read that technique by mistake (checked against the stats shown
+    /// in game on 2026-11-15, after kanzi123 noticed close dribbling followed the technique).
     /// </summary>
     public int DribbleAccuracy { get; init; }
 }
@@ -243,6 +245,10 @@ internal sealed class ExeLocator
     /// Dribble touch direction noise: index = player[0x12] * 32 + player[0x11] ; mov eax,[index * 0x348 +
     /// dribble accuracy] (address at +23) ; and eax,0x7F ; push 40 ; push eax ; call.
     /// </summary>
+    /// <summary>Offsets in a player's stats record (0x348 bytes, 7 bits per stat): dribble accuracy and technique.</summary>
+    private const int DribbleAccuracyStat = 0xA, TechniqueStat = 0x18;
+
+    /// <summary>The game's dribble touch direction noise: it reads the technique (address at +23).</summary>
     private const string DribbleAccuracyReader = "0F B6 4F 12 0F B6 57 11 C1 E1 05 03 CA 69 C9 48 03 00 00 8B F0 8B 81 ?? ?? ?? ?? 83 E0 7F 6A 28 50 E8";
 
     /// <summary>
@@ -743,7 +749,8 @@ internal sealed class ExeLocator
         int state = rdata != null && _image.Matches(rdata.End - 0x10, new byte[0x10]) ? rdata.End - 0x10 : 0;
         if (state == 0) Problem("Hook.Dribble", rdata?.End ?? 0);
         int reader = Unique(DribbleAccuracyReader, "Hook.Dribble");
-        int accuracy = reader != 0 ? _image.ReadInt32(reader + 23) : 0;
+        // the game reads the technique there (+0x18 of the stats); dribble accuracy is +0xA of the same record
+        int accuracy = reader != 0 ? _image.ReadInt32(reader + 23) - (TechniqueStat - DribbleAccuracyStat) : 0;
 
         return run.Length == RunTouchSignatures.Length && sprint.Length == SprintTouchSignatures.Length && imports && state != 0 && accuracy != 0
             ? new DribbleSites(relay, run, sprint, run[SnappedTouchIndex])

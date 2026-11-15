@@ -150,8 +150,8 @@ public class PatcherTests(ITestOutputHelper output)
             Assert.Equal(touches[k], BitConverter.ToInt32(built, at + 1));
         }
 
-        // the reduction reads the player's dribble accuracy (0x3BCF5C0 in the reference build)
-        byte[] read = [0x8B, 0x80, .. BitConverter.GetBytes(0x3BCF5C0), 0x83, 0xE0, 0x7F];
+        // the reduction reads the player's dribble accuracy (0x3BCF5B2 in the reference build; 0x3BCF5C0, read by the game there, is the technique)
+        byte[] read = [0x8B, 0x80, .. BitConverter.GetBytes(0x3BCF5B2), 0x83, 0xE0, 0x7F];
         int size = CodeCaves.KickRelaySize(direction: true, closeDribble: true);
         Assert.True(built.AsSpan(cave, size).IndexOf(read) >= 0);
 
@@ -713,7 +713,7 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(new byte[] { 0x68, 0x00, 0x10, 0x00, 0x00 }, without[image.Offset(0x4E2AE6)..(image.Offset(0x4E2AE6) + 5)]);
         Assert.Equal(0xE9, with[image.Offset(0x4E2AE6)]);
         int limit = image.Rel32Target(0x4E2AE6);
-        Assert.Equal(0x3BCF5C0, image.ReadInt32(limit + 23));                       // mov eax,[eax+dribble accuracy]
+        Assert.Equal(0x3BCF5B2, image.ReadInt32(limit + 23));                       // mov eax,[eax+dribble accuracy]
         Assert.Contains(BitConverter.GetBytes(CodeCaves.Angle(90)), Chunks(with, image.Offset(limit), 83));
         Assert.Equal(0x4E2AEB, image.Rel32Target(limit + 78));                      // back after the push
 

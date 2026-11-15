@@ -1294,12 +1294,13 @@ internal static class CodeCaves
     public const byte LobHeight = 95;
 
     /// <summary>
-    /// Shot accuracy stat (7 bits, byte at this offset of a player's stats: 98 for a top striker, 46 for a keeper).
-    /// The game draws its misses against it, those under pressure included (0x545C20, 0x5B9CB1). Up to 75 the
-    /// accuracy share is kept; above, it shrinks by 4 % a point (50 % at 88, 20 % at 95), never below
-    /// <see cref="AccuracyFloor"/> %: a top striker under pressure no longer sends the ball into the stands.
+    /// Shot accuracy stat (7 bits, byte at this offset of a player's stats), the "Précis." / shot accuracy shown in game.
+    /// Up to 75 the accuracy share is kept; above, it shrinks by 4 % a point (50 % at 88, 20 % at 95), never below
+    /// <see cref="AccuracyFloor"/> %: a top striker under pressure no longer sends the ball into the stands. The game
+    /// draws its misses, those under pressure included (0x545C20, 0x5B9CB1), against the shot technique at +0x12, which
+    /// the patcher read by mistake until 1.26 (checked against the stats shown in game on 2026-11-15).
     /// </summary>
-    public const int ShotAccuracyStat = 0x12;
+    public const int ShotAccuracyStat = 0x10;
     public const byte AccuracyFloor = 20;
 
     /// <summary>
