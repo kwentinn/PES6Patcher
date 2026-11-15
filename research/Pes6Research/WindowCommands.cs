@@ -52,9 +52,17 @@ static class WindowCommands
         var p = Process.GetProcessesByName(processName).FirstOrDefault() ?? throw new ToolException($"{processName} is not running.");
         var h = p.MainWindowHandle;
         if (h == IntPtr.Zero) throw new ToolException($"{processName} has no main window");
+        var (width, height) = Shot(h, outPath) ?? throw new ToolException("the window has no size (minimised?)");
+        Console.WriteLine($"{width} x {height} -> {outPath}");
+        return 0;
+    }
+
+    /// <summary>Saves a PNG of the window (even behind others); null when the window has no size (minimised).</summary>
+    internal static (int Width, int Height)? Shot(IntPtr h, string outPath)
+    {
         GetWindowRect(h, out var r);
         int width = r.R - r.L, height = r.B - r.T;
-        if (width <= 0 || height <= 0) throw new ToolException("the window has no size (minimised?)");
+        if (width <= 0 || height <= 0) return null;
         using var bmp = new Bitmap(width, height);
         using (var g = Graphics.FromImage(bmp))
         {
@@ -63,8 +71,7 @@ static class WindowCommands
             g.ReleaseHdc(hdc);
         }
         bmp.Save(outPath, ImageFormat.Png);
-        Console.WriteLine($"{width} x {height} -> {outPath}");
-        return 0;
+        return (width, height);
     }
 
     /// <summary>Per-monitor v2: the sizes read are physical pixels, not scaled ones.</summary>

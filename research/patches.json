@@ -1,4 +1,11 @@
 {
+  "support-pull25": {
+    "about": "Attack support test (REJECTED 2026-11-15, CPU A/B: team-mates within 15 m 1.39 -> 1.66 but releases kept 85 % -> 69 % and balls lost to a challenge 1.2 -> 5.1 per minute: the whole game tightens): a player in mode 0x08 (the attacking base placement, 44 % of the carrier's team-mates, about 35 m from him) has his target pulled 25 % towards the ball before set_target (hook at 0x619D77 in mode08_positioning 0x619C80). Cave in 0xCC padding at 0x5E2920, share float at 0x5E2970.",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "D9 05 BC DC BC 03 A1 94 CE BC 00 D9 40 10 D8 E1 D8 0D 70 29 5E 00 DE C1 D9 1D BC DC BC 03 D9 05 C0 DC BC 03 D9 40 18 D8 E1 D8 0D 70 29 5E 00 DE C1 D9 1D C0 DC BC 03 8B 15 C0 DC BC 03 A1 BC DC BC 03 E9 1B 74 03 00 CC CC CC CC CC CC CC CC CC 00 00 80 3E" },
+      { "address": "0x619D77", "original": "8B 15 C0 DC BC 03 A1 BC DC BC 03", "patched": "E9 A4 8B FC FF 90 90 90 90 90 90" }
+    ]
+  },
   "tackle-180": {
     "about": "Pressing challenge at 180 % (the patcher's default, both teams): reach 0xA0 -> 0x120 (cmp edi at 0x572AE8) and attempt parameter 0x50 -> 0x7F (push at 0x572AF0), as the patcher writes them without the F8 test key. Original = the game's 100 %.",
     "bytes": [

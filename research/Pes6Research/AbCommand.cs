@@ -11,7 +11,8 @@ namespace Pes6Research;
 /// moves or the players array is not a match's for -StuckAfter seconds, the key of scan code -SkipScan (1 = Esc, the user's Start) is
 /// sent to the game, brought to the front (every press is listed in the summary). 0 turns that off. At half-time (the first break
 /// without a goal lasting over 6 s) the key of scan code -ResumeScan (28 = Enter, the cross on the user's keyboard; "resume the
-/// match" is already selected) is pressed, after the skip key for the summary, up to 4 presses in all; the later breaks (the end of the match) are left alone. The samples taken before -Settle
+/// match" is already selected) and the skip key (for the summary) alternate 3 s apart until play resumes, up to 12 presses, each
+/// with a screenshot next to -Out; the later breaks (the end of the match) are left alone. The samples taken before -Settle
 /// seconds after a phase start or a resume are left out. The run stops after -GiveUpAfter seconds without a match.
 /// -Patch none switches nothing (both phases are the game as it is): a whole match logged with the goals and half-time handled.
 /// -SpeedPatch '' keeps the game's own speed. Read-only apart from the named patches (research/patches.json).</para>
@@ -69,7 +70,8 @@ static class AbCommand
         // 2. the phases
         double? lost = null, netSince = null, goalAt = null, frozenSince = null;
         double lastPress = -100, resumedAt = 0, lastBx = 0;
-        int resumePresses = 0, breaks = 0;   // presses during the current break without a goal, and such breaks seen (the 1st is half-time)
+        int resumePresses = 0, breaks = 0;   // presses during the current break at the end of a half, and such breaks seen (the 1st is half-time)
+        double? whistleAt = null;            // when a player was last seen in state 46: the whistle at the end of a half (before half-time and full time)
         byte[]? prevAll = null;
         run.Start(0, beep: false);
         var clock = run.Clock;
@@ -90,6 +92,7 @@ static class AbCommand
                         var t0 = clock.ElapsedMilliseconds;
                         var now = clock.Elapsed.TotalSeconds;
                         var all = game.ReadOrZero(Players, PlayerCount * PlayerSize);
+                        for (var i = 0; i < PlayerCount; i++) if (all[i * PlayerSize + State] == 46) { whistleAt = now; break; }
                         // nothing moves for a few seconds (celebration waiting, pause) or the players array is not a match's (replay,
                         // menu): press the skip key, at most every 4 s; give up when it lasts too long
                         var moved = 1e9;
@@ -100,9 +103,20 @@ static class AbCommand
                                 moved += Math.Abs((double)F(all, i, X) - F(prevAll, i, X)) + Math.Abs((double)F(all, i, Z) - F(prevAll, i, Z));
                         }
                         prevAll = all;
-                        if (moved < 20) frozenSince ??= now; else frozenSince = null;
+                        if (moved < 20) frozenSince ??= now;
+                        else
+                        {
+                            // the players move again after half-time presses: that break is over (a long one was half-time)
+                            if (frozenSince != null && resumePresses > 0 && lost == null)
+                            {
+                                if (now - frozenSince > 20) breaks++;
+                                pressLog.Add($"t={now:F0} play resumed after {resumePresses} half-time key(s)");
+                                resumePresses = 0;
+                            }
+                            frozenSince = null;
+                        }
                         var inMatch = InMatch(game);
-                        if (inMatch) { if (lost != null) { resumedAt = now; if (resumePresses > 0 && now - lost > 20) breaks++; resumePresses = 0; } lost = null; }
+                        if (inMatch) { if (lost != null) { resumedAt = now; if (resumePresses > 0) { if (now - lost > 20) breaks++; pressLog.Add($"t={now:F0} play resumed after {resumePresses} half-time key(s)"); } resumePresses = 0; } lost = null; }
                         else lost ??= now;
                         // only after a goal: the ball lying still in a goal (it rested at x = 13919 while a sequence waited for Start);
                         // throw-ins, free kicks and the other waits are left alone
@@ -120,16 +134,22 @@ static class AbCommand
                             pressLog.Add($"t={now:F0} skip key{(sent ? "" : " NOT sent (the game did not take the focus)")}, ball x={bnx:F0} " +
                                          $"z={bnz:F0}, goal seen {now - goalAt:F0} s ago, lost={lost != null}, frozen={frozenSince != null}");
                         }
-                        // half-time: the match stops without a goal; the first such break only (the next one is the end of the match, whose
-                        // menus must not be walked through), at most 3 presses 4 s apart
-                        if (resumeScan > 0 && breaks == 0 && lost != null && now - lost > 6 && (goalAt == null || now - goalAt > 90) &&
-                            resumePresses < 4 && now - lastPress > 4)
+                        // half-time: the match stops (lost: the players array is not a match's, or frozen: nobody moves) after the end-of-half
+                        // whistle (a player in state 46, seen in the logs before half-time and full time), not in a goal sequence;
+                        // the first such break only (the next one is the end of the match, whose menus must not be walked through).
+                        // The summary waits for Start and the menu for the cross, and a fixed sequence did not get through: the skip key
+                        // and the resume key alternate 3 s apart until the players move again, at most 12 presses. Each press saves a
+                        // screenshot next to the output (-out-halftime-N.png) to see where it stood.
+                        var stopped = lost != null ? lost : frozenSince;
+                        if (resumeScan > 0 && breaks == 0 && stopped != null && now - stopped > 4 && whistleAt != null && now - whistleAt < 90 && (goalAt == null || now - goalAt > 30) &&
+                            resumePresses < 12 && now - lastPress > 3)
                         {
-                            // the half-time summary first waits for Start (the skip key), then the menu for the cross
-                            var key = resumePresses == 0 && skipScan > 0 ? skipScan : resumeScan;
+                            var key = resumePresses % 2 == 0 && skipScan > 0 ? skipScan : resumeScan;
+                            var shot = Path.ChangeExtension(outPath, null) + $"-halftime-{resumePresses + 1}.png";
+                            try { if (game.MainWindow is var hw && hw != IntPtr.Zero) WindowCommands.Shot(hw, shot); } catch (Exception) { shot = "no screenshot"; }
                             var sent = SkipKey.Press(game, key);
                             lastPress = now; resumePresses++;
-                            pressLog.Add($"t={now:F0} half-time key {key}{(sent ? "" : " NOT sent (the game did not take the focus)")}");
+                            pressLog.Add($"t={now:F0} half-time key {key}{(sent ? "" : " NOT sent (the game did not take the focus)")} (before: {Path.GetFileName(shot)})");
                         }
                         if (lost != null && now - lost > giveUpAfter) throw new StopException("the match ended");
                         if (!inMatch) { Thread.Sleep(every); continue; }
