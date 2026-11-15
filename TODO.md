@@ -39,6 +39,18 @@ The open issues, from the easiest to the hardest to handle (November 2026). The 
 18. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) AI movement without the ball, AI dribbling more, AI 360° dribbling: AI decisions; #2 was already shelved.
 19. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Switch player with the right stick, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) knuckleball free kicks (a new trajectory), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) Kitserver module.
 
+
+## Overall feel in a match (November 2026)
+
+After a match played with every option on (1.26.1 plus the pressing for the players' teams only), the game still feels messy, rigid and slow. Noted as a whole, because each point is too broad for a single fix:
+
+- **Chaos on the pitch**: the players move incoherently. Measured in a CPU match: 20 % of the moving off-ball players face 90° or more away from their run, 13 % turn back within a second, and they lag 6 to 12 m behind the place they aim for.
+- **Rigidity and slow reactions**: the players react late to what happens.
+- **Passes**: too straight and too rigid, and often miss the intended team-mate.
+- **Runs**: no support for the player on the ball when attacking; the team-mates wait instead of offering themselves.
+- **Crosses**: the striker is often missing where the ball comes down (measured: usually 6 to 11 m away).
+- **Defensive midfielders**: not always well placed.
+- **Dribbling stars** (Zidane, Messi) hardly dribble: measured, the AI won the ball by a challenge twice as often with the pressing reach at 180 % for both teams (now for the players' teams only, not felt in a match yet).
 The sections below are in no particular order.
 
 ## AI players: 360° dribbling

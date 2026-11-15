@@ -39,6 +39,18 @@ Les issues ouvertes, de la plus facile à la plus difficile à traiter (novembre
 18. [#3](https://github.com/kwentinn/PES6Patcher/issues/3), [#4](https://github.com/kwentinn/PES6Patcher/issues/4), [#2](https://github.com/kwentinn/PES6Patcher/issues/2) IA sans ballon, IA qui dribble plus, dribble à 360° de l'IA : décisions de l'IA ; #2 a déjà été mis de côté.
 19. [#22](https://github.com/kwentinn/PES6Patcher/issues/22) Changer de joueur au stick droit, [#28](https://github.com/kwentinn/PES6Patcher/issues/28) frappe flottante sur coup franc (une nouvelle trajectoire), [#7](https://github.com/kwentinn/PES6Patcher/issues/7) module Kitserver.
 
+
+## Sensation d'ensemble en match (novembre 2026)
+
+Après un match joué avec toutes les options (1.26.1 plus le pressing réservé aux équipes des joueurs), le jeu paraît toujours brouillon, rigide et lent. Noté d'un bloc, car chaque point est trop large pour un seul correctif :
+
+- **Désordre sur le terrain** : les joueurs se déplacent de façon incohérente. Mesuré dans un match ordi contre ordi : 20 % des joueurs sans ballon qui courent regardent à 90° ou plus de leur course, 13 % font demi-tour en moins d'une seconde, et ils restent 6 à 12 m derrière la place qu'ils visent.
+- **Rigidité et réactions lentes** : les joueurs réagissent en retard à ce qui se passe.
+- **Passes** : trop droites, trop rigides, et souvent ratées (elles n'atteignent pas le bon coéquipier).
+- **Courses** : aucun soutien du porteur en attaque ; les coéquipiers attendent au lieu de se proposer.
+- **Centres** : l'attaquant manque souvent là où le ballon retombe (mesuré : en général à 6 à 11 m).
+- **Milieux défensifs** : pas toujours bien placés.
+- **Stars qui dribblent peu** (Zidane, Messi) : mesuré, l'IA gagnait le ballon sur un tacle deux fois plus souvent avec la portée du pressing à 180 % pour les deux équipes (désormais réservée aux équipes des joueurs, pas encore ressenti en match).
 Les sections ci-dessous sont sans ordre particulier.
 
 ## Joueurs IA : dribble à 360°
