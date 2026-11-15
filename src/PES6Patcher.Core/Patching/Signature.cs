@@ -11,6 +11,10 @@ internal sealed class Signature
 	private readonly byte[] _bytes;
 	private readonly bool[] _any;
 
+	/// <summary>The longest run of fixed bytes and where it starts: searched with the vectorised IndexOf, then the rest is checked.</summary>
+	private readonly byte[] _anchor;
+	private readonly int _anchorAt;
+
 	public Signature(string pattern)
 	{
 		var tokens = pattern.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -22,6 +26,17 @@ internal sealed class Signature
 			else _bytes[i] = byte.Parse(tokens[i], NumberStyles.HexNumber, CultureInfo.InvariantCulture);
 		}
 		if (_any[0]) throw new ArgumentException("A signature cannot start with a wildcard.", nameof(pattern));
+		int best = 0, bestAt = 0;
+		for (int i = 0; i < _bytes.Length;)
+		{
+			if (_any[i]) { i++; continue; }
+			int j = i;
+			while (j < _bytes.Length && !_any[j]) j++;
+			if (j - i > best) (best, bestAt) = (j - i, i);
+			i = j;
+		}
+		_anchor = _bytes[bestAt..(bestAt + best)];
+		_anchorAt = bestAt;
 	}
 
 	public int Length => _bytes.Length;
@@ -41,14 +56,19 @@ internal sealed class Signature
 	{
 		var hits = new List<int>();
 		var data = image.Bytes;
-		int start = section.RawOffset, end = section.RawOffset + section.MappedSize - _bytes.Length;
-		byte first = _bytes[0];
-		for (int p = start; p <= end; p++)
+		int start = section.RawOffset, end = section.RawOffset + section.MappedSize - _bytes.Length;   // last pattern start
+		if (end < start) return hits;
+		// the anchor can sit at [start + anchorAt, end + anchorAt]; each of its hits gives a pattern start to check in full
+		var area = data.AsSpan(start + _anchorAt, end - start + _anchor.Length);
+		for (int from = 0; ;)
 		{
-			if (data[p] != first) continue;
-			int k = 1;
+			int i = area[from..].IndexOf(_anchor);
+			if (i < 0) break;
+			int p = start + from + i;   // pattern start: area index + start + anchorAt - anchorAt
+			int k = 0;
 			while (k < _bytes.Length && (_any[k] || data[p + k] == _bytes[k])) k++;
 			if (k == _bytes.Length) hits.Add(p - section.RawOffset + section.Va);
+			from += i + 1;
 		}
 		return hits;
 	}
