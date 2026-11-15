@@ -9,14 +9,16 @@ namespace Pes6Research;
 /// ball the whole time, and prints the back line by ball zone for each. Everything is put back at the end (also on Ctrl+C or an error).
 /// <para>Goal sequences wait for Start: after the ball has lain still in a goal (|x| &gt; -NetX, |z| &lt; 1300), and while nothing
 /// moves or the players array is not a match's for -StuckAfter seconds, the key of scan code -SkipScan (1 = Esc, the user's Start) is
-/// sent to the game, brought to the front (every press is listed in the summary). 0 turns that off. The samples taken before -Settle
+/// sent to the game, brought to the front (every press is listed in the summary). 0 turns that off. At half-time (the first break
+/// without a goal lasting over 6 s) the key of scan code -ResumeScan (28 = Enter, the cross on the user's keyboard; "resume the
+/// match" is already selected) is pressed, after the skip key for the summary, up to 4 presses in all; the later breaks (the end of the match) are left alone. The samples taken before -Settle
 /// seconds after a phase start or a resume are left out. The run stops after -GiveUpAfter seconds without a match.
 /// -SpeedPatch '' keeps the game's own speed. Read-only apart from the named patches (research/patches.json).</para>
 /// </summary>
 static class AbCommand
 {
     public const string Usage = "ab -Patch defence-line [-Phase 90] [-Cycles 3] [-Settle 10] [-SpeedPatch speed-x2] [-Every 250] [-Out ab.csv]\n" +
-                                "   [-WaitMinutes 30] [-SkipScan 1] [-NetX 13500] [-StuckAfter 4] [-GiveUpAfter 240]\n" +
+                                "   [-WaitMinutes 30] [-SkipScan 1] [-ResumeScan 28] [-NetX 13500] [-StuckAfter 4] [-GiveUpAfter 240]\n" +
                                 "                                                 A/B of a patch in a CPU-vs-CPU match: back line by ball zone";
 
     const uint LineWords = 0x3BCDCAE, FrameStep = 0x3BE1740;
@@ -33,6 +35,7 @@ static class AbCommand
         var every = o.Int("Every", 250);
         var waitMinutes = o.Int("WaitMinutes", 30);
         var skipScan = o.Int("SkipScan", 1);
+        var resumeScan = o.Int("ResumeScan", 28);   // Enter: the cross on the user's keyboard, "resume the match" being already selected at half-time
         var netX = o.Int("NetX", 13500);
         var stuckAfter = o.Int("StuckAfter", 4);
         var giveUpAfter = o.Int("GiveUpAfter", 240);
@@ -65,6 +68,7 @@ static class AbCommand
         // 2. the phases
         double? lost = null, netSince = null, goalAt = null, frozenSince = null;
         double lastPress = -100, resumedAt = 0, lastBx = 0;
+        int resumePresses = 0, breaks = 0;   // presses during the current break without a goal, and such breaks seen (the 1st is half-time)
         byte[]? prevAll = null;
         run.Start(0, beep: false);
         var clock = run.Clock;
@@ -97,7 +101,7 @@ static class AbCommand
                         prevAll = all;
                         if (moved < 20) frozenSince ??= now; else frozenSince = null;
                         var inMatch = InMatch(game);
-                        if (inMatch) { if (lost != null) resumedAt = now; lost = null; }
+                        if (inMatch) { if (lost != null) { resumedAt = now; if (resumePresses > 0 && now - lost > 20) breaks++; resumePresses = 0; } lost = null; }
                         else lost ??= now;
                         // only after a goal: the ball lying still in a goal (it rested at x = 13919 while a sequence waited for Start);
                         // throw-ins, free kicks and the other waits are left alone
@@ -114,6 +118,17 @@ static class AbCommand
                             lastPress = now;
                             pressLog.Add($"t={now:F0} skip key{(sent ? "" : " NOT sent (the game did not take the focus)")}, ball x={bnx:F0} " +
                                          $"z={bnz:F0}, goal seen {now - goalAt:F0} s ago, lost={lost != null}, frozen={frozenSince != null}");
+                        }
+                        // half-time: the match stops without a goal; the first such break only (the next one is the end of the match, whose
+                        // menus must not be walked through), at most 3 presses 4 s apart
+                        if (resumeScan > 0 && breaks == 0 && lost != null && now - lost > 6 && (goalAt == null || now - goalAt > 90) &&
+                            resumePresses < 4 && now - lastPress > 4)
+                        {
+                            // the half-time summary first waits for Start (the skip key), then the menu for the cross
+                            var key = resumePresses == 0 && skipScan > 0 ? skipScan : resumeScan;
+                            var sent = SkipKey.Press(game, key);
+                            lastPress = now; resumePresses++;
+                            pressLog.Add($"t={now:F0} half-time key {key}{(sent ? "" : " NOT sent (the game did not take the focus)")}");
                         }
                         if (lost != null && now - lost > giveUpAfter) throw new StopException("the match ended");
                         if (!inMatch) { Thread.Sleep(every); continue; }
