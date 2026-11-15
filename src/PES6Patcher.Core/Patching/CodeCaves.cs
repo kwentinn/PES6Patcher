@@ -434,6 +434,9 @@ internal static class CodeCaves
 	/// <summary>Headers percent read at run time (F11), in the test keys state.</summary>
 	public static int HeadersStateAddress(FreeKickSites testKeys) => testKeys.State + HeadersState;
 
+	/// <summary>Pressing challenge percent read at run time (F8), in the test keys state.</summary>
+	public static int TackleStateAddress(FreeKickSites testKeys) => testKeys.State + TackleState;
+
 	public static TestKey HeadersTestKey(int percent, int texts, int stride) =>
 		new(HeadersKey, HeadersState, percent, PatchOptions.MinHeaders, PatchOptions.MaxHeaders, texts, stride);
 
@@ -976,15 +979,27 @@ internal static class CodeCaves
 		(TackleBaseRange * percent / 100, (byte)Math.Min(0x7F, TackleBaseParameter * percent / 100));
 
 	/// <summary>
-	/// Pressing challenge with F8: the reach test and the attempt parameter (cmp edi,0xA0 ; jge fail ; push 0x50) jump here
-	/// to scale both by the percent read at run time (<paramref name="percent"/> until F8 is pressed).
+	/// Pressing challenge: the reach test and the attempt parameter (cmp edi,0xA0 ; jge fail ; push 0x50 ; push edi ; push esi
+	/// ; call, esi = the pressing player) jump here to scale both by <paramref name="percent"/>, or by the F8 percent read at
+	/// <paramref name="stateAddress"/> once pressed (0: no test key). With <paramref name="humans"/>, only a player of a human
+	/// team (see <see cref="EmitHumanTeams"/>) gets it: the AI keeps the game's reach, so it no longer takes the ball from a
+	/// dribbling star from further (measured in a CPU match at 180 %: 8.6 balls won by a challenge per minute instead of 3.5).
 	/// </summary>
-	public static Hook Tackle(int cave, TackleSites sites, int percent, FreeKickSites testKeys)
+	public static Hook Tackle(int cave, TackleSites sites, int percent, int stateAddress, ShotSites? humans)
 	{
-		var bytes = new CodeBuilder(cave)
-			.Bytes([0x0F, 0xB7, 0x05], testKeys.State + TackleState)  // movzx eax,word [percent]
-			.Bytes(0x85, 0xC0)                                      // test eax,eax
-			.Jump(0x75, "percentSet")                               // jne percentSet
+		var code = new CodeBuilder(cave);
+		if (humans != null)
+			code.Bytes(0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01)    // movzx ecx,byte [esi+0x12] ; and ecx,1 ; team
+				.Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
+				.Jump(0x73, "human")                                // jae human
+				.Bytes(0x6A, 0x64, 0x58)                            // push 100 ; pop eax    ; the AI: the game's reach
+				.Jump(0xEB, "percentSet")                           // jmp percentSet
+				.Mark("human");
+		if (stateAddress != 0)
+			code.Bytes([0x0F, 0xB7, 0x05], stateAddress)            // movzx eax,word [percent]
+				.Bytes(0x85, 0xC0)                                  // test eax,eax
+				.Jump(0x75, "percentSet");                          // jne percentSet
+		var bytes = code
 			.Bytes([0xB8], percent)                                 // mov eax,percent      ; from the patcher
 			.Mark("percentSet")
 			.Bytes(0x8B, 0xC8)                                      // mov ecx,eax

@@ -412,7 +412,7 @@
     <value>VIRAGE EN SPRINT : {0} DEG MAX (F7)</value>
   </data>
   <data name="Log.Tackle" xml:space="preserve">
-    <value>Tacle au pressing : un joueur qui presse tente de prendre le ballon à {0} % de la distance du jeu (les deux équipes).</value>
+    <value>Tacle au pressing : un joueur des équipes des joueurs qui presse tente de prendre le ballon à {0} % de la distance du jeu (l'IA garde celle du jeu).</value>
   </data>
   <data name="Hook.Tackle" xml:space="preserve">
     <value>tacle au pressing</value>

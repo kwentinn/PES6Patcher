@@ -679,21 +679,28 @@ public class PatcherTests(ITestOutputHelper output)
         var image = new PeImage(without);
         Assert.Equal(new byte[] { 0x81, 0xFF, 0xA0, 0x00, 0x00, 0x00, 0x7D, 0x5B, 0x6A, 0x50 }, without[image.Offset(0x572AE8)..(image.Offset(0x572AE8) + 10)]);
 
-        // 180 %: reach 288, parameter 144 capped at 127 (a signed byte)
-        var with = ExePatcher.Build(original, options with { Tackle = 180 });
-        Assert.Equal(0x120, new PeImage(with).ReadInt32(0x572AEA));
-        Assert.Equal(0x7F, with[image.Offset(0x572AF1)]);
-        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
-        Assert.All(changed, i => Assert.True(i - image.Offset(0x572AEA) is >= 0 and < 4 || i == image.Offset(0x572AF1)));
+        // 180 % (reach 288, parameter 144 capped at 127, a signed byte) for the human teams only: the reach test jumps to a
+        // cave that gives a pressing player (esi) of a team that is not human the game's 100 %, and the human teams are learnt
+        // at the kick function's entry (hooked although no shot option is on)
         Assert.Equal((0xA0 * 140 / 100, (byte)112), CodeCaves.TackleValues(140));
+        var with = ExePatcher.Build(original, options with { Tackle = 180 });
+        var withImage = new PeImage(with);
+        Assert.Equal(0xE9, with[withImage.Offset(0x572AE8)]);
+        int humanCave = withImage.Rel32Target(0x572AE8);
+        var shot = ExeLocator.Locate(original).Shot!;
+        byte[] humanTest = [0x0F, 0xB6, 0x4E, 0x12, 0x83, 0xE1, 0x01, 0x80, 0xB9, .. BitConverter.GetBytes(shot.HumanScores), CodeCaves.HumanScore, 0x73];
+        Assert.True(with.AsSpan(withImage.Offset(humanCave), humanTest.Length).SequenceEqual(humanTest));
+        Assert.Contains(Enumerable.Range(humanCave, 40), a => with[withImage.Offset(a)] == 0x6A && with[withImage.Offset(a) + 1] == 100 && with[withImage.Offset(a) + 2] == 0x58);
+        Assert.Contains(Enumerable.Range(humanCave, 120), a => with[withImage.Offset(a)] == 0xE9 && withImage.Rel32Target(a) == 0x572AF2);
+        Assert.Equal(0xE9, with[withImage.Offset(shot.KickEntry)]);
 
         // with F8: a jump to a cave that comes back to push edi, or goes to the attempt's skip (0x572B4B)
         var debug = ExePatcher.Build(original, options with { Tackle = 180, TackleDebug = true });
         image = new PeImage(debug);
         Assert.Equal(0xE9, debug[image.Offset(0x572AE8)]);
         int cave = image.Rel32Target(0x572AE8);
-        Assert.Contains(Enumerable.Range(cave, 60), a => debug[image.Offset(a)] == 0xE9 && image.Rel32Target(a) == 0x572B4B);
-        Assert.Contains(Enumerable.Range(cave, 70), a => debug[image.Offset(a)] == 0xE9 && image.Rel32Target(a) == 0x572AF2);
+        Assert.Contains(Enumerable.Range(cave, 120), a => debug[image.Offset(a)] == 0xE9 && image.Rel32Target(a) == 0x572B4B);
+        Assert.Contains(Enumerable.Range(cave, 120), a => debug[image.Offset(a)] == 0xE9 && image.Rel32Target(a) == 0x572AF2);
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { Tackle = 200 }));
     }
 

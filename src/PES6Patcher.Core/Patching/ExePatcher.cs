@@ -397,7 +397,8 @@ public static class ExePatcher
 		bool shots = options.ShotPower < 100 || options.ShotAccuracy < 100;
 		bool headers = options.Headers < 100;
 		bool superShot = options.SuperShot > 0;
-		var humans = shots || headers || superShot ? shot : null;   // human teams learnt at the kick function's entry
+		bool tackle = options.Tackle != 100;
+		var humans = shots || headers || superShot || tackle ? shot : null;   // human teams learnt at the kick function's entry
 		bool superWeight = superShot && options.SuperShotWeight > 0;
 		var superFix = superShot
 			? new CodeCaves.SuperShotFix(options.SuperShotSpeed, options.SuperShot, superShotKey ? CodeCaves.SuperShotStateAddress(freeKick!) : 0,
@@ -524,18 +525,20 @@ public static class ExePatcher
 			plan.Add((sites.Animation, [CodeCaves.SprintTurnAnimationAngle]));
 		}
 
-		// pressing challenge: a pressing player tries to win the ball from further (the reach test and the attempt's
-		// own distance limit); with F8, a hook reads the percent at run time
-		if (options.Tackle != 100)
+		// pressing challenge: a pressing player of a human team tries to win the ball from further (the reach test and the
+		// attempt's own distance limit); the AI keeps the game's reach. With F8, the hook reads the percent at run time.
+		// Without the human teams (an exe where the shot sites are not found), both teams get it, as before 1.27.
+		if (tackle)
 		{
 			if (options.Tackle is < PatchOptions.MinTackle or > PatchOptions.MaxTackle) throw new ArgumentOutOfRangeException(nameof(options), options.Tackle, null);
 			var sites = ExeLocator.LocateTackle(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.Tackle"), 0)]);
-			if (tackleKey)
+			if (tackleKey || humans != null)
 			{
-				var tackle = CodeCaves.Tackle(0, sites, options.Tackle, freeKick!);
-				tackle = CodeCaves.Tackle(Cave(tackle.CaveBytes.Length), sites, options.Tackle, freeKick!);
-				plan.Add((tackle.Cave, tackle.CaveBytes));
-				plan.Add((tackle.Entry, tackle.EntryBytes));
+				int state = tackleKey ? CodeCaves.TackleStateAddress(freeKick!) : 0;
+				var hook = CodeCaves.Tackle(0, sites, options.Tackle, state, humans);
+				hook = CodeCaves.Tackle(Cave(hook.CaveBytes.Length), sites, options.Tackle, state, humans);
+				plan.Add((hook.Cave, hook.CaveBytes));
+				plan.Add((hook.Entry, hook.EntryBytes));
 			}
 			else
 			{

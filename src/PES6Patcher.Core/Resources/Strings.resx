@@ -412,7 +412,7 @@
     <value>SPRINT TURN: {0} DEG MAX (F7)</value>
   </data>
   <data name="Log.Tackle" xml:space="preserve">
-    <value>Pressing challenge: a pressing player tries to win the ball from {0} % of the game's distance (both teams).</value>
+    <value>Pressing challenge: a pressing player of the players' teams tries to win the ball from {0} % of the game's distance (the AI keeps the game's).</value>
   </data>
   <data name="Hook.Tackle" xml:space="preserve">
     <value>pressing challenge</value>
