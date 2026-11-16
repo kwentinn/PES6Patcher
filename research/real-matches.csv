@@ -1,0 +1,57 @@
+measure;Real match 1;Real match 2
+#Sample;;
+match time logged (min);97;94
+time with a player on the ball (min);25.0;24.5
+#Attack support (player on the ball in the opponents' half);;
+team-mates within 15 m of him;1.79;1.97
+team-mates ahead of the ball;3.58;3.79
+team-mates moving forward (> 1 m/s);53%;48%
+team-mates moving back (> 1 m/s);11%;13%
+team-mates standing (< 1 m/s);21%;20%
+runs in behind at once (ahead, forward > 4 m/s);0.36;0.23
+team-mates coming to the ball at once (> 2 m/s);1.06;1.11
+#Around the player on the ball (whole pitch);;
+team-mates within 5 m;0.11;0.12
+opponents within 5 m;0.54;0.61
+team-mates within 10 m;0.69;0.75
+opponents within 10 m;1.56;1.66
+#Off-ball speed, team with the ball;;
+with: standing (< 1 m/s);16%;15%
+with: walking (1-2 m/s);35%;37%
+with: jogging (2-4 m/s);36%;38%
+with: running (4-5.5 m/s);9%;7%
+with: fast (> 5.5 m/s);3%;2%
+#Off-ball speed, team without the ball;;
+without: standing (< 1 m/s);15%;15%
+without: walking (1-2 m/s);30%;31%
+without: jogging (2-4 m/s);40%;40%
+without: running (4-5.5 m/s);11%;10%
+without: fast (> 5.5 m/s);4%;3%
+#Off-ball speed, everyone (m/s);;
+median / 95 % / 99 %;2.1/5.2/6.8;2.0/4.9/6.4
+#Chaos;;
+runs (> 2.5 m/s) turned back > 120 deg within 1 s;0%;0%
+#Team shape (outfield players, m);;
+length, team with the ball;41;34
+width, team with the ball;48;49
+length, team without the ball;39;29
+width, team without the ball;37;37
+#Passing (a release: the ball leaves a player, not by a challenge);;
+releases per minute of possession;34.1;39.6
+a team-mate has the ball next;80%;85%
+pass completion in the match's own events;77%;83%
+median pass length (m);15;13
+passes gaining more than 5 m;42%;38%
+median time until the team-mate has it (s);1.2;1.2
+median time a player keeps the ball (s);1.5;1.4
+balls won by a challenge per minute of possession;0.7;0.8
+#Reactions when the ball changes side (a run turning by > 60 deg);;
+side that lost it: median delay (s);1.52;1.60
+side that lost it: runs turned within 4 s;68%;68%
+side that won it: median delay (s);1.44;1.52
+side that won it: runs turned within 4 s;70%;71%
+#Crosses (when the ball arrives);;
+crosses found;17;15
+team-mates in the box;2.4;3.7
+median distance of the closest team-mate (m);5.0;0.8
+no team-mate within 6 m;41%;13%

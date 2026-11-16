@@ -31,6 +31,7 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["capture"] = (WindowCommands.Capture, [], WindowCommands.CaptureUsage),
     // files (the game need not run)
     ["depth"] = (DepthCommand.Run, [], DepthCommand.Usage),
+    ["compare"] = (CompareCommand.Run, CompareCommand.Switches, CompareCommand.Usage),
     ["findref"] = (ExeCommands.FindRef, [], ExeCommands.FindRefUsage),
     ["readva"] = (ExeCommands.ReadVa, [], ExeCommands.ReadVaUsage),
 };
