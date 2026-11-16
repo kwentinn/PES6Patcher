@@ -47,7 +47,7 @@ Après un match joué avec toutes les options (1.26.1 plus le pressing réservé
 - **Désordre sur le terrain** : les joueurs se déplacent de façon incohérente. Mesuré dans un match ordi contre ordi : 20 % des joueurs sans ballon qui courent regardent à 90° ou plus de leur course, 13 % font demi-tour en moins d'une seconde, et ils restent 6 à 12 m derrière la place qu'ils visent.
 - **Rigidité et réactions lentes** : les joueurs réagissent en retard à ce qui se passe.
 - **Passes** : trop droites, trop rigides, et souvent ratées (elles n'atteignent pas le bon coéquipier).
-- **Courses** : aucun soutien du porteur en attaque ; les coéquipiers attendent au lieu de se proposer.
+- **Courses** : aucun soutien du porteur en attaque ; les coéquipiers attendent au lieu de se proposer. Lu le 16 novembre 2026 : un seul joueur par équipe fait la course au-delà de la ligne à la fois, et jamais un attaquant ; rendre ce choix plus facile n'a rien changé dans un match ordi contre ordi (voir les notes de recherche, « Courses vers l'avant en attaque »). Suite : un second coureur, ou les courses propres aux attaquants.
 - **Centres** : l'attaquant manque souvent là où le ballon retombe (mesuré : en général à 6 à 11 m).
 - **Milieux défensifs** : pas toujours bien placés.
 - **Stars qui dribblent peu** (Zidane, Messi) : mesuré, l'IA gagnait le ballon sur un tacle deux fois plus souvent avec la portée du pressing à 180 % pour les deux équipes (désormais réservée aux équipes des joueurs, pas encore ressenti en match).

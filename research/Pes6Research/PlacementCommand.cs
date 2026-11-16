@@ -190,6 +190,35 @@ static class PlacementCommand
                 w.WriteLine($"  {label}: support (carrier in the opponents' half, {with} samples): {(double)near / with:F2} team-mates within 15 m, " +
                             $"{(double)ahead / with:F2} ahead of the ball; team-mates running forward {100.0 * forward / mates:F0}%, back {100.0 * back / mates:F0}%, standing {100.0 * still / mates:F0}%");
 
+            // the same team-mates by line: their placement modes, how far they are from the carrier and whether they move up
+            if (label == "all" || phases.Count > 0)
+                foreach (var (lo, hi, name) in new[] { (1, 9, "defenders"), (10, 28, "midfielders"), (33, 40, "forwards") })
+                {
+                    var by = new Dictionary<int, (int N, double Dist, int Forward, int Moves)>();
+                    int total = 0;
+                    for (int k = 0; k < sel.Count; k++)
+                    {
+                        var s = sel[k];
+                        if (s.Carrier is < 1 or > 22) continue;
+                        int side = Side(s.Carrier), d = Dir(s, side);
+                        var c = s.Ps[s.Carrier - 1];
+                        if (c.X * d < 0) continue;
+                        for (int i = side * 11 + 1; i < side * 11 + 11; i++)
+                        {
+                            var p = s.Ps[i];
+                            if (i == s.Carrier - 1 || p.Role < lo || p.Role > hi) continue;
+                            var e = by.GetValueOrDefault(p.Mode);
+                            var m = Move(k, i, side);
+                            by[p.Mode] = (e.N + 1, e.Dist + Dist(p.X, p.Z, c.X, c.Z), e.Forward + (m is { Ahead: > 100 } ? 1 : 0), e.Moves + (m != null ? 1 : 0));
+                            total++;
+                        }
+                    }
+                    if (total == 0) continue;
+                    w.WriteLine($"  {label}: {name} while their side attacks, by mode (share, mean distance to the carrier in m, running forward): " +
+                                string.Join("  ", by.OrderByDescending(kv => kv.Value.N).Take(7).Select(kv =>
+                                    $"{kv.Key:X2}:{100.0 * kv.Value.N / total:F0}% {kv.Value.Dist / kv.Value.N / 233:F0}m {100.0 * kv.Value.Forward / Math.Max(kv.Value.Moves, 1):F0}%")));
+                }
+
             // releases: the carrier lets the ball go (not taken by a challenge); who has it next within 3 s
             int kept = 0, lost = 0; var reach = new List<double>();
             for (int k = 0; k + 1 < sel.Count; k++)

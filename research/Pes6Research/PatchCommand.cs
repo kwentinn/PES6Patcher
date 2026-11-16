@@ -99,7 +99,9 @@ sealed class PatchSet
             Console.Error.WriteLine($"{name} : unexpected bytes ({string.Join(" ; ", states)}): another build or patch? use -Force to write anyway");
             return false;
         }
-        foreach (var e in p.Bytes) game.Write(Address(e), CodeCommand.ParseHex(on ? e.Patched : e.Original));
+        // a patch lists its code cave before the jump into it: apply in that order, revert in the opposite one, so the game never
+        // jumps into a cave already wiped back to 0xCC (that crashed the game, 0x80000003 at 0x5E2920, 2026-11-16)
+        foreach (var e in on ? p.Bytes : p.Bytes.Reverse()) game.Write(Address(e), CodeCommand.ParseHex(on ? e.Patched : e.Original));
         var after = p.Bytes.Select(e => State(game, e)).ToList();
         var ok = after.All(s => s == want);
         Console.WriteLine($"{name}: {(ok ? want : $"NOT {want} ({string.Join(" ; ", after)})")}");
@@ -113,7 +115,7 @@ sealed class PatchSet
     /// <summary>Writes the bytes of a snapshot back and prints the patch's state: the game is as before the run, whatever it was.</summary>
     public void Restore(IGameMemory game, (string Name, (uint Address, byte[] Bytes)[] Places) snapshot)
     {
-        foreach (var (address, bytes) in snapshot.Places) game.Write(address, bytes);
+        foreach (var (address, bytes) in snapshot.Places.Reverse()) game.Write(address, bytes);   // the jump before its cave, see Set
         Console.WriteLine($"{snapshot.Name}: put back as before ({State(game, snapshot.Name)})");
     }
 

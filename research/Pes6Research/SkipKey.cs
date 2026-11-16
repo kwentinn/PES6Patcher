@@ -19,12 +19,15 @@ static class SkipKey
         SetForegroundWindow(window);
         Thread.Sleep(150);
         if (GetForegroundWindow() != window) return false;
-        keybd_event(0, (byte)scanCode, ScanCode, UIntPtr.Zero); Thread.Sleep(90);
-        keybd_event(0, (byte)scanCode, ScanCode | KeyUp, UIntPtr.Zero);
+        // a scan code over 0xFF is an extended key (the arrows: 328 up, 336 down, 331 left, 333 right); without the flag
+        // DirectInput would see the numeric pad
+        var flags = ScanCode | (scanCode > 0xFF ? Extended : 0);
+        keybd_event(0, (byte)scanCode, flags, UIntPtr.Zero); Thread.Sleep(90);
+        keybd_event(0, (byte)scanCode, flags | KeyUp, UIntPtr.Zero);
         return true;
     }
 
-    const uint KeyUp = 0x2, ScanCode = 0x8;
+    const uint Extended = 0x1, KeyUp = 0x2, ScanCode = 0x8;
 
     [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr window);
     [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();

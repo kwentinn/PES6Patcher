@@ -6,6 +6,27 @@
       { "address": "0x619D77", "original": "8B 15 C0 DC BC 03 A1 BC DC BC 03", "patched": "E9 A4 8B FC FF 90 90 90 90 90 90" }
     ]
   },
+  "pace08": {
+    "about": "NO EFFECT (A/B France-England 2026-11-16, 20 min each: off-ball median 3.4 without, 4.1 with; fast share 24-26 % vs 27-29 %; real 2.0). Off-ball pace test (2026-11-16): a player going to his formation place in attack (state 7, mode 0x08) has the speed he aims for capped at 0x600 + |dx| + |dz| to his target +0x6C/+0x70 (about 1100 units per m/s: some 3 m/s at 5 m, 4 m/s at 10 m, free beyond 20 m), so that he walks or jogs to a near place instead of sprinting. Hook at 0x4D34F5 (not 0x4D34F3: 0x4D34D0 jumps to 0x4D34F5, a hook over it crashed the game), where the movement code holds the speed aimed at in EDI before writing +0x1C (0x4D358A, 0x4D35FD, 0x4D3612); cave in 0xCC padding at 0x5E2920 (the cap's base is the dword at 0x5E2950). A first version capped +0x1C in mode08_positioning (0x619D77): no effect, the movement code writes the speed again afterwards.",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "80 7E 16 07 75 34 80 BE DD 01 00 00 08 75 2B D9 46 6C D8 A6 E0 00 00 00 D9 E1 D9 46 70 D8 A6 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 81 C1 00 06 00 00 3B F9 7E 02 8B F9 8B 4E 04 33 D2 E9 96 0B EF FF" },
+      { "address": "0x4D34F5", "original": "8B 4E 04 33 D2", "patched": "E9 26 F4 10 00" }
+    ]
+  },
+  "pace09": {
+    "about": "Off-ball pace test 2 (2026-11-16), after pace08 had no effect (it only covered mode 0x08 and let the whole distance add to the cap): every player in state 7 (off-ball placement: modes 8, 36, 39, 7, 29, 53... together about 52 % of the off-ball samples; the modes are printed in decimal by the logs: 36 = 0x24, 39 = 0x27, 29 = 0x1D, 53 = 0x35) has the speed he aims for capped at 0x600 + (|dx| + |dz|) / 4 to his target (about 1100 units per m/s: 1.7 m/s at 5 m, 2.0 at 10 m, 2.6 at 20 m, 3.8 at 40 m), so that he walks or jogs to a near place. Same hook as pace08 (0x4D34F5, EDI = speed aimed at, cave at 0x5E2920): do not apply both, nor the take-ball patch that also uses 0x5E2920.",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "80 7E 16 07 75 37 80 BE DD 01 00 00 08 90 90 D9 46 6C D8 A6 E0 00 00 00 D9 E1 D9 46 70 D8 A6 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 C1 E9 02 81 C1 00 06 00 00 3B F9 7E 02 8B F9 8B 4E 04 33 D2 E9 93 0B EF FF" },
+      { "address": "0x4D34F5", "original": "8B 4E 04 33 D2", "patched": "E9 26 F4 10 00" }
+    ]
+  },
+  "runs-more": {
+    "about": "Forward runs test (NO EFFECT 2026-11-16, CPU A/B over 4 x 4 min each: midfielders in mode 0x0F while their side attacks 8 % -> 7 %, releases kept 85 % -> 81 %): the function 0x61DAC0 picks ONE forward runner per side (mode 0x0F, slot 0x3BCDCA9 + side) among the defenders and midfielders in mode 0x08 (roles 1-23; forwards never). Two brakes are taken off: the cap that stops any pick once func 0x496C20's count reaches max(attack level, 2) now uses at least 4 (0x61DB2D), and the last dice roll (1 in 10, 8 or 4 by the attack and response stats, 0x61E463) always passes. The per-role gates (centre-backs only at attack level 4, defensive midfielders at 3 and over, the stat tests) are kept.",
+    "bytes": [
+      { "address": "0x61DB2D", "original": "80 FB 02 73 02 B3 02", "patched": "80 FB 04 73 02 B3 04" },
+      { "address": "0x61E463", "original": "77 38", "patched": "EB 38" }
+    ]
+  },
   "tackle-180": {
     "about": "Pressing challenge at 180 % (the patcher's default, both teams): reach 0xA0 -> 0x120 (cmp edi at 0x572AE8) and attempt parameter 0x50 -> 0x7F (push at 0x572AF0), as the patcher writes them without the F8 test key. Original = the game's 100 %.",
     "bytes": [

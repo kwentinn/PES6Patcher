@@ -47,7 +47,7 @@ After a match played with every option on (1.26.1 plus the pressing for the play
 - **Chaos on the pitch**: the players move incoherently. Measured in a CPU match: 20 % of the moving off-ball players face 90° or more away from their run, 13 % turn back within a second, and they lag 6 to 12 m behind the place they aim for.
 - **Rigidity and slow reactions**: the players react late to what happens.
 - **Passes**: too straight and too rigid, and often miss the intended team-mate.
-- **Runs**: no support for the player on the ball when attacking; the team-mates wait instead of offering themselves.
+- **Runs**: no support for the player on the ball when attacking; the team-mates wait instead of offering themselves. Read on 2026-11-16: only one player per team makes the run beyond the line at a time, and never a forward; making that pick easier changed nothing in a CPU match (see the research notes, "Forward runs in attack"). Next: a second runner, or the forwards' own runs.
 - **Crosses**: the striker is often missing where the ball comes down (measured: usually 6 to 11 m away).
 - **Defensive midfielders**: not always well placed.
 - **Dribbling stars** (Zidane, Messi) hardly dribble: measured, the AI won the ball by a challenge twice as often with the pressing reach at 180 % for both teams (now for the players' teams only, not felt in a match yet).

@@ -3,8 +3,9 @@
 # Usage: pes6ghidra.ps1 -Import -Exe "C:\...\PES6.exe.orig"      (once: copies the exe, imports it, applies the labels)
 #        pes6ghidra.ps1 -Labels                                  (after editing research/ghidra-labels.csv)
 #        pes6ghidra.ps1 -Decompile 5E1BD0,642A90 -Out out.txt    (the function containing each address: C, then assembly)
+#        pes6ghidra.ps1 -Decompile 6134CD -At                    (a function made exactly there: code reached from the protection)
 # The project folder must have a short path (Ghidra's decompiler fails above 260 characters): default C:\Users\<you>\ghidra-pes6.
-param([switch]$Import, [switch]$Labels, [string[]]$Decompile = @(), [string]$Out = (Join-Path ([IO.Path]::GetTempPath()) 'pes6-decompiled.txt'),
+param([switch]$Import, [switch]$Labels, [string[]]$Decompile = @(), [switch]$At, [string]$Out = (Join-Path ([IO.Path]::GetTempPath()) 'pes6-decompiled.txt'),
       [string]$Exe, [string]$Project = (Join-Path $env:USERPROFILE 'ghidra-pes6'), [string]$Ghidra = (Join-Path $env:USERPROFILE 'ghidra12'))
 
 $ErrorActionPreference = 'Stop'
@@ -32,6 +33,6 @@ if ($Labels) {
 }
 if ($Decompile.Count) {
     $addresses = $Decompile | ForEach-Object { $_ -replace '^0x', '' }
-    Invoke-Ghidra (@($Project, 'pes6', '-process', 'PES6.exe', '-noanalysis', '-scriptPath', $PSScriptRoot, '-postScript', 'DecompIn.java', $Out) + $addresses)
+    Invoke-Ghidra (@($Project, 'pes6', '-process', 'PES6.exe', '-noanalysis', '-scriptPath', $PSScriptRoot, '-postScript', $(if ($At) { 'DecompAt.java' } else { 'DecompIn.java' }), $Out) + $addresses)
     "decompiled -> $Out"
 }
