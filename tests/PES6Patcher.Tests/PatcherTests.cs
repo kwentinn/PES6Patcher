@@ -33,6 +33,48 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Theory]
+    [InlineData("PES6.orig.exe")]
+    [InlineData("PES6-propatch-2006-2007.orig.exe")]
+    public void Pass_gauges_hook_dispatch_kick_lead_and_hud(string fixture)
+    {
+        var original = Load(fixture);
+        if (original == null) return;
+        var sites = Assert.IsType<PassGaugeSites>(ExeLocator.LocatePassGauges(original));
+        var options = new PatchOptions(256, FreeDirection: false, Display: false, PassPowerGauges: true,
+            ShortPassFrames: 11, ThroughPassFrames: 27, LoftedThroughFrames: 39, PassLead: 60);
+        var image = new PeImage(ExePatcher.Build(original, options));
+        var section = Assert.IsType<PeSection>(image.Named(".passbar"));
+        Assert.True(section.IsCode);
+        var payload = PassGauges.Build(section.Va, sites, options, leadState: 0);
+        Assert.Equal(payload.Entries, new[] { sites.Dispatch, sites.Kick, sites.LeadFirst, sites.LeadSecond, sites.HudRender }
+            .Select(image.Rel32Target).ToArray());
+        Assert.Equal(11, image.ReadInt32(payload.FrameSettings));
+        Assert.Equal(27, image.ReadInt32(payload.FrameSettings + 4));
+        Assert.Equal(39, image.ReadInt32(payload.FrameSettings + 8));
+        Assert.Equal(60, image.ReadInt32(payload.FrameSettings + 12));
+    }
+
+    [Theory]
+    [InlineData("PES6.orig.exe")]
+    [InlineData("PES6-propatch-2006-2007.orig.exe")]
+    public void Pass_gauges_chain_to_the_existing_kick_hook_with_headers_and_free_kicks(string fixture)
+    {
+        var original = Load(fixture);
+        if (original == null) return;
+        var sites = Assert.IsType<PassGaugeSites>(ExeLocator.LocatePassGauges(original));
+        var options = new PatchOptions(256, FreeDirection: false, Display: false,
+            FreeKick: true, Headers: 80, PassLead: 60, PassLeadDebug: true);
+        var existing = new PeImage(ExePatcher.Build(original, options));
+        var image = new PeImage(ExePatcher.Build(original, options with { PassPowerGauges = true }));
+        var section = Assert.IsType<PeSection>(image.Named(".passbar"));
+        Assert.InRange(image.Rel32Target(sites.Kick), section.Va, section.End - 5);
+        int next = existing.Rel32Target(sites.Kick);
+        Assert.Single(Enumerable.Range(section.Va, section.RawSize - 4), address =>
+            image.Read(address, 1)[0] == 0xE9 && image.Rel32Target(address) == next);
+    }
+
+
+    [Theory]
     [InlineData(398, "PES6_v6_16x9.exe")]
     [InlineData(796, "PES6_v6_32x9.exe")]
     public void Build_matches_the_exe_validated_in_game(int half, string validated)

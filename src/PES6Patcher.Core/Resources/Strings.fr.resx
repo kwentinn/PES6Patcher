@@ -651,4 +651,25 @@
   <data name="Gameplay.OffBallPace" xml:space="preserve">
     <value>Allure sans ballon plus lente :</value>
   </data>
+  <data name="Gameplay.PassPowerGauges" xml:space="preserve">
+    <value>Jauges de puissance des passes</value>
+  </data>
+  <data name="Gameplay.ShortPassFrames" xml:space="preserve">
+    <value>Passe courte (images)</value>
+  </data>
+  <data name="Gameplay.ThroughPassFrames" xml:space="preserve">
+    <value>Passe en profondeur (images)</value>
+  </data>
+  <data name="Gameplay.LoftedThroughFrames" xml:space="preserve">
+    <value>Passe en profondeur lobée (images)</value>
+  </data>
+  <data name="Error.PassGaugeFrames" xml:space="preserve">
+    <value>Les jauges demandent de 4 à 60 images.</value>
+  </data>
+  <data name="Error.PassGaugeUnavailable" xml:space="preserve">
+    <value>Cet exécutable ne contient pas le code nécessaire aux jauges de passe.</value>
+  </data>
+  <data name="Log.PassPowerGauges" xml:space="preserve">
+    <value>Les jauges de passe sont activées. À pleine charge, la passe en profondeur utilise {0} % de son avance habituelle. Une charge plus faible vise plus près du receveur.</value>
+  </data>
 </root>

@@ -280,7 +280,7 @@ internal static class CodeCaves
 	/// +6 headers percent (word, 0 = the patcher's).
 	/// </summary>
 	private const int FreeKickWeightState = 4, UntilState = 8, DrawTextState = 12, ShotPowerState = 16, ShownState = 18, SetUpState = 2,
-		ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28, PassLeadState = 30, CloseDribbleStrengthState = 44,
+		ShotAccuracyState = 20, SpreadState = 22, SpeedGapState = 24, SprintTurnState = 26, TackleState = 28, CloseDribbleStrengthState = 44,
 		HeadersState = 6;
 
 	/// <summary>Headers percent read at run time (F11), in the test keys state.</summary>
@@ -964,6 +964,8 @@ internal static class CodeCaves
 		int second = code.AddressOfLabel("second") - 2;             // the push eax ; push edx before it
 		return (bytes, [(sites.First, CodeBuilder.JumpPatch(sites.First, cave, 6)), (sites.Second, CodeBuilder.JumpPatch(sites.Second, second, 6))]);
 	}
+
+	internal const int PassLeadState = 30;
 
 	public static TestKey PassLeadTestKey(int percent, int texts, int stride) =>
 		new(PassLeadKey, PassLeadState, percent, PatchOptions.MinPassLead, PatchOptions.MaxPassLead, texts, stride);

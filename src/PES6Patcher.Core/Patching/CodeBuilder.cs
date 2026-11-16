@@ -10,6 +10,7 @@ internal sealed class CodeBuilder
 	private sealed record Raw(byte[] Bytes) : Item;
 	private sealed record Label(string Name) : Item;
 	private sealed record ShortJump(byte Opcode, string Target) : Item;
+	private sealed record NearJump(byte Opcode, string Target) : Item;
 	private sealed record Call(int? Address, string? Target, byte Opcode = 0xE8) : Item;
 	private sealed record AbsoluteLabel(byte[] Prefix, string Target) : Item;
 
@@ -22,6 +23,7 @@ internal sealed class CodeBuilder
 	public CodeBuilder Bytes(byte[] prefix, int imm32) => Bytes([.. prefix, .. BitConverter.GetBytes(imm32)]);
 	public CodeBuilder Mark(string name) { _items.Add(new Label(name)); return this; }
 	public CodeBuilder Jump(byte opcode, string target) { _items.Add(new ShortJump(opcode, target)); return this; }
+	public CodeBuilder JumpNear(byte opcode, string target) { _items.Add(new NearJump(opcode, target)); return this; }
 	public CodeBuilder CallTo(int address) { _items.Add(new Call(address, null)); return this; }
 	public CodeBuilder CallTo(string label) { _items.Add(new Call(null, label)); return this; }
 	public CodeBuilder JumpTo(int address) { _items.Add(new Call(address, null, 0xE9)); return this; }   // jmp rel32
@@ -47,6 +49,7 @@ internal sealed class CodeBuilder
 				case Raw r: pos += r.Bytes.Length; break;
 				case Label l: labels[l.Name] = pos; break;
 				case ShortJump: pos += 2; break;
+				case NearJump: pos += 6; break;
 				case Call: pos += 5; break;
 				case AbsoluteLabel a: pos += a.Prefix.Length + 4; break;
 			}
@@ -65,6 +68,11 @@ internal sealed class CodeBuilder
 					if (rel is < -128 or > 127) throw new InvalidOperationException($"Short jump to '{j.Target}' out of range.");
 					code.Add(j.Opcode);
 					code.Add((byte)(sbyte)rel);
+					break;
+				case NearJump j:
+					code.Add(0x0F);
+					code.Add(j.Opcode);
+					code.AddRange(BitConverter.GetBytes(labels[j.Target] - (code.Count + 4)));
 					break;
 				case Call c:
 					int target = c.Address ?? _origin + labels[c.Target!];
