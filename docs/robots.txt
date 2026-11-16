@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://kwentinn.github.io/PES6Patcher/sitemap.xml

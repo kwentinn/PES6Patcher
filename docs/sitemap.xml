@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+  <url>
+    <loc>https://kwentinn.github.io/PES6Patcher/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kwentinn.github.io/PES6Patcher/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://kwentinn.github.io/PES6Patcher/fr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kwentinn.github.io/PES6Patcher/"/>
+  </url>
+  <url>
+    <loc>https://kwentinn.github.io/PES6Patcher/fr/</loc>
+    <xhtml:link rel="alternate" hreflang="en" href="https://kwentinn.github.io/PES6Patcher/"/>
+    <xhtml:link rel="alternate" hreflang="fr" href="https://kwentinn.github.io/PES6Patcher/fr/"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://kwentinn.github.io/PES6Patcher/"/>
+  </url>
+</urlset>
