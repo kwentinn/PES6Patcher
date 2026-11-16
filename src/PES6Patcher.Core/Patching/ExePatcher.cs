@@ -40,6 +40,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="CloseDribbleStrength">With <paramref name="CloseDribble"/>, how much the touches are shortened, in % of the first version's reduction.</param>
 /// <param name="CloseDribbleStrengthDebug">Test key: F10 in game changes <paramref name="CloseDribbleStrength"/> by 25 % and shows it (through Kitserver).</param>
 /// <param name="DefenceLine">Higher defensive line: share of the fixed drop the game adds to every team's line (2560 units, about 11 m) taken off, in % (0 = unchanged).</param>
+/// <param name="OffBallPace">Off-ball pace: a player placing himself may run at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged; 100 = the Pro setting, tested in matches): he trots instead of sprinting to a near place, the runs (overlaps, runs behind the last line) stay free.</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
 	int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
 	int ShotAccuracy = 100, bool ShotAccuracyDebug = false, int Spread = 0, bool SpreadDebug = false, int SpeedGap = 100, bool SpeedGapDebug = false,
@@ -47,7 +48,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
 	int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
 	int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
-	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar)
+	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0)
 {
 	/// <summary>
 	/// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -67,6 +68,13 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
 	/// <summary>Defensive line: share of the game's fixed drop (2560 units) taken off, in %: default (tested in game) and limits.</summary>
 	public const int DefaultDefenceLine = 100, MinDefenceLine = 25, MaxDefenceLine = 100;
+
+	/// <summary>
+	/// Off-ball pace: the share of the distance to his place a player placing himself may add to 1.4 m/s as his top speed, in %:
+	/// default (tested in matches: median off-ball speed 3.8 -> 2.6 m/s, the real matches' 2.0; sprints 25 -> 10 %, real 2 to 3 %) and
+	/// limits. 100 % lets him sprint towards a place more than about 17 m away, 50 % from about 33 m; from 400 % on the cap hardly bites.
+	/// </summary>
+	public const int DefaultOffBallPace = 100, MinOffBallPace = 25, MaxOffBallPace = 400;
 
 	/// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
 	public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
@@ -173,7 +181,10 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
 	/// <summary>The defensive line can be raised.</summary>
 	public bool DefenceLine { get; init; }
 
-	public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine;
+	/// <summary>The speed of the players placing themselves can be held back.</summary>
+	public bool OffBallPace { get; init; }
+
+	public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -222,6 +233,7 @@ public static class ExePatcher
 				CarrierTurn = ExeLocator.LocateCarrierTurn(exe) != null,
 				AccelerationGap = ExeLocator.LocateAcceleration(exe) != null,
 				DefenceLine = ExeLocator.LocateDefenceLine(exe) != null,
+				OffBallPace = ExeLocator.LocateOffBallPace(exe) != null,
 			};
 		}
 		catch (InvalidDataException ex)
@@ -621,6 +633,20 @@ public static class ExePatcher
 			var (cave, entries) = CodeCaves.PassLead(at, sites, options.PassLead, testKeys);
 			plan.Add((at, cave));
 			plan.AddRange(entries);
+		}
+
+		// off-ball pace (allocated last, so the other caves stay where they were): the players placing themselves no longer
+		// sprint to a near place; the speed the running animation asks for, and the speed the run actions step towards,
+		// are capped at 1.4 m/s plus a share of the distance to the place (the runs stay free)
+		if (options.OffBallPace > 0)
+		{
+			if (options.OffBallPace is < PatchOptions.MinOffBallPace or > PatchOptions.MaxOffBallPace) throw new ArgumentOutOfRangeException(nameof(options), options.OffBallPace, null);
+			var sites = ExeLocator.LocateOffBallPace(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.OffBallPace"), 0)]);
+			var animation = CodeCaves.OffBallPaceAnimation(0, sites, options.OffBallPace);
+			animation = CodeCaves.OffBallPaceAnimation(Cave(animation.CaveBytes.Length), sites, options.OffBallPace);
+			var mover = CodeCaves.OffBallPaceMover(0, sites, options.OffBallPace);
+			mover = CodeCaves.OffBallPaceMover(Cave(mover.CaveBytes.Length), sites, options.OffBallPace);
+			foreach (var hook in new[] { animation, mover }) { plan.Add((hook.Cave, hook.CaveBytes)); plan.Add((hook.Entry, hook.EntryBytes)); }
 		}
 
 		foreach (var (va, bytes) in plan) image.Write(va, bytes);

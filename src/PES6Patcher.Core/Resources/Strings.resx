@@ -639,4 +639,16 @@
   <data name="Gameplay.DefenceLine" xml:space="preserve">
     <value>Higher defensive line:</value>
   </data>
+  <data name="Hook.OffBallPace" xml:space="preserve">
+    <value>off-ball pace</value>
+  </data>
+  <data name="Log.OffBallPace" xml:space="preserve">
+    <value>Off-ball pace: players placing themselves run at most at 1.4 m/s plus {0} % of the distance to their place, so they trot to a near place instead of sprinting (both teams; the overlaps and the runs behind the last line stay free).</value>
+  </data>
+  <data name="Gameplay.OffBallPacePercent" xml:space="preserve">
+    <value>% of the distance to their place (higher: more sprints)</value>
+  </data>
+  <data name="Gameplay.OffBallPace" xml:space="preserve">
+    <value>Slower off-ball pace:</value>
+  </data>
 </root>

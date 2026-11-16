@@ -42,6 +42,7 @@ namespace PES6Patcher.Core;
 /// <param name="Headers">Height of the human teams' headers, in % of the game's (100 = unchanged).</param>
 /// <param name="HeadersDebug">Test key: F11 in a match changes the headers share.</param>
 /// <param name="DefenceLine">Higher defensive line: share of the game's fixed drop taken off, in % (0 = unchanged).</param>
+/// <param name="OffBallPace">Off-ball pace: a player placing himself runs at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged).</param>
 /// <param name="SuperShot">Height of a human team's shot taken with L1 and R1 held (the super shot: a shot, not a lob), in the kick function's units (the game's shots: 13 to 35; 0 = off).</param>
 /// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
 /// <param name="SuperShotSpeed">Speed of a super shot, in the kick function's units (the game's shots peak around 30 700).</param>
@@ -86,6 +87,7 @@ public sealed record InstallSettings(
     int Headers = 100,
     bool HeadersDebug = false,
     int DefenceLine = 0,
+    int OffBallPace = 0,
     int SuperShot = 0,
     bool SuperShotDebug = false,
     int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
@@ -131,6 +133,7 @@ public static class Installer
             carrierTurn = settings.Gameplay ? settings.CarrierTurn : 0,
             headers = settings.Gameplay ? settings.Headers : 100,
             defenceLine = settings.Gameplay ? settings.DefenceLine : 0,
+            offBallPace = settings.Gameplay ? settings.OffBallPace : 0,
             superShot = settings.Gameplay ? settings.SuperShot : 0;
         bool accelerationGap = settings.Gameplay && settings.AccelerationGap;
         // without any exe fix, the exe goes back to the original
@@ -153,6 +156,7 @@ public static class Installer
             || carrierTurn > 0
             || accelerationGap
             || defenceLine > 0
+            || offBallPace > 0
             || settings.SkipIntro
                 ? ExePatcher.Build(
                     original,
@@ -193,7 +197,8 @@ public static class Installer
                         superShot > 0 && settings.SuperShotDebug,
                         settings.SuperShotSpeed,
                         settings.SuperShotWeight,
-                        settings.SuperShotStar
+                        settings.SuperShotStar,
+                        offBallPace
                     )
                 )
                 : original;
@@ -239,6 +244,8 @@ public static class Installer
             log(Loc.T("Log.CarrierTurn", carrierTurn));
         if (accelerationGap)
             log(Loc.T("Log.AccelerationGap"));
+        if (offBallPace > 0)
+            log(Loc.T("Log.OffBallPace", offBallPace));
         if (defenceLine > 0)
             log(Loc.T("Log.DefenceLine", defenceLine));
         if (tackle != 100)

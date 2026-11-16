@@ -28,13 +28,14 @@ public static class GameplayPresets
 		// the super shot follows the same axis: faster and flatter it goes in every time, slower and higher it has to
 		// be placed (the game's own hardest shots reach about 30700, and its shots leave at a height of 13 to 35). The
 		// dipping ball of a star follows it too: Normal gives it to more shooters and dips less, Hardcore the opposite
-		var (closeDribble, sprintTurn, carrierTurn, freeKick, shotPower, shotAccuracy, passLead, headers, superShot, superShotSpeed, superShotWeight, superShotStar) = preset switch
+		var (closeDribble, sprintTurn, carrierTurn, freeKick, shotPower, shotAccuracy, passLead, headers, superShot, superShotSpeed, superShotWeight, superShotStar, offBallPace) = preset switch
 		{
-			GameplayPreset.Normal => (150, 90, 22, 70, 75, 30, 50, 60, 26, 42000, 45, 85),
-			GameplayPreset.Hardcore => (100, 45, 11, 30, 90, 75, 80, 80, 38, 38000, 70, 95),
+			GameplayPreset.Normal => (150, 90, 22, 70, 75, 30, 50, 60, 26, 42000, 45, 85, 75),
+			GameplayPreset.Hardcore => (100, 45, 11, 30, 90, 75, 80, 80, 38, 38000, 70, 95, 150),
 			_ => (PatchOptions.DefaultCloseDribbleStrength, PatchOptions.DefaultSprintTurn, PatchOptions.DefaultCarrierTurn,
 				PatchOptions.DefaultFreeKickWeight, PatchOptions.DefaultShotPower, PatchOptions.DefaultShotAccuracy, PatchOptions.DefaultPassLead, PatchOptions.DefaultHeaders,
-				PatchOptions.DefaultSuperShot, PatchOptions.DefaultSuperShotSpeed, PatchOptions.DefaultSuperShotWeight, PatchOptions.DefaultSuperShotStar),
+				PatchOptions.DefaultSuperShot, PatchOptions.DefaultSuperShotSpeed, PatchOptions.DefaultSuperShotWeight, PatchOptions.DefaultSuperShotStar,
+					PatchOptions.DefaultOffBallPace),
 		};
 		return settings with
 		{
@@ -61,6 +62,7 @@ public static class GameplayPresets
 			SpeedGap = PatchOptions.DefaultSpeedGap,
 			AccelerationGap = true,
 			DefenceLine = PatchOptions.DefaultDefenceLine,
+				OffBallPace = offBallPace,
 		};
 	}
 

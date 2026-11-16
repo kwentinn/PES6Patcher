@@ -170,6 +170,15 @@ internal sealed record CarrierTurnSites(int First, int Second);
 /// </summary>
 internal sealed record DefenceLineSites(int OwnHalf, int OtherHalf);
 
+/// <summary>
+/// Off-ball pace: the two places where the speed of a player placing himself is decided. <see cref="Animation"/> =
+/// mov ecx,[esi+4] ; xor edx,edx, where the speed the running animation asks for is in edi (esi = the player); <see cref="Mover"/> =
+/// the 6 bytes jmp [<see cref="MoverPointer"/>] that open the function moving the running speed towards a speed
+/// (player, speed aimed at, step; its body is in the protection, called by about 80 action routines, the run actions among
+/// them); <see cref="Players"/> = the player array (see <see cref="SpreadSites"/>).
+/// </summary>
+internal sealed record OffBallPaceSites(int Animation, int Mover, int MoverPointer, int Players);
+
 /// <summary>Acceleration stat (<see cref="Stat"/>) and the shift count of each "sar edx,2" dividing its part of an acceleration time by 10.</summary>
 internal sealed record AccelerationSites(int Stat, int[] Shifts);
 
@@ -488,6 +497,23 @@ internal sealed class ExeLocator
 		var first = Find(CarrierTurnFirst);
 		var second = Find(CarrierTurnSecond);
 		return first.Count == 1 && second.Count == 1 ? new CarrierTurnSites(first[0] + 7, second[0] + 22) : null;
+	}
+
+	/// <summary>mov ecx,[esi+4] ; xor edx,edx ; mov dx,[ecx+0x30] ; mov dword [esp+0x18],0x400 (unique; 0x4D34F5 in the reference build).</summary>
+	private const string OffBallPaceAnimation = "8B 4E 04 33 D2 66 8B 51 30 C7 44 24 18 00 04 00 00";
+
+	/// <summary>jmp [pointer] ; the remains of the original function (imul ecx,[esp+0xC] ; mov eax,0x88888889 ; imul ecx ; push ebx ; mov ebx,[esp+0xC]).</summary>
+	private const string OffBallPaceMover = "FF 25 ?? ?? ?? ?? 62 0F AF 4C 24 0C B8 89 88 88 88 F7 E9 53 8B 5C 24 0C";
+
+	public static OffBallPaceSites? LocateOffBallPace(byte[] exe)
+	{
+		var locator = new ExeLocator(new PeImage(exe));
+		var animation = locator.Hits(OffBallPaceAnimation);
+		var mover = locator.Hits(OffBallPaceMover);
+		var spread = LocateSpread(exe);
+		return animation.Count == 1 && mover.Count == 1 && spread != null
+			? new OffBallPaceSites(animation[0], mover[0], locator._image.ReadInt32(mover[0] + 2), spread.Players)
+			: null;
 	}
 
 	/// <summary>cdq ; sub eax,edx ; sar eax,1 ; mov edx,-0xA00 ; sub edx,eax.</summary>

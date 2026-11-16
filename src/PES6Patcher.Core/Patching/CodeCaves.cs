@@ -1213,6 +1213,84 @@ internal static class CodeCaves
 	/// <summary>What is left of that drop once <paramref name="percent"/> % of it is taken off: 100 % -> 0, 50 % -> 0x500.</summary>
 	public static int DefenceLineDrop(int percent) => (int)Math.Round(DefenceLineGameDrop * (100 - percent) / 100.0);
 
+	/// <summary>Off-ball pace: what a player placing himself may always run at, in speed units (about 1100 per m/s, so 1.4 m/s).</summary>
+	public const int OffBallPaceBase = 0x600;
+
+	/// <summary>The share of the distance to his place that is added to <see cref="OffBallPaceBase"/>, in 1/256 (100 % -> 256).</summary>
+	public static int OffBallPaceScale(int percent) => percent * 256 / 100;
+
+	/// <summary>The player modes left alone: the full-backs' overlaps (9 and 0x0A) and the run beyond the last line (0x0F).</summary>
+	private const byte PaceRunModeFirst = 9;
+
+	/// <summary>
+	/// Leaves ECX = the cap on the speed of the player at [<paramref name="player"/>] (a ModRM r/m: 6 = esi, 0 = eax), or jumps to
+	/// <paramref name="skip"/> when he is not placing himself (state 7) or is on one of the runs: ECX = 0x600 + (|dx| + |dz|) x
+	/// scale / 256, dx and dz being the distance to the target (+0x6C, +0x70) from the position (+0xE0, +0xE8). Uses ECX, the x87
+	/// stack and 4 bytes below ESP.
+	/// </summary>
+	private static CodeBuilder OffBallPaceCap(CodeBuilder code, byte player, int percent, string skip) => code
+		.Bytes(0x80, (byte)(0x78 | player), 0x16, 0x07)                    // cmp byte [player+0x16],7 ; placing himself
+		.Jump(0x75, skip)                                                   // jne skip
+		.Bytes(0x8A, (byte)(0x88 | player), 0xDD, 0x01, 0x00, 0x00)         // mov cl,[player+0x1DD] ; the mode
+		.Bytes(0x80, 0xE9, PaceRunModeFirst)                                // sub cl,9
+		.Bytes(0x80, 0xF9, 0x01)                                            // cmp cl,1             ; modes 9 and 0x0A
+		.Jump(0x76, skip)                                                   // jbe skip
+		.Bytes(0x80, 0xF9, 0x0F - PaceRunModeFirst)                         // cmp cl,6             ; mode 0x0F
+		.Jump(0x74, skip)                                                   // je skip
+		.Bytes(0xD9, (byte)(0x40 | player), 0x6C)                           // fld [player+0x6C]    ; target x
+		.Bytes(0xD8, (byte)(0xA0 | player), 0xE0, 0x00, 0x00, 0x00)         // fsub [player+0xE0]   ; - position x
+		.Bytes(0xD9, 0xE1)                                                  // fabs
+		.Bytes(0xD9, (byte)(0x40 | player), 0x70)                           // fld [player+0x70]
+		.Bytes(0xD8, (byte)(0xA0 | player), 0xE8, 0x00, 0x00, 0x00)         // fsub [player+0xE8]
+		.Bytes(0xD9, 0xE1, 0xDE, 0xC1)                                      // fabs ; faddp
+		.Bytes(0x83, 0xEC, 0x04, 0xDB, 0x1C, 0x24, 0x59)                    // sub esp,4 ; fistp dword [esp] ; pop ecx
+		.Bytes([0x69, 0xC9], OffBallPaceScale(percent))                     // imul ecx,ecx,scale
+		.Bytes(0xC1, 0xE9, 0x08)                                            // shr ecx,8
+		.Bytes([0x81, 0xC1], OffBallPaceBase);                              // add ecx,0x600
+
+	/// <summary>
+	/// Off-ball pace, the animation's speed: a player placing himself (state 7) other than on a run gets the speed his running
+	/// animation asks for (EDI) capped at 0x600 + <paramref name="percent"/> % of his distance to his place. The 5 replaced bytes are replayed.
+	/// </summary>
+	public static Hook OffBallPaceAnimation(int cave, OffBallPaceSites sites, int percent)
+	{
+		var bytes = OffBallPaceCap(new CodeBuilder(cave), 6, percent, "done")
+			.Bytes(0x3B, 0xF9)                                              // cmp edi,ecx
+			.Jump(0x7E, "done")                                             // jle done
+			.Bytes(0x8B, 0xF9)                                              // mov edi,ecx
+			.Mark("done")
+			.Bytes(0x8B, 0x4E, 0x04, 0x33, 0xD2)                            // original: mov ecx,[esi+4] ; xor edx,edx
+			.JumpTo(sites.Animation + 5)
+			.Build();
+		return new Hook("Hook.OffBallPace", sites.Animation, CodeBuilder.JumpPatch(sites.Animation, cave, 5), cave, bytes);
+	}
+
+	/// <summary>
+	/// Off-ball pace, the speed stepped towards: at the entry of the function moving the running speed towards a speed (player,
+	/// speed aimed at, step), the speed aimed at is capped the same way for a player of the array placing himself. The 6 replaced
+	/// bytes (jmp [pointer]) are replayed, and the 6th byte of the entry becomes a nop.
+	/// </summary>
+	public static Hook OffBallPaceMover(int cave, OffBallPaceSites sites, int percent)
+	{
+		const int player = 0, arguments = 0x0C, aimed = 0x10;                // esp + 0xC = the player once eax and ecx are saved
+		var code = new CodeBuilder(cave)
+			.Bytes(0x50, 0x51)                                              // push eax ; push ecx
+			.Bytes(0x8B, 0x44, 0x24, arguments)                             // mov eax,[esp+0xC]    ; the player
+			.Bytes([0x3D], sites.Players)                                   // cmp eax,players
+			.Jump(0x72, "done")                                             // jb done
+			.Bytes([0x3D], sites.Players + 23 * 0x240)                      // cmp eax,players + 23 * 0x240
+			.Jump(0x73, "done");                                            // jae done
+		var bytes = OffBallPaceCap(code, player, percent, "done")
+			.Bytes(0x3B, 0x4C, 0x24, aimed)                                 // cmp ecx,[esp+0x10]   ; the speed aimed at
+			.Jump(0x7D, "done")                                             // jge done
+			.Bytes(0x89, 0x4C, 0x24, aimed)                                 // mov [esp+0x10],ecx
+			.Mark("done")
+			.Bytes(0x59, 0x58)                                              // pop ecx ; pop eax
+			.Bytes([0xFF, 0x25], sites.MoverPointer)                        // original: jmp [pointer]
+			.Build();
+		return new Hook("Hook.OffBallPace", sites.Mover, CodeBuilder.JumpPatch(sites.Mover, cave, 6), cave, bytes);
+	}
+
 	/// <summary>The pad reader's limit for a dead zone in % of the axis (127 from the centre): 18 % -> 23, the game's 29 % -> 37.</summary>
 	public static byte StickDeadZoneLimit(int percent) => (byte)Math.Round(percent * 127 / 100.0);
 

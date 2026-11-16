@@ -356,6 +356,61 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Off_ball_pace_caps_the_speed_of_the_players_placing_themselves()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).OffBallPace);
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var without = ExePatcher.Build(original, options);
+        var with = ExePatcher.Build(original, options with { OffBallPace = PatchOptions.DefaultOffBallPace });
+        var image = new PeImage(with);
+
+        // measured in game: the speed the running animation asks for is in edi at 0x4D34F5 (mov ecx,[esi+4] ; xor edx,edx),
+        // and the function stepping the speed towards a speed (player, speed aimed at, step) opens with jmp [0x44603DC] at 0x48FEF0
+        const int animation = 0x4D34F5, mover = 0x48FEF0;
+        Assert.Equal(0xE9, with[image.Offset(animation)]);
+        Assert.Equal(0xE9, with[image.Offset(mover)]);
+        Assert.Equal(0x90, with[image.Offset(mover) + 5]);
+        int animationCave = image.Rel32Target(animation), moverCave = image.Rel32Target(mover);
+
+        // the two caves, byte for byte (the encodings are those that ran in matches, pace12 in research/patches.json, with the
+        // distance scaled by imul ecx,ecx,256 ; shr ecx,8 for 100 %): state 7 only, the runs (modes 9, 0x0A, 0x0F) left alone,
+        // 0x600 + 100 % of the distance; the first replays the 5 bytes, the second the jmp [pointer]
+        const string animationCode =
+            "80 7E 16 07 75 47 8A 8E DD 01 00 00 80 E9 09 80 F9 01 76 39 80 F9 06 74 34 D9 46 6C D8 A6 E0 00 00 00 D9 E1 " +
+            "D9 46 70 D8 A6 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 69 C9 00 01 00 00 C1 E9 08 81 C1 00 06 00 00 " +
+            "3B F9 7E 02 8B F9 8B 4E 04 33 D2 E9";
+        const string moverCode =
+            "50 51 8B 44 24 0C 3D 80 C9 BD 03 72 58 3D 40 FD BD 03 73 51 80 78 16 07 75 4B 8A 88 DD 01 00 00 80 E9 09 80 F9 01 " +
+            "76 3D 80 F9 06 74 38 D9 40 6C D8 A0 E0 00 00 00 D9 E1 D9 40 70 D8 A0 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 " +
+            "69 C9 00 01 00 00 C1 E9 08 81 C1 00 06 00 00 3B 4C 24 10 7D 04 89 4C 24 10 59 58 FF 25 DC 03 46 04";
+        var firstExpected = Convert.FromHexString(animationCode.Replace(" ", ""));
+        var secondExpected = Convert.FromHexString(moverCode.Replace(" ", ""));
+        Assert.Equal(firstExpected, with.AsSpan(image.Offset(animationCave), firstExpected.Length).ToArray());
+        Assert.Equal(animation + 5, animationCave + firstExpected.Length + 4 + BitConverter.ToInt32(with, image.Offset(animationCave) + firstExpected.Length));   // jumps back after the 5 bytes
+        Assert.Equal(secondExpected, with.AsSpan(image.Offset(moverCave), secondExpected.Length).ToArray());
+
+        // the percent is the scale: 50 % -> 128, 200 % -> 512
+        Assert.Equal(128, CodeCaves.OffBallPaceScale(50));
+        Assert.Equal(512, CodeCaves.OffBallPaceScale(200));
+        var half = ExePatcher.Build(original, options with { OffBallPace = 50 });
+        Assert.Equal(0x80, half[image.Offset(animationCave) + 58]);       // imul ecx,ecx,128: the scale's low byte
+
+        // nothing else changes: the two entries and the two caves
+        int firstSize = firstExpected.Length + 4, secondSize = secondExpected.Length;
+        var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
+        Assert.All(changed, i =>
+            Assert.True(i - image.Offset(animation) is >= 0 and < 5 || i - image.Offset(mover) is >= 0 and < 6
+                || i - image.Offset(animationCave) is >= 0 && i - image.Offset(animationCave) < firstSize
+                || i - image.Offset(moverCave) is >= 0 && i - image.Offset(moverCave) < secondSize));
+        Assert.True(ExePatcher.Analyze(ExePatcher.Build(original, new PatchOptions(398, false, Display: false, OffBallPace: 100))).AnyFix);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { OffBallPace = 10 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { OffBallPace = 500 }));
+    }
+
+    [Fact]
     public void Speed_gap_rebuilds_the_maximum_running_speed_around_a_player_at_75()
     {
         var original = Load("PES6.orig.exe");

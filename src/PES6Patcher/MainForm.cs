@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, decimal CloseDribbleStrength, bool CloseDribbleStrengthDebug, bool AccelerationGap, bool Headers, decimal HeadersPercent, bool HeadersDebug, bool DefenceLine, decimal DefenceLinePercent, bool SuperShot, decimal SuperShotPercent, decimal SuperShotSpeed, decimal SuperShotWeight, decimal SuperShotStar, bool SuperShotDebug, bool SkipIntro, decimal Speed, string Log);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, decimal CloseDribbleStrength, bool CloseDribbleStrengthDebug, bool AccelerationGap, bool Headers, decimal HeadersPercent, bool HeadersDebug, bool DefenceLine, decimal DefenceLinePercent, bool OffBallPace, decimal OffBallPacePercent, bool SuperShot, decimal SuperShotPercent, decimal SuperShotSpeed, decimal SuperShotWeight, decimal SuperShotStar, bool SuperShotDebug, bool SkipIntro, decimal Speed, string Log);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -114,6 +114,7 @@ internal sealed class MainForm : Form
         Minimum = PatchOptions.MinDefenceLine, Maximum = PatchOptions.MaxDefenceLine, Increment = 25,
         Value = PatchOptions.DefaultDefenceLine, Width = 60, Enabled = false,
     };
+private readonly CheckBox _offBallPace = new() { Text = Loc.T("Gameplay.OffBallPace"), AutoSize = true };    private readonly NumericUpDown _offBallPacePercent = new()    {        Minimum = PatchOptions.MinOffBallPace, Maximum = PatchOptions.MaxOffBallPace, Increment = 25,        Value = PatchOptions.DefaultOffBallPace, Width = 60, Enabled = false,    };
     private readonly CheckBox _accelerationGap = new() { Text = Loc.T("Gameplay.AccelerationGap"), AutoSize = true };
     private readonly CheckBox _loftedAim = new() { Text = Loc.T("Gameplay.LoftedAim"), AutoSize = true };
     private readonly CheckBox _passLead = new() { Text = Loc.T("Gameplay.PassLead"), AutoSize = true };
@@ -200,6 +201,7 @@ internal sealed class MainForm : Form
         _carrierTurn.CheckedChanged += (_, _) => _carrierTurnDegrees.Enabled = _carrierTurn.Enabled && _carrierTurn.Checked;
         _defenceLine.EnabledChanged += (_, _) => _defenceLinePercent.Enabled = _defenceLine.Enabled && _defenceLine.Checked;
         _defenceLine.CheckedChanged += (_, _) => _defenceLinePercent.Enabled = _defenceLine.Enabled && _defenceLine.Checked;
+_offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallPace.Enabled && _offBallPace.Checked;        _offBallPace.CheckedChanged += (_, _) => _offBallPacePercent.Enabled = _offBallPace.Enabled && _offBallPace.Checked;
         _stickDeadZone.EnabledChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
         _stickDeadZone.CheckedChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
         _passLead.EnabledChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
@@ -280,6 +282,7 @@ internal sealed class MainForm : Form
             Flow(_tackle, _tacklePercent, LabelText(Loc.T("Gameplay.TacklePercent"))),
             _tackleDebug,
             Flow(_defenceLine, _defenceLinePercent, LabelText(Loc.T("Gameplay.DefenceLinePercent"))),
+            Flow(_offBallPace, _offBallPacePercent, LabelText(Loc.T("Gameplay.OffBallPacePercent"))),
             Flow(_speedGap, _speedGapPercent, LabelText(Loc.T("Gameplay.SpeedGapPercent"))),
             _speedGapDebug,
             _accelerationGap);
@@ -389,6 +392,8 @@ internal sealed class MainForm : Form
             _carrierTurnDegrees.Value = previous.CarrierTurnDegrees;
             _defenceLine.Checked = previous.DefenceLine;
             _defenceLinePercent.Value = previous.DefenceLinePercent;
+            _offBallPace.Checked = previous.OffBallPace;
+            _offBallPacePercent.Value = previous.OffBallPacePercent;
             _closeDribbleStrength.Value = previous.CloseDribbleStrength;
             _closeDribbleStrengthDebug.Checked = previous.CloseDribbleStrengthDebug;
             _accelerationGap.Checked = previous.AccelerationGap;
@@ -423,7 +428,7 @@ internal sealed class MainForm : Form
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _defenceLine.Checked, _defenceLinePercent.Value, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotWeight.Value, _superShotStar.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _defenceLine.Checked, _defenceLinePercent.Value, _offBallPace.Checked, _offBallPacePercent.Value, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotWeight.Value, _superShotStar.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text);
         Close();
     }
 
@@ -447,11 +452,12 @@ internal sealed class MainForm : Form
             PassLead: _passLead.Enabled && _passLead.Checked ? (int)_passLeadPercent.Value : 100, PassLeadDebug: _passLeadDebug.Checked,
             StickDeadZone: _stickDeadZone.Enabled && _stickDeadZone.Checked ? (int)_stickDeadZonePercent.Value : PatchOptions.GameStickDeadZone,
             CarrierTurn: _carrierTurn.Enabled && _carrierTurn.Checked ? (int)_carrierTurnDegrees.Value : 0,
-            DefenceLine: _defenceLine.Enabled && _defenceLine.Checked ? (int)_defenceLinePercent.Value : 0);
+            DefenceLine: _defenceLine.Enabled && _defenceLine.Checked ? (int)_defenceLinePercent.Value : 0,
+            OffBallPace: _offBallPace.Enabled && _offBallPace.Checked ? (int)_offBallPacePercent.Value : 0);
 
     /// <summary>The gameplay options that "check all" sets (not the test keys).</summary>
     private CheckBox[] GameplayOptions =>
-        [_freeDirection, _stickDeadZone, _closeDribble, _freeKick, _shot, _accuracy, _spread, _speedGap, _sprintTurn, _carrierTurn, _tackle, _defenceLine, _accelerationGap, _loftedAim, _passLead, _headers, _superShot, _physicsMod];
+        [_freeDirection, _stickDeadZone, _closeDribble, _freeKick, _shot, _accuracy, _spread, _speedGap, _sprintTurn, _carrierTurn, _tackle, _defenceLine, _offBallPace, _accelerationGap, _loftedAim, _passLead, _headers, _superShot, _physicsMod];
 
     private bool _settingAll, _recordShown, _applyingPreset;
 
@@ -621,6 +627,9 @@ internal sealed class MainForm : Form
         bool defenceLine = report is { DefenceLine: true };
         _defenceLine.Enabled = defenceLine;
         _defenceLine.Text = Loc.T("Gameplay.DefenceLine") + (defenceLine || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        bool offBallPace = report is { OffBallPace: true };
+        _offBallPace.Enabled = offBallPace;
+        _offBallPace.Text = Loc.T("Gameplay.OffBallPace") + (offBallPace || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
         bool accelerationGap = report is { AccelerationGap: true };
         _accelerationGap.Enabled = accelerationGap;
         _accelerationGap.Text = Loc.T("Gameplay.AccelerationGap") + (accelerationGap || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
@@ -691,6 +700,8 @@ internal sealed class MainForm : Form
         if (_carrierTurn.Checked) Set(_carrierTurnDegrees, s.CarrierTurn);
         _defenceLine.Checked = s.DefenceLine > 0;
         if (_defenceLine.Checked) Set(_defenceLinePercent, s.DefenceLine);
+        _offBallPace.Checked = s.OffBallPace > 0;
+        if (_offBallPace.Checked) Set(_offBallPacePercent, s.OffBallPace);
         _tackle.Checked = s.Tackle != 100;
         if (_tackle.Checked) Set(_tacklePercent, s.Tackle);
         _tackleDebug.Checked = s.TackleDebug;

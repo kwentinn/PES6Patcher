@@ -19,7 +19,17 @@ public class GameplayPresetsTests
         Assert.Equal(PatchOptions.DefaultHeaders, pro.Headers);
         Assert.Equal(PatchOptions.DefaultTackle, pro.Tackle);
         Assert.Equal(PatchOptions.DefaultDefenceLine, pro.DefenceLine);
+        Assert.Equal(PatchOptions.DefaultOffBallPace, pro.OffBallPace);
         Assert.Equal((PatchOptions.DefaultSuperShot, PatchOptions.DefaultSuperShotSpeed), (pro.SuperShot, pro.SuperShotSpeed));
+    }
+
+    [Fact]
+    public void The_off_ball_pace_lets_the_AI_sprint_more_the_less_help_the_preset_gives()
+    {
+        var (normal, pro, hardcore) = (Apply(GameplayPreset.Normal), Apply(GameplayPreset.Pro), Apply(GameplayPreset.Hardcore));
+        Assert.True(normal.OffBallPace < pro.OffBallPace && pro.OffBallPace < hardcore.OffBallPace);
+        Assert.All(new[] { normal, pro, hardcore }, s => Assert.InRange(s.OffBallPace, PatchOptions.MinOffBallPace, PatchOptions.MaxOffBallPace));
+        static InstallSettings Apply(GameplayPreset preset) => GameplayPresets.Apply(Start, preset);
     }
 
     [Fact]
