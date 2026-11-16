@@ -29,6 +29,24 @@
       { "address": "0x48FEF0", "original": "FF 25 DC 03 46 04", "patched": "E9 8B 2A 15 00 90" }
     ]
   },
+  "pace11": {
+    "about": "GOOD ON SPEED, KILLS THE RUNS (A/B France-England 2026-11-16: median 3.8 -> 2.1 m/s, running 22 -> 6 %, sprints 27 -> 2 %, walking 13 -> 31 %, close to real; runs in behind 0.81 -> 0.07 vs 0.23-0.36 real, releases 22.9 vs 34-40 per min, challenges 2.1 vs 0.7-0.8): see pace12. Off-ball pace test 4 (2026-11-16): pace10 with the cap softened, 0x600 + (|dx| + |dz|) / 2 instead of / 4 (shr ecx,1 + nop in both caves). pace10 was: pace09 (hook 0x4D34F5, cap on the animation-driven speed EDI) plus a cap at the entry of move_speed_towards 0x48FEF0 (player, target speed, step: cdecl, called from 82 action routines, the run actions among them), which pace09 missed: the sprinters took their speed there. The first six bytes of 0x48FEF0 (jmp [0x44603DC], into the protection) become a jump to a cave at 0x5E2980 which, for a player in the player zone (0x3BDC980..0x3BDFD40) in state 7, lowers the target speed argument to 0x600 + (|dx| + |dz|) / 4 and then makes the original jump. Two caves, 0x5E2920 and 0x5E2980; the take-ball patch uses 0x5E2920 too: do not apply both.",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "80 7E 16 07 75 37 80 BE DD 01 00 00 08 90 90 D9 46 6C D8 A6 E0 00 00 00 D9 E1 D9 46 70 D8 A6 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 D1 E9 90 81 C1 00 06 00 00 3B F9 7E 02 8B F9 8B 4E 04 33 D2 E9 93 0B EF FF" },
+      { "address": "0x4D34F5", "original": "8B 4E 04 33 D2", "patched": "E9 26 F4 10 00" },
+      { "address": "0x5E2980", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "50 51 8B 44 24 0C 3D 80 C9 BD 03 72 3F 3D 40 FD BD 03 73 38 80 78 16 07 75 32 D9 40 6C D8 A0 E0 00 00 00 D9 E1 D9 40 70 D8 A0 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 D1 E9 90 81 C1 00 06 00 00 3B 4C 24 10 7D 04 89 4C 24 10 59 58 FF 25 DC 03 46 04" },
+      { "address": "0x48FEF0", "original": "FF 25 DC 03 46 04", "patched": "E9 8B 2A 15 00 90" }
+    ]
+  },
+  "pace12": {
+    "about": "BEST SO FAR (A/B France-England 2026-11-16, x2: median 4.0 -> 2.1 m/s, sprints 26 -> 6 %, runs in behind 0.59 -> 0.17, balls won by a challenge 2.3 -> 1.9; team-mates ahead of the ball 2.2 -> 1.9 and releases per minute 27 -> 25 not better). Off-ball pace test 5 (2026-11-16): pace11 (A/B France-England: median 3.8 -> 2.1 m/s, sprints 27 -> 2 %, walking 13 -> 31 %, close to the real matches) but the runs in behind fell from 0.81 to 0.07 at once (real 0.23-0.36) because the cap also held the runs: modes 9 and 0x0A (the full-backs' overlaps) and 0x0F (the run beyond the last line) are now left alone (mode - 9 <= 1 or mode - 9 == 6, tested on a copy of the mode byte in CL). Same two hooks and caves as pace10/11 (0x4D34F5 -> 0x5E2920, 81 bytes; 0x48FEF0 -> 0x5E2980, 103 bytes), the cap 0x600 + (|dx| + |dz|) / 2.",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "80 7E 16 07 75 41 8A 8E DD 01 00 00 80 E9 09 80 F9 01 76 33 80 F9 06 74 2E D9 46 6C D8 A6 E0 00 00 00 D9 E1 D9 46 70 D8 A6 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 D1 E9 90 81 C1 00 06 00 00 3B F9 7E 02 8B F9 8B 4E 04 33 D2 E9 89 0B EF FF" },
+      { "address": "0x4D34F5", "original": "8B 4E 04 33 D2", "patched": "E9 26 F4 10 00" },
+      { "address": "0x5E2980", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "50 51 8B 44 24 0C 3D 80 C9 BD 03 72 52 3D 40 FD BD 03 73 4B 80 78 16 07 75 45 8A 88 DD 01 00 00 80 E9 09 80 F9 01 76 37 80 F9 06 74 32 D9 40 6C D8 A0 E0 00 00 00 D9 E1 D9 40 70 D8 A0 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 D1 E9 90 81 C1 00 06 00 00 3B 4C 24 10 7D 04 89 4C 24 10 59 58 FF 25 DC 03 46 04" },
+      { "address": "0x48FEF0", "original": "FF 25 DC 03 46 04", "patched": "E9 8B 2A 15 00 90" }
+    ]
+  },
   "runs-more": {
     "about": "Forward runs test (NO EFFECT 2026-11-16, CPU A/B over 4 x 4 min each: midfielders in mode 0x0F while their side attacks 8 % -> 7 %, releases kept 85 % -> 81 %): the function 0x61DAC0 picks ONE forward runner per side (mode 0x0F, slot 0x3BCDCA9 + side) among the defenders and midfielders in mode 0x08 (roles 1-23; forwards never). Two brakes are taken off: the cap that stops any pick once func 0x496C20's count reaches max(attack level, 2) now uses at least 4 (0x61DB2D), and the last dice roll (1 in 10, 8 or 4 by the attack and response stats, 0x61E463) always passes. The per-role gates (centre-backs only at attack level 4, defensive midfielders at 3 and over, the stat tests) are kept.",
     "bytes": [
@@ -70,6 +88,14 @@
       { "address": "0x3BE1740", "original": "00 00 80 3F", "patched": "00 00 00 40" },
       { "address": "0x3BE14B0", "original": "3C", "patched": "1E" },
       { "address": "0x3BE12AC", "original": "00 00 80 43", "patched": "00 00 00 43" }
+    ]
+  },
+  "speed-x4": {
+    "about": "HANGS THE GAME (2026-11-16: the game froze 21 s after this patch was applied in a match, main thread looping at 0x4BBB62-0x4BC6ED around the interception prediction, ball +0x1458; it had run 1 h 30 at x2). Do not use. Game speed x4: same three places as speed-x2 with X = 15: frame step 0x3BE1740 = 60 / 15 = 4.0, byte 0x3BE14B0 = 15, float 0x3BE12AC = 15 * 256 / 60 = 64.0. Use with pes6r ab -SpeedPatch speed-x4 and pes6r compare -Speed 4. Watch for steps that are too big for the physics and AI (balls through players, odd turns): compare the metrics of a patch-less run at x4 with one at x2 before trusting an A/B.",
+    "bytes": [
+      { "address": "0x3BE1740", "original": "00 00 80 3F", "patched": "00 00 80 40" },
+      { "address": "0x3BE14B0", "original": "3C", "patched": "0F" },
+      { "address": "0x3BE12AC", "original": "00 00 80 43", "patched": "00 00 80 42" }
     ]
   },
   "take-ball-range": {
