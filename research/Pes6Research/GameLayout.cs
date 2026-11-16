@@ -5,6 +5,9 @@ static class GameLayout
 {
     /// <summary>Byte: id (1-22) of the player who has the ball, 0 or more than 22 when nobody has it.</summary>
     public const uint Carrier = 0x3BE09CC;
+    /// <summary>The byte of the restart state (read 2026-11-16 against screenshots): 0 in play, 1 stoppage time announced, 2 free kick,
+    /// 6 throw-in, 3 and 5 other restarts (a corner among them, not yet seen), 7 the long breaks with no HUD: a goal, half-time, full time.</summary>
+    public const uint RestartState = 0x3BE0AA4;
 
     /// <summary>Pointer to the ball; its x, y, z floats are at +0x10. Null before a match.</summary>
     public const uint BallPointer = 0xBCCE94;

@@ -10,7 +10,7 @@ namespace Pes6Research;
 /// <para>Goal sequences wait for Start: after the ball has lain still in a goal (|x| &gt; -NetX, |z| &lt; 1300), and while nothing
 /// moves or the players array is not a match's for -StuckAfter seconds, the key of scan code -SkipScan (1 = Esc, the user's Start) is
 /// sent to the game, brought to the front (every press is listed in the summary). 0 turns that off. At any other stop over 4 s
-/// (half-time summary and menu, full time, the line-ups) the skip key and the key of scan code -ResumeScan (28 = Enter, the cross
+/// (half-time summary and menu, full time, the line-ups: never a corner, a throw-in or a free kick, see GameLayout.RestartState) the skip key and the key of scan code -ResumeScan (28 = Enter, the cross
 /// on the user's keyboard) alternate 3 s apart until play resumes, each with a screenshot next to -Out: half-time goes on to the
 /// second half and full time into a new match with the same teams, so matches follow one another with nobody at the game. The samples taken before -Settle
 /// seconds after a phase start or a resume are left out. The run stops after -GiveUpAfter seconds without a match.
@@ -136,8 +136,18 @@ static class AbCommand
                         // the same keys go through the end screens into a new match with the same teams (seen 2026-11-15). So the skip key
                         // and the resume key alternate 3 s apart until the players move: the matches follow one another with nobody at the
                         // game. The screen before each press is kept (-out-stop-1.png to -12.png, the last ones) to see where it stood.
-                        var stopped = lost != null ? lost : frozenSince;
-                        if (resumeScan > 0 && stopped != null && now - stopped > 4 && (goalAt == null || now - goalAt > 30) &&
+                        // A corner, a throw-in or a free kick also freezes everybody for several seconds, and Esc there opens the PAUSE menu
+                        // (2026-11-16: "tu confonds les corners et la mi-temps"): the restart state byte tells them apart, 7 being a goal,
+                        // half-time or full time. Nothing is pressed in the other restarts (1 to 6) while a match is on.
+                        var restart = game.ReadOrZero(RestartState, 1)[0];
+                        // The byte changes about a second after everybody froze for a corner (checked 2026-11-16: three presses fell in that gap,
+                        // byte still 0), so only the long breaks (7) are pressed after 4 s; in play (0) a freeze must last 15 s to be a real stall.
+                        var deadBall = restart is >= 1 and <= 6;
+                        var patience = restart == 7 ? 4 : 15;
+                        // "lost" (the keepers not near their goals) can also hold during play, so it only counts in a long break (7); in play the
+                        // players must really stand still
+                        var stopped = restart == 7 ? lost ?? frozenSince : frozenSince;
+                        if (resumeScan > 0 && stopped != null && !deadBall && now - stopped > patience && (goalAt == null || now - goalAt > 30) &&
                             now - lastPress > 3)
                         {
                             var key = resumePresses % 2 == 0 && skipScan > 0 ? skipScan : resumeScan;
