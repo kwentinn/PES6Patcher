@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="Pes6Research.Tests" />
+    <!-- the patcher's own code, so what is tried live is what the patcher writes (pace) -->
+    <ProjectReference Include="..\..\src\PES6Patcher.Core\PES6Patcher.Core.csproj" />
   </ItemGroup>
 
 </Project>

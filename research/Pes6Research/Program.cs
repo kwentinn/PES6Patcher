@@ -25,6 +25,7 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["viewport"] = (BreakpointCommands.Viewport, [], BreakpointCommands.ViewportUsage),
     // unattended runs in a CPU-vs-CPU match
     ["startmatch"] = (StartMatchCommand.Run, [], StartMatchCommand.Usage),
+    ["pace"] = (PaceCommand.Run, PaceCommand.Switches, PaceCommand.Usage),
     ["ab"] = (AbCommand.Run, [], AbCommand.Usage),
     ["scoreprobe"] = (ScoreProbeCommand.Run, [], ScoreProbeCommand.Usage),
     // windows
