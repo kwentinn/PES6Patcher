@@ -17,6 +17,7 @@ static class SnapDiffCommand
         var c = File.ReadAllBytes(o.String("C") ?? throw new ToolException("-C is required"));
         var origin = o.Address("Base");
         var max = o.Int("Max", 300);
+        var skip = o.String("Skip") is { } k ? k.Split(':').Select(v => (uint)Options.ParseInt(v, "skip")).ToArray() : null;   // a range left out (the player array moves all the time)
         o.CheckAllUsed();
         if (a.Length != b.Length || a.Length != c.Length) throw new ToolException("the three snapshots must have the same length");
 
@@ -28,6 +29,7 @@ static class SnapDiffCommand
             var va = BitConverter.ToUInt32(a, i);
             var vb = BitConverter.ToUInt32(b, i);
             var vc = BitConverter.ToUInt32(c, i);
+            if (skip != null && origin + (uint)i >= skip[0] && origin + (uint)i < skip[1]) continue;
             if (va != vb) { noise++; continue; }
             if (va == vc) continue;
             total++;
