@@ -1130,9 +1130,19 @@ public class EveryPresetBuildsTests(ITestOutputHelper output)
             var options = new PatchOptions(s.Half, s.FreeDirection, true, s.CloseDribble, true, s.FreeKick, s.FreeKickWeight, true, s.ShotPower, true,
                 s.ShotAccuracy, true, s.Spread, true, s.SpeedGap, true, s.SprintTurn, true, s.Tackle, true, s.LobPower, s.LoftedAim,
                 s.PassLead, true, s.StickDeadZone, s.CarrierTurn, s.CloseDribbleStrength, true, s.AccelerationGap, s.Headers, true, s.DefenceLine,
-                s.SuperShot, true, s.SuperShotSpeed, s.SuperShotWeight, s.SuperShotStar);
+                s.SuperShot, true, s.SuperShotSpeed, s.SuperShotWeight, s.SuperShotStar, s.OffBallPace);
             var built = ExePatcher.Build(original, options);
             Assert.True(ExePatcher.Analyze(built).AlreadyPatched, preset.ToString());
+
+            // the off-ball pace caves share the exe with every other fix: both are still whole, jumped to from their entries
+            var image = new PeImage(built);
+            var sites = ExeLocator.LocateOffBallPace(original)!;
+            var animation = CodeCaves.OffBallPaceAnimation(image.Rel32Target(sites.Animation), sites, s.OffBallPace);
+            var mover = CodeCaves.OffBallPaceMover(image.Rel32Target(sites.Mover), sites, s.OffBallPace);
+            Assert.Equal(animation.CaveBytes, built.AsSpan(image.Offset(animation.Cave), animation.CaveBytes.Length).ToArray());
+            Assert.Equal(mover.CaveBytes, built.AsSpan(image.Offset(mover.Cave), mover.CaveBytes.Length).ToArray());
+            Assert.Equal(animation.EntryBytes, built.AsSpan(image.Offset(sites.Animation), 5).ToArray());
+            Assert.Equal(mover.EntryBytes, built.AsSpan(image.Offset(sites.Mover), 6).ToArray());
         }
     }
 
