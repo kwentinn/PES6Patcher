@@ -643,7 +643,7 @@
     <value>off-ball pace</value>
   </data>
   <data name="Log.OffBallPace" xml:space="preserve">
-    <value>Off-ball pace: players placing themselves run at most at 1.4 m/s plus {0} % of the distance to their place, so they trot to a near place instead of sprinting (both teams; the overlaps and the runs behind the last line stay free).</value>
+    <value>Off-ball pace: players placing themselves run at most at 1.4 m/s plus {0} % of the distance to their place, so they trot to a near place instead of sprinting (both teams, in open play only; the overlaps, the runs behind the last line and every restart stay the game's).</value>
   </data>
   <data name="Gameplay.OffBallPacePercent" xml:space="preserve">
     <value>% of the distance to their place (higher: more sprints)</value>

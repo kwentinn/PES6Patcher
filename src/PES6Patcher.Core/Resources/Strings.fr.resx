@@ -643,7 +643,7 @@
     <value>allure sans ballon</value>
   </data>
   <data name="Log.OffBallPace" xml:space="preserve">
-    <value>Allure sans ballon : les joueurs qui se placent courent au plus à 1,4 m/s plus {0} % de la distance à leur place, ils trottent donc vers une place proche au lieu de sprinter (les deux équipes ; les débordements et les courses derrière la dernière ligne restent libres).</value>
+    <value>Allure sans ballon : les joueurs qui se placent courent au plus à 1,4 m/s plus {0} % de la distance à leur place, ils trottent donc vers une place proche au lieu de sprinter (les deux équipes, en jeu courant seulement ; les débordements, les courses derrière la dernière ligne et toutes les remises en jeu restent celles du jeu).</value>
   </data>
   <data name="Gameplay.OffBallPacePercent" xml:space="preserve">
     <value>% de la distance à leur place (plus haut : plus de sprints)</value>

@@ -1224,11 +1224,15 @@ internal static class CodeCaves
 
 	/// <summary>
 	/// Leaves ECX = the cap on the speed of the player at [<paramref name="player"/>] (a ModRM r/m: 6 = esi, 0 = eax), or jumps to
-	/// <paramref name="skip"/> when he is not placing himself (state 7) or is on one of the runs: ECX = 0x600 + (|dx| + |dz|) x
+	/// <paramref name="skip"/> when the game is not in open play (restart state not 0), he is not placing himself (state 7) or is on one of the runs: ECX = 0x600 + (|dx| + |dz|) x
 	/// scale / 256, dx and dz being the distance to the target (+0x6C, +0x70) from the position (+0xE0, +0xE8). Uses ECX, the x87
 	/// stack and 4 bytes below ESP.
 	/// </summary>
-	private static CodeBuilder OffBallPaceCap(CodeBuilder code, byte player, int percent, string skip) => code
+	private static CodeBuilder OffBallPaceCap(CodeBuilder code, OffBallPaceSites sites, byte player, int percent, string skip) => code
+		// open play only: a corner, a free kick, a throw-in, a goal, half-time (restart state not 0) are left to the game (a free
+		// kick taker was reported missing the ball with the cap on all the time)
+		.Bytes([0x80, 0x3D], sites.RestartState).Bytes(0x00)               // cmp byte [restart],0
+		.Jump(0x75, skip)                                                   // jne skip
 		.Bytes(0x80, (byte)(0x78 | player), 0x16, 0x07)                    // cmp byte [player+0x16],7 ; placing himself
 		.Jump(0x75, skip)                                                   // jne skip
 		.Bytes(0x8A, (byte)(0x88 | player), 0xDD, 0x01, 0x00, 0x00)         // mov cl,[player+0x1DD] ; the mode
@@ -1254,7 +1258,7 @@ internal static class CodeCaves
 	/// </summary>
 	public static Hook OffBallPaceAnimation(int cave, OffBallPaceSites sites, int percent)
 	{
-		var bytes = OffBallPaceCap(new CodeBuilder(cave), 6, percent, "done")
+		var bytes = OffBallPaceCap(new CodeBuilder(cave), sites, 6, percent, "done")
 			.Bytes(0x3B, 0xF9)                                              // cmp edi,ecx
 			.Jump(0x7E, "done")                                             // jle done
 			.Bytes(0x8B, 0xF9)                                              // mov edi,ecx
@@ -1280,7 +1284,7 @@ internal static class CodeCaves
 			.Jump(0x72, "done")                                             // jb done
 			.Bytes([0x3D], sites.Players + 23 * 0x240)                      // cmp eax,players + 23 * 0x240
 			.Jump(0x73, "done");                                            // jae done
-		var bytes = OffBallPaceCap(code, player, percent, "done")
+		var bytes = OffBallPaceCap(code, sites, player, percent, "done")
 			.Bytes(0x3B, 0x4C, 0x24, aimed)                                 // cmp ecx,[esp+0x10]   ; the speed aimed at
 			.Jump(0x7D, "done")                                             // jge done
 			.Bytes(0x89, 0x4C, 0x24, aimed)                                 // mov [esp+0x10],ecx

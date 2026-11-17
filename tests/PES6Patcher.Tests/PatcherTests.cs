@@ -379,11 +379,11 @@ public class PatcherTests(ITestOutputHelper output)
         // distance scaled by imul ecx,ecx,256 ; shr ecx,8 for 100 %): state 7 only, the runs (modes 9, 0x0A, 0x0F) left alone,
         // 0x600 + 100 % of the distance; the first replays the 5 bytes, the second the jmp [pointer]
         const string animationCode =
-            "80 7E 16 07 75 47 8A 8E DD 01 00 00 80 E9 09 80 F9 01 76 39 80 F9 06 74 34 D9 46 6C D8 A6 E0 00 00 00 D9 E1 " +
+            "80 3D A4 0A BE 03 00 75 4D 80 7E 16 07 75 47 8A 8E DD 01 00 00 80 E9 09 80 F9 01 76 39 80 F9 06 74 34 D9 46 6C D8 A6 E0 00 00 00 D9 E1 " +
             "D9 46 70 D8 A6 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 69 C9 00 01 00 00 C1 E9 08 81 C1 00 06 00 00 " +
             "3B F9 7E 02 8B F9 8B 4E 04 33 D2 E9";
         const string moverCode =
-            "50 51 8B 44 24 0C 3D 80 C9 BD 03 72 58 3D 40 FD BD 03 73 51 80 78 16 07 75 4B 8A 88 DD 01 00 00 80 E9 09 80 F9 01 " +
+            "50 51 8B 44 24 0C 3D 80 C9 BD 03 72 61 3D 40 FD BD 03 73 5A 80 3D A4 0A BE 03 00 75 51 80 78 16 07 75 4B 8A 88 DD 01 00 00 80 E9 09 80 F9 01 " +
             "76 3D 80 F9 06 74 38 D9 40 6C D8 A0 E0 00 00 00 D9 E1 D9 40 70 D8 A0 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 " +
             "69 C9 00 01 00 00 C1 E9 08 81 C1 00 06 00 00 3B 4C 24 10 7D 04 89 4C 24 10 59 58 FF 25 DC 03 46 04";
         var firstExpected = Convert.FromHexString(animationCode.Replace(" ", ""));
@@ -396,7 +396,7 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(128, CodeCaves.OffBallPaceScale(50));
         Assert.Equal(512, CodeCaves.OffBallPaceScale(200));
         var half = ExePatcher.Build(original, options with { OffBallPace = 50 });
-        Assert.Equal(0x80, half[image.Offset(animationCave) + 58]);       // imul ecx,ecx,128: the scale's low byte
+        Assert.Equal(0x80, half[image.Offset(animationCave) + 58 + 9]);   // imul ecx,ecx,128: the scale's low byte (after the restart state test)
 
         // nothing else changes: the two entries and the two caves
         int firstSize = firstExpected.Length + 4, secondSize = secondExpected.Length;
