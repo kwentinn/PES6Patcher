@@ -127,6 +127,9 @@ internal sealed record LoftedAimSites(int Gauge, int Angle);
 /// read twice: <see cref="First"/> = mov eax,[edi+0xA8] (6 bytes, for the cosine), <see cref="Second"/> = mov ecx,[edi+0xA8]
 /// (6 bytes, for the sine).
 /// </summary>
+internal sealed record PassGaugeSites(int Dispatch, int DispatchContinuation, int Kick, int LeadFirst, int LeadSecond,
+	int Hud, int HudFlags, int HudRender, int HudDraw, int HudSide, int Restart, int Blocked, int Carrier, int Held);
+
 internal sealed record PassLeadSites(int First, int Second);
 
 /// <summary>
@@ -485,6 +488,76 @@ internal sealed class ExeLocator
 		return hits.Count == 1 ? new PassLeadSites(hits[0], hits[0] + 13) : null;
 	}
 
+	// Each ?? matches one byte. Use it for branch displacements and data addresses that can move between builds.
+	private const string PassGaugeDispatchSignature = "0F B6 46 16 E9 ?? ?? ?? ?? 0F 87 ?? ?? ?? ?? 0F B6 80 ?? ?? ?? ?? FF 24 85";
+	private const string PassGaugeKickSignature = "53 55 56 8B 74 24 10 8A 06 33 DB 3A C3 74 ?? 39 5C 24 20 74 ?? 53 E8";
+	private const string PassGaugeHudSetterSignature = "8B 4C 24 08 B8 80 00 00 00 3B C8 7E 04 89 44 24 08 A1 ?? ?? ?? ?? DB 44 24 08 83 C8 06 A3 ?? ?? ?? ??";
+	private const string PassGaugeHudPaintSignature = "8B 4C 24 10 51 8B D5 E8 ?? ?? ?? ?? D9 44 24 14 D8 1D ?? ?? ?? ??";
+	private const string PassGaugeHudSideSignature = "0F B6 15 ?? ?? ?? ?? 8B 4C 24 0C 51 33 D0 52 E8 ?? ?? ?? ?? 83 C4 08";
+	private const string PassGaugePadInputSignature = "8B 90 ?? ?? ?? ?? 8B 80 ?? ?? ?? ?? 57 72 04 33 FF EB 0B 0F B6 F9 66 8B 3C BD";
+	private const string PassGaugeInputBlockedSignature = "A0 ?? ?? ?? ?? 84 C0 75 ?? A0 ?? ?? ?? ?? 84 C0 74 ?? 89 2D ?? ?? ?? ?? 8B 8E B0 00 00 00";
+	private const string PassGaugeRestartSignature = "0F B6 05 ?? ?? ?? ?? 83 F8 06 77 ?? 8A 0D ?? ?? ?? ?? FF 24 85 ?? ?? ?? ?? 84 C9";
+	private const string PassGaugeCarrierSignature = "8A 06 3A 05 ?? ?? ?? ?? 0F 85 ?? ?? ?? ?? 85 AE B0 00 00 00 0F 84";
+	private const string PassGaugeDispatchContinuationSignature = "3B 05 ?? ?? ?? ?? E9 ?? ?? ?? ??";
+	private const string PassGaugeHudDrawSignature = "83 EC 10 8B 0D ?? ?? ?? ?? D9 44 24 14 33 C0 85 D2";
+
+	public static PassGaugeSites? LocatePassGauges(byte[] exe)
+	{
+		var image = new PeImage(exe);
+		int Find(string pattern)
+		{
+			var signature = new Signature(pattern);
+			var hits = image.Sections.Where(section => section.IsCode)
+				.SelectMany(section => signature.FindAll(image, section)).Take(2).ToArray();
+			return hits.Length == 1 ? hits[0] : 0;
+		}
+
+		// Player state dispatch after input is copied; the jump replays its state comparison.
+		int dispatch = Find(PassGaugeDispatchSignature);
+		int kick = Find(PassGaugeKickSignature);
+		int hud = Find(PassGaugeHudSetterSignature);
+		// Find the final fill draw call, after the widget has applied its visibility rules.
+		int hudPaint = Find(PassGaugeHudPaintSignature);
+		int hudSide = Find(PassGaugeHudSideSignature);
+		int input = Find(PassGaugePadInputSignature);
+		int blocked = Find(PassGaugeInputBlockedSignature);
+		int restart = Find(PassGaugeRestartSignature);
+		int carrier = Find(PassGaugeCarrierSignature);
+		if (dispatch == 0 || kick == 0 || hud == 0 || hudPaint == 0 || hudSide == 0 || input == 0 || blocked == 0 || restart == 0 || carrier == 0 ||
+			LocatePassLead(exe) is not { } lead)
+			return null;
+
+		int continuation = image.Rel32Target(dispatch + 4);
+		if (!new Signature(PassGaugeDispatchContinuationSignature).IsAt(image, continuation) ||
+			image.Rel32Target(continuation + 6) != dispatch + 9)
+			return null;
+
+		int blockedAddress = image.ReadInt32(blocked + 1);
+		int heldAddress = image.ReadInt32(input + 2);
+		if (image.ReadInt32(blocked + 10) != blockedAddress + 1 ||
+			image.ReadInt32(input + 8) != heldAddress - 8)
+			return null;
+
+		// The extracted operands must point into mapped non-code memory.
+		int hudFlags = image.ReadInt32(hud + 18);
+		int hudRender = hudPaint + 7;
+		int hudDraw = image.Rel32Target(hudRender);
+		if (!new Signature(PassGaugeHudDrawSignature).IsAt(image, hudDraw))
+			return null;
+		int hudSideAddress = image.ReadInt32(hudSide + 3);
+
+		int restartAddress = image.ReadInt32(restart + 3);
+		int carrierAddress = image.ReadInt32(carrier + 4);
+		bool IsData(int address, int length) => image.Sections.Any(section =>
+			!section.IsCode && address >= section.Va &&
+			(long)address + length <= (long)section.Va + section.VirtualSize);
+		if (!IsData(hudSideAddress, 1) || !IsData(hudFlags, 4) || image.ReadInt32(hud + 30) != hudFlags || !IsData(restartAddress, 1) || !IsData(carrierAddress, 1) ||
+			!IsData(blockedAddress, 2) || !IsData(heldAddress, 7 * 24 + 4))
+			return null;
+
+		return new(dispatch, continuation, kick, lead.First, lead.Second, hud, hudFlags, hudRender, hudDraw, hudSideAddress,
+			restartAddress, blockedAddress, carrierAddress, heldAddress);
+	}
 	/// <summary>xor edx,edx ; mov dx,[esi+0x26] ; push 100h ; push edx ; push ebx ; call turn ; mov [esi+0x26],ax ; mov [esi+0x28],ax ; mov [esi+0x42],ax.</summary>
 	private const string CarrierTurnFirst = "33 D2 66 8B 56 26 68 00 01 00 00 52 53 E8 ?? ?? ?? ?? 66 89 46 26 66 89 46 28 66 89 46 42";
 

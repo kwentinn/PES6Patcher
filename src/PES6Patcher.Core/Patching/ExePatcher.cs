@@ -48,7 +48,8 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	int LobPower = 100, bool LoftedAim = false, int PassLead = 100, bool PassLeadDebug = false, int StickDeadZone = PatchOptions.GameStickDeadZone, int CarrierTurn = 0,
 	int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
 	int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
-	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0)
+	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0,
+	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25)
 {
 	/// <summary>
 	/// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -184,7 +185,9 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
 	/// <summary>The speed of the players placing themselves can be held back.</summary>
 	public bool OffBallPace { get; init; }
 
-	public bool AnyFix => Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace;
+	public bool PassPowerGauges { get; init; }
+
+	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -217,7 +220,7 @@ public static class ExePatcher
 		try
 		{
 			var (display, direction, dribble, intro, freeKick, shot, patched, problems) = ExeLocator.Locate(exe);
-			return new ExeReport(hash, ValidatedSha256.Contains(hash), patched, display != null, direction != null, problems)
+			return new ExeReport(hash, ValidatedSha256.Contains(hash), patched || new PeImage(exe).Named(".passbar") != null, display != null, direction != null, problems)
 			{
 				CloseDribble = dribble != null,
 				SkipIntro = intro != null,
@@ -232,6 +235,7 @@ public static class ExePatcher
 				StickDeadZone = ExeLocator.LocateStickDeadZone(exe) != null,
 				CarrierTurn = ExeLocator.LocateCarrierTurn(exe) != null,
 				AccelerationGap = ExeLocator.LocateAcceleration(exe) != null,
+				PassPowerGauges = ExeLocator.LocatePassGauges(exe) != null,
 				DefenceLine = ExeLocator.LocateDefenceLine(exe) != null,
 				OffBallPace = ExeLocator.LocateOffBallPace(exe) != null,
 			};
@@ -623,7 +627,7 @@ public static class ExePatcher
 		}
 
 		// pass lead: the pass point is placed less far ahead of the receiver (through passes stay in play)
-		if (options.PassLead < 100)
+		if (options.PassLead < 100 && !options.PassPowerGauges)
 		{
 			if (options.PassLead < PatchOptions.MinPassLead) throw new ArgumentOutOfRangeException(nameof(options), options.PassLead, null);
 			var sites = ExeLocator.LocatePassLead(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.PassLead"), 0)]);
@@ -650,6 +654,15 @@ public static class ExePatcher
 		}
 
 		foreach (var (va, bytes) in plan) image.Write(va, bytes);
+		if (options.PassPowerGauges)
+		{
+			var sites = ExeLocator.LocatePassGauges(original)
+				?? throw new PatchException([Loc.T("Error.PassGaugeUnavailable")]);
+			int leadState = passLeadKey ? freeKick!.State + CodeCaves.PassLeadState : 0;
+			var kickHook = plan.FindLast(entry => entry.Va == sites.Kick);
+			int kickNext = kickHook.Bytes == null ? 0 : image.Rel32Target(sites.Kick);
+			PassGauges.Apply(image, sites, options, leadState, kickNext);
+		}
 		return image.Bytes;
 	}
 

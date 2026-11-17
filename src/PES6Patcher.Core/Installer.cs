@@ -92,7 +92,11 @@ public sealed record InstallSettings(
     bool SuperShotDebug = false,
     int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
     int SuperShotWeight = PatchOptions.DefaultSuperShotWeight,
-    int SuperShotStar = PatchOptions.DefaultSuperShotStar
+    int SuperShotStar = PatchOptions.DefaultSuperShotStar,
+    bool PassPowerGauges = false,
+    int ShortPassFrames = 25,
+    int ThroughPassFrames = 25,
+    int LoftedThroughFrames = 25
 )
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
@@ -136,9 +140,11 @@ public static class Installer
             offBallPace = settings.Gameplay ? settings.OffBallPace : 0,
             superShot = settings.Gameplay ? settings.SuperShot : 0;
         bool accelerationGap = settings.Gameplay && settings.AccelerationGap;
+        bool passPowerGauges = settings.Gameplay && settings.PassPowerGauges;
         // without any exe fix, the exe goes back to the original
         byte[] patched =
-            settings.Display
+            passPowerGauges
+            || settings.Display
             || freeDirection
             || closeDribble
             || freeKick
@@ -198,7 +204,11 @@ public static class Installer
                         settings.SuperShotSpeed,
                         settings.SuperShotWeight,
                         settings.SuperShotStar,
-                        offBallPace
+                        offBallPace,
+                        passPowerGauges,
+                        settings.ShortPassFrames,
+                        settings.ThroughPassFrames,
+                        settings.LoftedThroughFrames
                     )
                 )
                 : original;
@@ -254,6 +264,8 @@ public static class Installer
             log(Loc.T("Log.TackleDebug"));
         if (settings.Gameplay && settings.LoftedAim)
             log(Loc.T("Log.LoftedAim"));
+        if (passPowerGauges)
+            log(Loc.T("Log.PassPowerGauges", passLead));
         if (passLead < 100)
             log(Loc.T("Log.PassLead", passLead));
         if (passLead < 100 && settings.PassLeadDebug)

@@ -651,4 +651,25 @@
   <data name="Gameplay.OffBallPace" xml:space="preserve">
     <value>Slower off-ball pace:</value>
   </data>
+  <data name="Gameplay.PassPowerGauges" xml:space="preserve">
+    <value>Pass power gauges</value>
+  </data>
+  <data name="Gameplay.ShortPassFrames" xml:space="preserve">
+    <value>Short pass (frames)</value>
+  </data>
+  <data name="Gameplay.ThroughPassFrames" xml:space="preserve">
+    <value>Through pass (frames)</value>
+  </data>
+  <data name="Gameplay.LoftedThroughFrames" xml:space="preserve">
+    <value>Lofted through pass (frames)</value>
+  </data>
+  <data name="Error.PassGaugeFrames" xml:space="preserve">
+    <value>Pass gauges require 4 to 60 frames.</value>
+  </data>
+  <data name="Error.PassGaugeUnavailable" xml:space="preserve">
+    <value>This executable does not contain the code required for pass power gauges.</value>
+  </data>
+  <data name="Log.PassPowerGauges" xml:space="preserve">
+    <value>Pass gauges are enabled. Full charge uses {0}% of the usual through-pass lead. Lighter charges aim closer to the receiver.</value>
+  </data>
 </root>
