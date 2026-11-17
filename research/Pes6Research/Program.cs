@@ -12,6 +12,7 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["placement"] = (PlacementCommand.Run, [], PlacementCommand.Usage),
     ["key"] = (KeyCommand.Run, [], KeyCommand.Usage),
     ["snap"] = (SnapCommand.Run, [], SnapCommand.Usage),
+    ["snapdiff"] = (SnapDiffCommand.Run, [], SnapDiffCommand.Usage),
     ["shape"] = (ShapeCommand.Run, [], ShapeCommand.Usage),
     // guided by beeps while someone plays
     ["driftlog"] = (CarrierLogCommands.Drift, [], CarrierLogCommands.DriftUsage),

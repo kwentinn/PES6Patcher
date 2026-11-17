@@ -11,7 +11,7 @@ namespace Pes6Research;
 static class PositionsCommand
 {
     public const string Usage = "positions [-Seconds 60] [-Out positions.csv] [-Every 100] [-StartDelay 5] [-Patch name]\n" +
-                                "                                                 CSV of the 22 players and the ball, with role, placement mode and angles; -Patch adds whether that patch is on (A/B)";
+                                "                                                 CSV of the 22 players and the ball, with role, placement mode, angles and the restart state; -Patch adds whether that patch is on (A/B)";
 
     public static int Run(Options o, string processName)
     {
@@ -28,7 +28,7 @@ static class PositionsCommand
         using var run = new Sampling();
         run.Start(startDelay, beep: startDelay > 0);
         using var w = new StreamWriter(outPath);
-        w.WriteLine("ms,carrier,bx,bz,id,team,slot,state,px,pz,tx,tz,speed,role,mode,facing,run,heading,by" + (patchName != null ? ",patch" : ""));
+        w.WriteLine("ms,carrier,bx,bz,id,team,slot,state,px,pz,tx,tz,speed,role,mode,facing,run,heading,by" + (patchName != null ? ",patch" : "") + ",restart");
         var all = new byte[PlayerCount * PlayerSize];
         var samples = 0;
         while (run.Running(game, seconds))
@@ -40,6 +40,7 @@ static class PositionsCommand
             {
                 var carrier = game.ReadOrZero(Carrier, 1)[0];
                 var (bx, by, bz) = Ball(game);
+                var restart = game.ReadOrZero(RestartState, 1)[0];   // 0 in play, 2 free kick, 6 throw-in, 7 goal / half-time ...
                 // A: the patch is off, B: it is on (for an A/B run beside pes6r ab)
                 var phase = patchName == null ? "" : patches!.State(game, patchName) == "applied" ? ",B" : ",A";
                 for (var i = 0; i < PlayerCount; i++)
@@ -50,7 +51,7 @@ static class PositionsCommand
                                 $"{BitConverter.ToSingle(all, p + TargetX):F0},{BitConverter.ToSingle(all, p + TargetZ):F0}," +
                                 $"{BitConverter.ToInt32(all, p + Speed)},{all[p + Role]},{all[p + PlacementMode]}," +
                                 $"{Degrees(BitConverter.ToUInt16(all, p + Facing))},{Degrees(BitConverter.ToUInt16(all, p + Move))}," +
-                                $"{Degrees(BitConverter.ToUInt16(all, p + Heading))},{by:F0}{phase}");
+                                $"{Degrees(BitConverter.ToUInt16(all, p + Heading))},{by:F0}{phase},{restart}");
                 }
                 if (++samples % 10 == 0) w.Flush();
             }

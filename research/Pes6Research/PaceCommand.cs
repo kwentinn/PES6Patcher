@@ -37,31 +37,40 @@ static class PaceCommand
         if (!GameProcess.IsRunning(processName)) throw new ToolException($"{processName} is not running.");
         using var game = GameProcess.Open(processName, write: true);
 
-        // the state of the two entries: the game's own bytes, or the jumps this command wrote earlier (then its caves are reused)
+        // the state of the two entries: the game's own bytes, or jumps into caves of this option (written by this command, or baked
+        // into the exe by the patcher: either way, a cave is recognised by its end, the jump back / the original jump)
         var liveAnimation = game.Read((uint)sites.Animation, 5);
         var liveMover = game.Read((uint)sites.Mover, 6);
         var clean = liveAnimation.AsSpan().SequenceEqual(animationOriginal) && liveMover.AsSpan().SequenceEqual(moverOriginal);
-        int caveAnimation = 0, caveMover = 0;
+        int CaveSize(int cave, bool animationCave)
+        {
+            var code = game.ReadOrZero((uint)cave, 200);
+            for (var i = 40; i + 6 <= code.Length; i++)
+                if (animationCave ? code[i] == 0xE9 && cave + i + 5 + BitConverter.ToInt32(code, i + 1) == sites.Animation + 5
+                                  : code[i] == 0xFF && code[i + 1] == 0x25 && BitConverter.ToInt32(code, i + 2) == sites.MoverPointer)
+                    return i + (animationCave ? 5 : 6);
+            return 0;
+        }
+        int caveAnimation = 0, caveMover = 0, oldAnimationSize = 0, oldMoverSize = 0;
         var ours = liveAnimation[0] == 0xE9 && liveMover[0] == 0xE9 && liveMover[5] == 0x90
             && (caveAnimation = Target(sites.Animation, liveAnimation)) != 0 && (caveMover = Target(sites.Mover, liveMover)) != 0
-            && game.Read((uint)caveAnimation, 4).AsSpan().SequenceEqual(new byte[] { 0x80, 0x7E, 0x16, 0x07 })
-            && game.Read((uint)caveMover, 6).AsSpan().SequenceEqual(new byte[] { 0x50, 0x51, 0x8B, 0x44, 0x24, 0x0C });
+            && (oldAnimationSize = CaveSize(caveAnimation, true)) != 0 && (oldMoverSize = CaveSize(caveMover, false)) != 0;
         if (!ours && !clean && !force)
             throw new ToolException("the game's bytes at the two entries are neither the original ones nor this option's: another patch? use -Force to write anyway");
 
         if (revert)
         {
             if (!ours) { Console.WriteLine("off-ball pace is not in the game: nothing to put back"); return 0; }
-            // the jumps first, so the game never jumps into a cave wiped back to 0xCC
+            // only the jumps go back: the caves stay where they are, unused (wiping them could crash a thread still inside)
             game.Write((uint)sites.Animation, animationOriginal);
             game.Write((uint)sites.Mover, moverOriginal);
-            game.Write((uint)caveAnimation, Enumerable.Repeat((byte)0xCC, animationSize).ToArray());
-            game.Write((uint)caveMover, Enumerable.Repeat((byte)0xCC, moverSize).ToArray());
-            Console.WriteLine("off-ball pace put back as it was");
+            Console.WriteLine("off-ball pace put back as it was (its caves are left in place, unused)");
             return 0;
         }
 
-        if (!ours)
+        // an option already there is rewritten in place only when its caves have the size of the new ones (the percent changed): the
+        // other versions are longer or shorter, and are put in free space instead, the old caves being left alone
+        if (!ours || oldAnimationSize != animationSize || oldMoverSize != moverSize)
         {
             (caveAnimation, caveMover) = FindFreeSpace(game, pe, animationSize, moverSize);
             Console.WriteLine($"free space in the game: caves at 0x{caveAnimation:X} and 0x{caveMover:X}");
