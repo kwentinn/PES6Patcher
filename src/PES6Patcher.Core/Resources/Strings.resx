@@ -502,7 +502,7 @@
     <value>from this shot accuracy</value>
   </data>
   <data name="Log.SuperShotWeight" xml:space="preserve">
-    <value>Super shot of a star (shot accuracy {1} and above): the ball keeps {0} % more weight while it flies, so it rises over the defenders and dips under the bar.</value>
+    <value>Super shot of a star (shot technique from {1}, growing from {1} minus 15): the ball keeps up to {0} % more weight while it flies, so it rises over the defenders and dips under the bar.</value>
   </data>
   <data name="Gameplay.SuperShotDebug" xml:space="preserve">
     <value>Test: F12 in a match changes it (+2)</value>

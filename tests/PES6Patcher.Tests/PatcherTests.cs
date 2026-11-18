@@ -555,15 +555,15 @@ public class PatcherTests(ITestOutputHelper output)
         var built = ExePatcher.Build(original, options with { SuperShot = 14 });
         int at = built.AsSpan().IndexOf(shot);
         Assert.True(at > 0);
-        var body = built.AsSpan(at, 110);
+        var body = built.AsSpan(at, 220);
         // mov eax,[esi+0xB0] ; and eax,0x01000C00 ; cmp eax,0x01000C00 (L1 and a right shoulder, measured at the kick)
         Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x0C, 0x00, 0x01, 0x3D, 0x00, 0x0C, 0x00, 0x01 }) > 0);
         Assert.True(body.IndexOf(new byte[] { 0xB9, 14, 0, 0, 0 }) > 0);                // mov ecx,14 (the height)
-        byte[] speed = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(PatchOptions.DefaultSuperShotSpeed)];   // mov dword [esp+0x2C],speed
+        byte[] speed = [0x69, 0xC0, .. BitConverter.GetBytes(PatchOptions.DefaultSuperShotSpeed)];   // imul eax,eax,speed (x (power + 50) / 149)
         Assert.True(body.IndexOf(speed) > 0);
         // the speed is a setting of its own
         var faster = ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 42000 });
-        byte[] chosen = [0xC7, 0x44, 0x24, 0x2C, .. BitConverter.GetBytes(42000)];
+        byte[] chosen = [0x69, 0xC0, .. BitConverter.GetBytes(42000)];
         Assert.True(faster.AsSpan().IndexOf(chosen) > 0);
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 9000 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 70000 }));
@@ -583,14 +583,14 @@ public class PatcherTests(ITestOutputHelper output)
         if (original == null) return;
 
         var options = new PatchOptions(398, FreeDirection: false, Display: false, SuperShot: 46);
-        // movzx eax,byte [eax+shot accuracy] ; and eax,0x7F ; cmp eax,star : only a star gets the dipping ball
-        byte[] star = [0x83, 0xE0, 0x7F, 0x83, 0xF8, PatchOptions.DefaultSuperShotStar, 0x72];
+        // movzx eax,byte [edi+shot technique] ; and eax,0x7F ; sub eax,star - ramp : the weight grows with the technique
+        byte[] star = [0x83, 0xE0, 0x7F, 0x83, 0xE8, PatchOptions.DefaultSuperShotStar - CodeCaves.StarRamp, 0x7E];
         Assert.True(ExePatcher.Build(original, options with { SuperShotWeight = 0 }).AsSpan().IndexOf(star) < 0);
 
         var built = ExePatcher.Build(original, options);
         Assert.True(built.AsSpan().IndexOf(star) > 0);
-        // mov eax,percent ; push eax ; fild dword [esp] ; fmul dword [unit] ; faddp st(1),st
-        byte[] weight = [.. BitConverter.GetBytes(PatchOptions.DefaultSuperShotWeight), 0x50, 0xDB, 0x04, 0x24, 0xD8, 0x0D];
+        // imul eax,eax,percent ; shr eax,7 ; push eax ; fild dword [esp] ; fmul dword [unit] ; faddp st(1),st
+        byte[] weight = [.. BitConverter.GetBytes(PatchOptions.DefaultSuperShotWeight), 0xC1, 0xE8, 0x07, 0x50, 0xDB, 0x04, 0x24, 0xD8, 0x0D];
         Assert.True(built.AsSpan().IndexOf(weight) > 0);
         Assert.True(ExePatcher.Build(original, options with { FreeKick = true }).AsSpan().IndexOf(weight) > 0);
         // everything on at once: the longest the block gets, where its jumps to the end stopped being short ones

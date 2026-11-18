@@ -48,7 +48,7 @@ namespace PES6Patcher.Core;
 /// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
 /// <param name="SuperShotSpeed">Speed of a super shot, in the kick function's units (the game's shots peak around 30 700).</param>
 /// <param name="SuperShotWeight">Extra ball weight while a star's super shot flies, in % of the game's (0 = none).</param>
-/// <param name="SuperShotStar">Shot accuracy stat from which a shooter gets that dipping ball.</param>
+/// <param name="SuperShotStar">Shot technique stat from which a shooter gets that dipping ball.</param>
 /// <param name="PhysicsMod">Load PityCharly's physics mod DLL (kload.cfg); null = leave as it is.</param>
 public sealed record InstallSettings(
     int Width,

@@ -324,7 +324,7 @@ internal static class CodeCaves
 	/// <summary>
 	/// Super shot of the human teams: its <see cref="Speed"/> and <see cref="Height"/>, both in the kick function's
 	/// units; <see cref="StateAddress"/> is the F12 word of the height (0 = no test key). <see cref="Weight"/>: extra
-	/// ball weight while it flies, in % of the game's, for a shooter whose shot accuracy stat reaches
+	/// ball weight while it flies, in % of the game's, for a shooter whose shot technique stat reaches
 	/// <see cref="Star"/> (0 = no extra weight); <see cref="HeavyState"/> is the byte saying such a shot is in the air.
 	/// </summary>
 	public sealed record SuperShotFix(int Speed, int Height, int StateAddress, int Weight = 0, int Star = 0, int HeavyState = 0);
@@ -372,16 +372,24 @@ internal static class CodeCaves
 			.Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore]);  // cmp byte [ecx+scores],HumanScore
 		GiveUp(0x73, "superHuman");                                 // jae superHuman ; jmp superDone ; not a human team
 		if (diagnosis) code.Bytes(Flag(4));
-		// a star's shot (shot accuracy stat) keeps extra weight while it flies: it rises, then dips under the bar
+		// edi = the shooter's stats, read by the speed (shot power) and by the star's weight (shot technique)
+		code.Bytes(0x0F, 0xB6, 0x7E, 0x12, 0xC1, 0xE7, 0x05)        // movzx edi,byte [esi+0x12] ; shl edi,5
+			.Bytes(0x0F, 0xB6, 0x56, 0x11, 0x03, 0xFA)              // movzx edx,byte [esi+0x11] ; add edi,edx
+			.Bytes([0x69, 0xFF], 0x348);                            // imul edi,edi,0x348
+		// a good shooter's shot keeps extra weight while it flies: it rises, then dips under the bar. The share of the weight
+		// (byte [heavy], 0 to 128 = all of it) grows linearly with the shot technique stat, from none at star - StarRamp to all at star
 		if (fix.HeavyState != 0 && fix.Weight > 0)
-			code.Bytes(0x0F, 0xB6, 0x46, 0x12, 0xC1, 0xE0, 0x05)    // movzx eax,byte [esi+0x12] ; shl eax,5
-				.Bytes(0x0F, 0xB6, 0x56, 0x11, 0x03, 0xC2)          // movzx edx,byte [esi+0x11] ; add eax,edx
-				.Bytes([0x69, 0xC0], 0x348)                         // imul eax,eax,0x348
-				.Bytes([0x0F, 0xB6, 0x80], humans.FavouredFoot + ShotAccuracyStat)   // movzx eax,byte [eax+shot accuracy]
+			code.Bytes([0x0F, 0xB6, 0x87], humans.FavouredFoot + ShotTechniqueStat)   // movzx eax,byte [edi+shot technique]
 				.Bytes(0x83, 0xE0, 0x7F)                            // and eax,0x7F
-				.Bytes(0x83, 0xF8, (byte)fix.Star)                  // cmp eax,star
-				.Jump(0x72, "superPlain")                           // jb superPlain         ; not a star
-				.Bytes([0xC6, 0x05, .. BitConverter.GetBytes(fix.HeavyState), 0x01])   // mov byte [heavy],1
+				.Bytes(0x83, 0xE8, (byte)(fix.Star - StarRamp))     // sub eax,star - ramp
+				.Jump(0x7E, "superPlain")                           // jle superPlain        ; no weight
+				.Bytes(0x6B, 0xC0, 17)                              // imul eax,eax,17      ; x 8.5 once halved: 15 points make 128
+				.Bytes(0xD1, 0xE8)                                  // shr eax,1
+				.Bytes(0x3D, 128, 0, 0, 0)                          // cmp eax,128
+				.Jump(0x76, "superShare")                           // jbe superShare
+				.Bytes([0xB8], 128)                                 // mov eax,128
+				.Mark("superShare")
+				.Bytes([0xA2], fix.HeavyState)                      // mov [heavy],al
 				.Mark("superPlain");
 		if (fix.StateAddress != 0)
 			code.Bytes([0x0F, 0xB7, 0x0D], fix.StateAddress)        // movzx ecx,word [height]
@@ -392,7 +400,27 @@ internal static class CodeCaves
 		else
 			code.Bytes([0xB9], fix.Height);                         // mov ecx,height
 																	// the speed and height arguments both take the chosen values (the lob itself is dropped elsewhere, see LobSuppression)
-		code.Bytes([0xC7, 0x44, 0x24, 0x2C], fix.Speed)             // mov dword [esp+0x2C],speed
+		// the ball also leaves higher with that share (up to x 1.5, at most the option's maximum): the more it rises, the better it dips
+		if (fix.HeavyState != 0 && fix.Weight > 0)
+			code.Bytes([0x0F, 0xB6, 0x05], fix.HeavyState)          // movzx eax,byte [heavy]
+				.Bytes(0x0F, 0xAF, 0xC1, 0xC1, 0xE8, 0x08)          // imul eax,ecx ; shr eax,8   ; height x share / 256
+				.Bytes(0x03, 0xC8)                                  // add ecx,eax
+				.Bytes(0x83, 0xF9, (byte)PatchOptions.MaxSuperShot) // cmp ecx,max
+				.Jump(0x76, "superLow")                             // jbe superLow
+				.Bytes([0xB9], PatchOptions.MaxSuperShot)           // mov ecx,max
+				.Mark("superLow");
+		// the speed follows the shot power stat: speed x (power + 50) / 149, power capped at 99 (full speed at 99, 67 % at 50)
+		code.Bytes([0x0F, 0xB6, 0x87], humans.FavouredFoot + ShotPowerStat)   // movzx eax,byte [edi+shot power]
+			.Bytes(0x83, 0xE0, 0x7F)                                // and eax,0x7F
+			.Bytes(0x83, 0xF8, 99)                                  // cmp eax,99
+			.Jump(0x76, "superPower")                               // jbe superPower
+			.Bytes([0xB8], 99)                                      // mov eax,99
+			.Mark("superPower")
+			.Bytes(0x83, 0xC0, 50)                                  // add eax,50
+			.Bytes([0x69, 0xC0], fix.Speed)                         // imul eax,eax,speed
+			.Bytes([0xBB], 149)                                     // mov ebx,149
+			.Bytes(0x33, 0xD2, 0xF7, 0xF3)                          // xor edx,edx ; div ebx
+			.Bytes(0x89, 0x44, 0x24, 0x2C)                          // mov [esp+0x2C],eax    ; speed
 			.Bytes(0x89, 0x4C, 0x24, 0x30)                          // mov [esp+0x30],ecx    ; height
 			.Mark("superDone")
 			.Bytes(0x61);                                           // popad
@@ -588,7 +616,9 @@ internal static class CodeCaves
 		code.Bytes([0x80, 0x3D, .. BitConverter.GetBytes(superShot.HeavyState), 0x00])   // cmp byte [heavy],0
 			.Jump(0x74, "superWeightDone")                          // je superWeightDone
 			.Bytes(0x50)                                            // push eax
-			.Bytes([0xB8], superShot.Weight)                        // mov eax,percent
+			.Bytes([0x0F, 0xB6, 0x05], superShot.HeavyState)        // movzx eax,byte [heavy]   ; share, 128 = all of it
+			.Bytes([0x69, 0xC0], superShot.Weight)                  // imul eax,eax,percent
+			.Bytes(0xC1, 0xE8, 0x07)                                // shr eax,7
 			.Bytes(0x50)                                            // push eax
 			.Bytes(0xDB, 0x04, 0x24)                                // fild dword [esp]
 			.AddressOf([0xD8, 0x0D], "unit")                        // fmul dword [unit]
@@ -1418,6 +1448,12 @@ internal static class CodeCaves
 	/// </summary>
 	public const int ShotAccuracyStat = 0x10;
 	public const byte AccuracyFloor = 20;
+
+	/// <summary>Shot power (+0x11, to check against the player screen) and shot technique (+0x12) stats, read by the super shot.</summary>
+	public const int ShotPowerStat = 0x11, ShotTechniqueStat = 0x12;
+
+	/// <summary>Points of shot technique below the star's, from which the ball's extra weight starts to grow (none at 75 for a star of 90).</summary>
+	public const int StarRamp = 15;
 
 	/// <summary>
 	/// Shot accuracy: the shot function's "call kick" goes through here. For a team controlled by a human (see

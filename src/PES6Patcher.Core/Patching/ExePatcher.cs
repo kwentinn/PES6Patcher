@@ -25,7 +25,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
 /// <param name="SuperShotSpeed">Speed of a super shot, in the kick function's units (the game's shots peak around 30 700).</param>
 /// <param name="SuperShotWeight">Extra ball weight while a star's super shot flies, in % of the game's weight (0 = none): it rises, then dips.</param>
-/// <param name="SuperShotStar">Shot accuracy stat from which a shooter gets that dipping ball.</param>
+/// <param name="SuperShotStar">Shot technique stat from which a shooter gets that dipping ball.</param>
 /// <param name="CarrierTurn">Running with the ball, the most the player's facing and run turn per frame, in degrees (0 = unchanged; the game's is 1.4): after a sharp touch, he follows the ball instead of running on along his old line.</param>
 /// <param name="StickDeadZone">Analog stick dead zone of each axis, in % (<see cref="GameStickDeadZone"/> = unchanged): smaller, a stick held near an axis no longer snaps onto it.</param>
 /// <param name="Spread">Players placing themselves spread across the pitch (width only), in % away from their team's centre (0 = unchanged).</param>

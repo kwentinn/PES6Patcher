@@ -502,7 +502,7 @@
     <value>à partir de cette précision de tir</value>
   </data>
   <data name="Log.SuperShotWeight" xml:space="preserve">
-    <value>Super frappe d'une star (précision de tir {1} et plus) : le ballon garde {0} % de poids en plus pendant son vol, il monte au-dessus des défenseurs puis replonge sous la barre.</value>
+    <value>Super frappe d'une star (technique de tir à partir de {1}, progressif dès {1} moins 15) : le ballon garde jusqu'à {0} % de poids en plus pendant son vol, il monte au-dessus des défenseurs puis replonge sous la barre.</value>
   </data>
   <data name="Gameplay.SuperShotDebug" xml:space="preserve">
     <value>Test : F12 en match la change (+2)</value>
