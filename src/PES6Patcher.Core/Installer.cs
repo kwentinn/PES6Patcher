@@ -42,6 +42,7 @@ namespace PES6Patcher.Core;
 /// <param name="Headers">Height of the human teams' headers, in % of the game's (100 = unchanged).</param>
 /// <param name="HeadersDebug">Test key: F11 in a match changes the headers share.</param>
 /// <param name="DefenceLine">Higher defensive line: share of the game's fixed drop taken off, in % (0 = unchanged).</param>
+/// <param name="ForwardRuns">The forwards can be picked as the runner of the run beyond the last line (the game only picked defenders and midfielders): more runs into the box.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself runs at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged).</param>
 /// <param name="SuperShot">Height of a human team's shot taken with L1 and R1 held (the super shot: a shot, not a lob), in the kick function's units (the game's shots: 13 to 35; 0 = off).</param>
 /// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
@@ -96,7 +97,8 @@ public sealed record InstallSettings(
     bool PassPowerGauges = false,
     int ShortPassFrames = 25,
     int ThroughPassFrames = 25,
-    int LoftedThroughFrames = 25
+    int LoftedThroughFrames = 25,
+    bool ForwardRuns = false
 )
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
@@ -141,6 +143,7 @@ public static class Installer
             superShot = settings.Gameplay ? settings.SuperShot : 0;
         bool accelerationGap = settings.Gameplay && settings.AccelerationGap;
         bool passPowerGauges = settings.Gameplay && settings.PassPowerGauges;
+        bool forwardRuns = settings.Gameplay && settings.ForwardRuns;
         // without any exe fix, the exe goes back to the original
         byte[] patched =
             passPowerGauges
@@ -163,6 +166,7 @@ public static class Installer
             || accelerationGap
             || defenceLine > 0
             || offBallPace > 0
+            || forwardRuns
             || settings.SkipIntro
                 ? ExePatcher.Build(
                     original,
@@ -208,7 +212,8 @@ public static class Installer
                         passPowerGauges,
                         settings.ShortPassFrames,
                         settings.ThroughPassFrames,
-                        settings.LoftedThroughFrames
+                        settings.LoftedThroughFrames,
+                        forwardRuns
                     )
                 )
                 : original;
@@ -256,6 +261,8 @@ public static class Installer
             log(Loc.T("Log.AccelerationGap"));
         if (offBallPace > 0)
             log(Loc.T("Log.OffBallPace", offBallPace));
+        if (forwardRuns)
+            log(Loc.T("Log.ForwardRuns"));
         if (defenceLine > 0)
             log(Loc.T("Log.DefenceLine", defenceLine));
         if (tackle != 100)

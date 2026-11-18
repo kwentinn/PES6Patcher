@@ -63,6 +63,7 @@ public static class GameplayPresets
 			AccelerationGap = true,
 			DefenceLine = PatchOptions.DefaultDefenceLine,
 				OffBallPace = offBallPace,
+			ForwardRuns = true,
 		};
 	}
 

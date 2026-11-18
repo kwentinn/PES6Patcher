@@ -639,6 +639,15 @@
   <data name="Gameplay.DefenceLine" xml:space="preserve">
     <value>Ligne défensive plus haute :</value>
   </data>
+  <data name="Hook.ForwardRuns" xml:space="preserve">
+    <value>course des attaquants</value>
+  </data>
+  <data name="Log.ForwardRuns" xml:space="preserve">
+    <value>Attaquants coureurs : les attaquants peuvent être choisis pour la course au-delà de la dernière ligne (un coureur par équipe), ce que le jeu ne faisait jamais.</value>
+  </data>
+  <data name="Gameplay.ForwardRuns" xml:space="preserve">
+    <value>Les attaquants font des courses dans la surface</value>
+  </data>
   <data name="Hook.OffBallPace" xml:space="preserve">
     <value>allure sans ballon</value>
   </data>

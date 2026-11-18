@@ -40,6 +40,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="CloseDribbleStrength">With <paramref name="CloseDribble"/>, how much the touches are shortened, in % of the first version's reduction.</param>
 /// <param name="CloseDribbleStrengthDebug">Test key: F10 in game changes <paramref name="CloseDribbleStrength"/> by 25 % and shows it (through Kitserver).</param>
 /// <param name="DefenceLine">Higher defensive line: share of the fixed drop the game adds to every team's line (2560 units, about 11 m) taken off, in % (0 = unchanged).</param>
+/// <param name="ForwardRuns">The forwards (roles 24 and over) can be picked as the runner of the run beyond the last line (mode 0x0F, one runner a side), which the game never gave them: more runs into the box for crosses.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself may run at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged; 100 = the Pro setting, tested in matches): he trots instead of sprinting to a near place, the runs (overlaps, runs behind the last line) stay free.</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
 	int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
@@ -49,7 +50,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
 	int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
 	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0,
-	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25)
+	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false)
 {
 	/// <summary>
 	/// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -185,9 +186,12 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
 	/// <summary>The speed of the players placing themselves can be held back.</summary>
 	public bool OffBallPace { get; init; }
 
+	/// <summary>The forwards can be made runners (mode 0x0F).</summary>
+	public bool ForwardRuns { get; init; }
+
 	public bool PassPowerGauges { get; init; }
 
-	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace;
+	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -238,6 +242,7 @@ public static class ExePatcher
 				PassPowerGauges = ExeLocator.LocatePassGauges(exe) != null,
 				DefenceLine = ExeLocator.LocateDefenceLine(exe) != null,
 				OffBallPace = ExeLocator.LocateOffBallPace(exe) != null,
+				ForwardRuns = ExeLocator.LocateForwardRuns(exe) != null,
 			};
 		}
 		catch (InvalidDataException ex)
@@ -601,6 +606,15 @@ public static class ExePatcher
 			int drop = CodeCaves.DefenceLineDrop(options.DefenceLine);
 			plan.Add((sites.OwnHalf, BitConverter.GetBytes(-drop)));
 			plan.Add((sites.OtherHalf, BitConverter.GetBytes(drop)));
+		}
+
+		// forwards as runners: the runner picker leaves at once for roles 24 and over; a cave takes them as the runner
+		if (options.ForwardRuns)
+		{
+			var sites = ExeLocator.LocateForwardRuns(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.ForwardRuns"), 0)]);
+			var hook = CodeCaves.ForwardRuns(Cave(CodeCaves.ForwardRunsSize), sites);
+			plan.Add((hook.Cave, hook.CaveBytes));
+			plan.Add((hook.Entry, hook.EntryBytes));
 		}
 
 		// analog stick dead zone: each axis is zeroed near the centre; a smaller zone lets a stick held near an axis

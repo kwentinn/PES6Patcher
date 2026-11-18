@@ -9,7 +9,7 @@ internal sealed record Hook(string NameKey, int Entry, byte[] EntryBytes, int Ca
 /// </summary>
 internal static class CodeCaves
 {
-	public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156;
+	public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156, ForwardRunsSize = 15;
 
 	/// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
 	public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 184, RelayStrengthKeySize = 13, RelayTailSize = 11;
@@ -81,6 +81,23 @@ internal static class CodeCaves
 			.Build();
 		code = [.. code, .. CodeBuilder.JumpPatch(cave + code.Length, entry + 8, 5)];
 		return new Hook("Hook.Cursor", entry, CodeBuilder.JumpPatch(entry, cave, 8), cave, code);
+	}
+
+	/// <summary>
+	/// Forwards as runners: the runner picker leaves at once for roles 24 and over, so a forward never made the run beyond the
+	/// last line (mode 0x0F, one runner a side). The jump on those roles goes to a cave that takes a candidate of role 24 to 64
+	/// as the runner (the code that stores his id in the side's slot), and leaves the other roles to the jump's old target.
+	/// </summary>
+	public static Hook ForwardRuns(int cave, ForwardRunsSites sites)
+	{
+		var code = new CodeBuilder(cave)
+			.Bytes(0x83, 0xF8, 0x40)        // cmp eax,0x40      ; role - 1 (the goalkeeper's 0 wraps to a huge value: not taken)
+			.Jump(0x73, "skip")             // jae skip
+			.JumpTo(sites.Accept)           // jmp accept        ; the candidate runs
+			.Mark("skip")
+			.JumpTo(sites.Skip)             // jmp the old target
+			.Build();
+		return new Hook("Hook.ForwardRuns", sites.Test, CodeBuilder.JumpPatch(sites.Test, cave, 6), cave, code);
 	}
 
 	/// <summary>

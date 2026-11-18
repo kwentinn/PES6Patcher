@@ -122,6 +122,9 @@ internal sealed record TackleSites(int Range, int Fail);
 /// </summary>
 internal sealed record LoftedAimSites(int Gauge, int Angle);
 
+/// <summary>The runner picker's role test: the jump on a role above 23 (<paramref name="Test"/>, 6 bytes), where it goes (<paramref name="Skip"/>) and the code that takes the candidate as the runner (<paramref name="Accept"/>).</summary>
+internal sealed record ForwardRunsSites(int Test, int Skip, int Accept);
+
 /// <summary>
 /// Pass lead: where the pass point (passer +0x9C / +0xA0) is placed ahead of the receiver, the lead (passer +0xA8) is
 /// read twice: <see cref="First"/> = mov eax,[edi+0xA8] (6 bytes, for the cosine), <see cref="Second"/> = mov ecx,[edi+0xA8]
@@ -673,6 +676,23 @@ internal sealed class ExeLocator
 		var sticks = image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(StickTableReader).FindAll(image, s)).ToList();
 		return hits.Count == 4 && hits[3] - hits[0] < 0x100 && aims.Count == 2 && goalKicks.Count == 2 && placements.Count == 1 && sticks.Count == 1
 			? new StickDeadZoneSites([.. hits.Select(h => h + 4)], [.. aims], [.. goalKicks], placements[0], image.ReadInt32(sticks[0] + 1) - 2) : null;
+	}
+
+	/// <summary>mov cl,[esi+0x10] ; movzx eax,cl ; dec eax ; cmp eax,0x16 ; ja skip ; movzx edx,[eax+roleTable] ; jmp [edx*4+cases]: the runner picker (one runner a side, mode 0x0F) leaves at once for roles 24 and over (the forwards).</summary>
+	private const string ForwardRunsTest = "8A 4E 10 0F B6 C1 48 83 F8 16 0F 87 ?? ?? ?? ?? 0F B6 90 ?? ?? ?? ?? FF 24 95 ?? ?? ?? ??";
+
+	/// <summary>movzx edx,[esi+0x13] ; mov al,[esi] ; pop edi ; mov [edx+runnerSlots],al ; pop ebp ; pop ebx ; pop esi ; add esp,0xC ; ret: the candidate becomes its side's runner.</summary>
+	private const string ForwardRunsAccept = "0F B6 56 13 8A 06 5F 88 82 ?? ?? ?? ?? 5D 5B 5E 83 C4 0C C3";
+
+	public static ForwardRunsSites? LocateForwardRuns(byte[] exe)
+	{
+		var image = new PeImage(exe);
+		List<int> Find(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
+		var test = Find(ForwardRunsTest);
+		var accept = Find(ForwardRunsAccept);
+		if (test.Count != 1 || accept.Count != 1) return null;
+		int ja = test[0] + 10;
+		return new ForwardRunsSites(ja, ja + 6 + image.ReadInt32(ja + 2), accept[0]);
 	}
 
 	public static LoftedAimSites? LocateLoftedAim(byte[] exe)
