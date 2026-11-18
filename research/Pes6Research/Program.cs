@@ -16,6 +16,7 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["memlog"] = (MemLogCommand.Run, [], MemLogCommand.Usage),
     ["snapwatch"] = (SnapWatchCommand.Run, [], SnapWatchCommand.Usage),
     ["shape"] = (ShapeCommand.Run, [], ShapeCommand.Usage),
+    ["designate"] = (DesignateCommand.Run, ["Always", "Runner"], DesignateCommand.Usage),
     // guided by beeps while someone plays
     ["driftlog"] = (CarrierLogCommands.Drift, [], CarrierLogCommands.DriftUsage),
     ["turnlog"] = (CarrierLogCommands.Turn, [], CarrierLogCommands.TurnUsage),

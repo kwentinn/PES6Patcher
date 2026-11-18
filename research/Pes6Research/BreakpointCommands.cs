@@ -14,7 +14,7 @@ static class BreakpointCommands
                                      "                                                 debugger: every call of a function (player, args), with its callers";
     public const string HitsUsage = "hits -Addresses 0x404338,0x4043A3 [-Seconds 3]\n" +
                                     "                                                 debugger: how many times up to 4 addresses run; callers, EDI, arg 1 of the first";
-    public const string WatchUsage = "watch -Address 0x3BECC84 [-Seconds 4] [-Read]\n" +
+    public const string WatchUsage = "watch -Address 0x3BECC84 [-Seconds 4] [-Read] [-OneByte]\n" +
                                      "                                                 debugger: the instructions that write (or -Read: use) an address";
     public const string ViewportUsage = "viewport [-Seconds 3]                            debugger: the Direct3D SetViewport calls (caller, rectangle)";
 
@@ -67,7 +67,8 @@ static class BreakpointCommands
 
         using var game = GameProcess.Open(processName);
         var counts = new int[addresses.Length];
-        Dictionary<uint, int> callers = [], edi = [], arg1 = [];
+        Dictionary<uint, int> callers = [], edi = [], arg1 = [], ecx = [];
+        Dictionary<string, int> transitions = [];
         HardwareBreakpoints.Run(game, game.Id, addresses, HardwareBreakpoints.ExecuteDr7(addresses.Length), execute: true, seconds, hit =>
         {
             for (var i = 0; i < addresses.Length; i++)
@@ -78,12 +79,21 @@ static class BreakpointCommands
                 Count(callers, hit.Stack(0));
                 Count(edi, hit.Edi);
                 Count(arg1, hit.Stack(4));
+                Count(ecx, hit.Ecx);
+                // the write has not run yet: the byte at [eax+0x1DD] is the mode before it, ecx the mode being written.
+                // Only players (ids 0 to 21 in the table at 0x3BDC980, 0x240 bytes each) are counted.
+                if (hit.Eax < 0x3BDC980 || hit.Eax >= 0x3BDC980 + 22 * 0x240) { transitions["outside the player table"] = transitions.GetValueOrDefault("outside the player table") + 1; return; }
+                var before = game.ReadOrZero(hit.Eax + 0x1DD, 1)[0];
+                var key = $"{before} -> {hit.Ecx & 0xFF} (player {((long)hit.Eax - 0x3BDC980) / 0x240})";
+                transitions[key] = transitions.GetValueOrDefault(key) + 1;
             }
         });
         for (var i = 0; i < addresses.Length; i++) Console.WriteLine($"0x{addresses[i]:X}: {counts[i]} times");
         foreach (var (k, n) in callers) Console.WriteLine($"  caller 0x{k:X}: {n} times");
         foreach (var (k, n) in edi) Console.WriteLine($"  EDI 0x{k:X}: {n} times");
         foreach (var (k, n) in arg1) Console.WriteLine($"  arg1 0x{k:X}: {n} times");
+        foreach (var (k, n) in ecx) Console.WriteLine($"  ECX 0x{k:X} ({k}): {n} times");
+        foreach (var (k, n) in transitions.OrderByDescending(t => t.Value)) Console.WriteLine($"  mode {k}: {n} times");
         return 0;
     }
 
@@ -96,13 +106,23 @@ static class BreakpointCommands
         var address = o.Address("Address", 0x3BECC84);
         var seconds = o.Int("Seconds", 4);
         var read = o.Flag("Read");
+        var oneByte = o.Flag("OneByte");
         o.CheckAllUsed();
 
         using var game = GameProcess.Open(processName);
         var hits = new Dictionary<uint, int>();
-        HardwareBreakpoints.Run(game, game.Id, [address], HardwareBreakpoints.DataDr7(read), execute: false, seconds, hit => Count(hits, hit.Eip));
+        var withEax = new Dictionary<string, int>();
+        HardwareBreakpoints.Run(game, game.Id, [address], HardwareBreakpoints.DataDr7(read, oneByte), execute: false, seconds, hit =>
+        {
+            Count(hits, hit.Eip);
+            // EAX is the struct the instruction writes through: a player's when it lies in the table at 0x3BDC980
+            var inTable = hit.Eax >= 0x3BDC980 && hit.Eax < 0x3BDC980 + 22 * 0x240;
+            var key = $"EIP 0x{hit.Eip:X} EAX 0x{hit.Eax:X}" + (inTable ? $" (player {((long)hit.Eax - 0x3BDC980) / 0x240})" : "");
+            withEax[key] = withEax.GetValueOrDefault(key) + 1;
+        });
         if (hits.Count == 0) Console.WriteLine(read ? "no access detected" : "no write detected");
         foreach (var (eip, n) in hits) Console.WriteLine($"{(read ? "access" : "write")} just before EIP 0x{eip:X} ({n} times)");
+        foreach (var (k, n) in withEax.OrderByDescending(t => t.Value)) Console.WriteLine($"  {k}: {n} times");
         return 0;
     }
 

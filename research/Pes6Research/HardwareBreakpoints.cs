@@ -18,6 +18,8 @@ sealed class HardwareBreakpoints
         public uint Eip => BitConverter.ToUInt32(context, OffEip);
         public uint Esp => BitConverter.ToUInt32(context, OffEsp);
         public uint Edi => BitConverter.ToUInt32(context, OffEdi);
+        public uint Ecx => BitConverter.ToUInt32(context, OffEcx);
+        public uint Eax => BitConverter.ToUInt32(context, OffEax);
         public GameProcess Game => game;
 
         /// <summary>The 32-bit value at esp + offset (0: the return address of a call, 4: the first argument).</summary>
@@ -27,8 +29,8 @@ sealed class HardwareBreakpoints
     /// <summary>DR7 for execute breakpoints on the first <paramref name="count"/> registers (local enable, RW = 00, LEN = 00).</summary>
     public static uint ExecuteDr7(int count) => Enumerable.Range(0, count).Aggregate(0u, (dr7, i) => dr7 | 1u << (2 * i));
 
-    /// <summary>DR7 for a data breakpoint on DR0: write (RW0 = 01) of 2 bytes, or read/write (RW0 = 11) of 4 bytes.</summary>
-    public static uint DataDr7(bool read) => read ? 0x000F0001u : 0x00050001u;
+    /// <summary>DR7 for a data breakpoint on DR0: write (RW0 = 01) of 2 bytes, or read/write (RW0 = 11) of 4 bytes; one byte (LEN0 = 00) if asked.</summary>
+    public static uint DataDr7(bool read, bool oneByte = false) => oneByte ? (read ? 0x00030001u : 0x00010001u) : read ? 0x000F0001u : 0x00050001u;
 
     /// <summary>
     /// Runs for <paramref name="seconds"/> with the addresses in DR0.. and DR7 as given. For execute breakpoints the resume flag is
@@ -136,8 +138,8 @@ sealed class HardwareBreakpoints
     }
 
     // WOW64_CONTEXT
-    const int ContextSize = 716, OffDr0 = 4, OffDr6 = 20, OffDr7 = 24, OffEdi = 156, OffEip = 184, OffEfl = 192, OffEsp = 196;
-    const uint ContextFlags = 0x10000 | 0x10 | 0x1; // i386 | DEBUG_REGISTERS | CONTROL
+    const int ContextSize = 716, OffDr0 = 4, OffDr6 = 20, OffDr7 = 24, OffEdi = 156, OffEcx = 172, OffEax = 176, OffEip = 184, OffEfl = 192, OffEsp = 196;
+    const uint ContextFlags = 0x10000 | 0x10 | 0x1 | 0x2; // i386 | DEBUG_REGISTERS | CONTROL | INTEGER (EAX, ECX, EDI: without it they read as 0)
     const uint ResumeFlag = 0x10000;
     const int ThreadAllAccess = 0x1FFFFF, ExceptionEvent = 1, ExitProcessEvent = 5;
     const uint DbgContinue = 0x10002, DbgExceptionNotHandled = 0x80010001;

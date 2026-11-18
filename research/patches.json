@@ -63,6 +63,22 @@
       { "address": "0x61E463", "original": "77 38", "patched": "EB 38" }
     ]
   },
+  "runs-forwards": {
+    "about": "V2 2026-11-18 (forces the pick): the cave now jumps roles 24-32 straight to the accept code 0x61E49D (ESI = candidate: slot[side] = its id) instead of the stat test, V1 gave 0 forward runs in 270 s. V1 text: Forwards as runners (prototype 2026-11-18): the runner picker 0x61DAC0 switches on the role (+0x10, 1-23) with a table; roles 24 and over (forwards) left it at once (CMP EAX,0x16 / JA 0x61E482), so a forward never made the run beyond the last line (mode 0x0F, one runner per side). Measured by writing the slot from outside (pes6r designate -Runner): forwards in mode 0x0F 0 -> 9 % of their rows, 6000 ahead of the ball. Now the JA goes to a cave at 0x5E2A00 that sends roles 24 to 32 to case 5 of the jump table 0x61E614 (the 'other midfielders' stat test at 0x61E0BF) and leaves the rest to 0x61E482. RESULT 2026-11-18 (France-England, 270 s in play): the hook is reached (22 times in 40 s) and forwards get through to the stat test, but forwards in mode 0x0F stay at 0 rows (midfield 3.5 %); the runner slot changes only about 3 times a minute and one forward id was seen in it once. Too weak alone.",
+    "bytes": [
+      { "address": "0x5E2A00", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "83 F8 40 73 05 E9 93 BA 03 00 E9 73 BA 03 00" },
+      { "address": "0x61E0AB", "original": "0F 87 D1 03 00 00", "patched": "E9 50 49 FC FF 90" }
+    ]
+  },
+  "runs-forwards-first": {
+    "about": "runs-forwards V2 (roles 24-32 accepted at once by the cave 0x5E2A00) plus the candidate loop of 0x61DAC0 walked from the last roster entry to the first (index 10 - counter, cave 0x5E2A20 replacing MOVZX ECX,CL / ADD EDX,EAX at 0x61DD79), so the forwards (high slots) are tried before the midfielders and defenders. runs-forwards alone: forwards in mode 0x0F 0 -> 0.7 %; the outside write (designate -Runner) gave 9.4 %.",
+    "bytes": [
+      { "address": "0x5E2A00", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "83 F8 40 73 05 E9 93 BA 03 00 E9 73 BA 03 00" },
+      { "address": "0x61E0AB", "original": "0F 87 D1 03 00 00", "patched": "E9 50 49 FC FF 90" },
+      { "address": "0x5E2A20", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "0F B6 C9 F7 D9 83 C1 0A 03 D0 E9 4F B3 03 00" },
+      { "address": "0x61DD79", "original": "0F B6 C9 03 D0", "patched": "E9 A2 4C FC FF" }
+    ]
+  },
   "tackle-180": {
     "about": "Pressing challenge at 180 % (the patcher's default, both teams): reach 0xA0 -> 0x120 (cmp edi at 0x572AE8) and attempt parameter 0x50 -> 0x7F (push at 0x572AF0), as the patcher writes them without the F8 test key. Original = the game's 100 %.",
     "bytes": [
