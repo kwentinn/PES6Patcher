@@ -47,7 +47,7 @@ Après un match joué avec toutes les options (1.26.1 plus le pressing réservé
 - **Désordre sur le terrain** : les joueurs se déplacent de façon incohérente. Mesuré dans un match ordi contre ordi : 20 % des joueurs sans ballon qui courent regardent à 90° ou plus de leur course, 13 % font demi-tour en moins d'une seconde, et ils restent 6 à 12 m derrière la place qu'ils visent.
 - **Rigidité et réactions lentes** : les joueurs réagissent en retard à ce qui se passe.
 - **Passes** : trop droites, trop rigides, et souvent ratées (elles n'atteignent pas le bon coéquipier).
-- **Courses** : aucun soutien du porteur en attaque ; les coéquipiers attendent au lieu de se proposer. Lu le 16 novembre 2026 : un seul joueur par équipe fait la course au-delà de la ligne à la fois, et jamais un attaquant ; rendre ce choix plus facile n'a rien changé dans un match ordi contre ordi (voir les notes de recherche, « Courses vers l'avant en attaque »). Suite : un second coureur, ou les courses propres aux attaquants.
+- **Courses** : aucun soutien du porteur en attaque ; les coéquipiers attendent au lieu de se proposer. Lu le 16 novembre 2026 : un seul joueur par équipe fait la course au-delà de la ligne à la fois, et jamais un attaquant ; rendre ce choix plus facile n'a rien changé dans un match ordi contre ordi (voir les notes de recherche, « Courses vers l'avant en attaque »). Fait pour les attaquants le 18/11/2026 (option « Les attaquants font des courses » : le choix accepte les postes 24 et plus ; en matches ordinateur ils font la course environ 2 % du temps d'attaque, 0 % avant). Reste : un second coureur, l'emplacement unique étant partagé avec les milieux et les défenseurs.
 - **Centres** : l'attaquant manque souvent là où le ballon retombe (mesuré : en général à 6 à 11 m).
 - **Milieux défensifs** : pas toujours bien placés.
 - **Stars qui dribblent peu** (Zidane, Messi) : mesuré, l'IA gagnait le ballon sur un tacle deux fois plus souvent avec la portée du pressing à 180 % pour les deux équipes (désormais réservée aux équipes des joueurs, pas encore ressenti en match).
@@ -245,3 +245,13 @@ Fait : un réglage d'**intensité** multiplie la réduction (125 % par défaut, 
 Issue : [#35](https://github.com/kwentinn/PES6Patcher/issues/35)
 
 Suggéré par kanzi123 sur Evo-Web : avec **Ligne défensive plus haute**, le gardien pourrait lui aussi se placer plus haut, près du bord de sa surface ou en dehors quand son équipe a le ballon, comme les gardiens d'aujourd'hui. Le gardien se place à part de la ligne trouvée en `0x5E1BD0` : trouver d'abord ce qui fixe sa position visée sans le ballon.
+
+## Autres mods de gameplay pour PES 6 : les analyser
+
+Trouvés sur Evo-Web le 2026-11-18 (premiers messages seulement, rien téléchargé ni testé ; détails dans la note du coffre « Mods de gameplay existants ») :
+
+- **PES6 Plus** de Retro++ (un `d3d8.dll`, gratuit) : tirs et passes assistés et sur 360°, jauge de timing du tir, finesse avec R2, gestes techniques et changement de joueur au stick droit, courses des coéquipiers, gardiens corrigés, un vrai sixième niveau de difficulté, IA cartographiée (55 situations). Il recoupe #2, #3, #15, #22, #28 et #30.
+- **Gameplay 2.0** (`gameplay.dll`, module Kitserver, source jointe) : cinq coefficients de physique du ballon ; à comparer avec nos constantes du ballon.
+- Plus petits : passe manuelle avec L2 + X/O (`dinput8.dll`), hausse des notes à 124 le temps d'un match (module Kitserver), gameplays d'autres PES/WE portés (exe modifiés), physique des filets (visuel).
+
+Fait pour PES6 Plus (lu sur son site et son fil : pas encore publié, ni code ni adresse publiés ; détails dans la note du coffre « PES6 Plus (Retro++) »). Reste à vérifier dans notre exe à cause de lui : le tirage au sort de puissance et de hauteur de chaque frappe, la table des niveaux de difficulté (0, 2, 3, 4, 5, avec un sixième caché), la limite de position du gardien près du poteau et son délai de réaction. Les autres mods et les pages 4 à 163 de la rubrique PES 6 ne sont pas lus.

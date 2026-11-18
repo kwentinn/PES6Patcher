@@ -47,7 +47,7 @@ After a match played with every option on (1.26.1 plus the pressing for the play
 - **Chaos on the pitch**: the players move incoherently. Measured in a CPU match: 20 % of the moving off-ball players face 90° or more away from their run, 13 % turn back within a second, and they lag 6 to 12 m behind the place they aim for.
 - **Rigidity and slow reactions**: the players react late to what happens.
 - **Passes**: too straight and too rigid, and often miss the intended team-mate.
-- **Runs**: no support for the player on the ball when attacking; the team-mates wait instead of offering themselves. Read on 2026-11-16: only one player per team makes the run beyond the line at a time, and never a forward; making that pick easier changed nothing in a CPU match (see the research notes, "Forward runs in attack"). Next: a second runner, or the forwards' own runs.
+- **Runs**: no support for the player on the ball when attacking; the team-mates wait instead of offering themselves. Read on 2026-11-16: only one player per team makes the run beyond the line at a time, and never a forward; making that pick easier changed nothing in a CPU match (see the research notes, "Forward runs in attack"). Done for the forwards on 2026-11-18 (option "Forwards make runs": the pick now accepts roles 24 and over; in CPU matches they make the run about 2 % of the attacking time, 0 % before). Still open: a second runner, since the single slot is shared with the midfielders and defenders.
 - **Crosses**: the striker is often missing where the ball comes down (measured: usually 6 to 11 m away).
 - **Defensive midfielders**: not always well placed.
 - **Dribbling stars** (Zidane, Messi) hardly dribble: measured, the AI won the ball by a challenge twice as often with the pressing reach at 180 % for both teams (now for the players' teams only, not felt in a match yet).
@@ -245,3 +245,13 @@ Done: a **strength** setting scales the reduction (125 % by default, 100 % = the
 Issue: [#35](https://github.com/kwentinn/PES6Patcher/issues/35)
 
 Suggested by kanzi123 on Evo-Web: with **Higher defensive line**, the keeper could also stand higher, near the edge of his box or outside it while his team has the ball, as today's keepers do. The keeper places himself apart from the line found at `0x5E1BD0`: first find what sets his target position without the ball.
+
+## Other gameplay mods for PES 6: analyse them
+
+Found on Evo-Web on 2026-11-18 (first posts only, nothing downloaded or tested; details in the vault note "Mods de gameplay existants"):
+
+- **PES6 Plus** by Retro++ (a `d3d8.dll`, free): assisted and 360° shooting and passing, shot timing bar, R2 finesse, skill moves and player switching on the right stick, teammate runs, keeper fixes, a real sixth difficulty level, AI mapped (55 situations). It overlaps #2, #3, #15, #22, #28 and #30.
+- **Gameplay 2.0** (`gameplay.dll`, Kitserver module, source included): five ball physics coefficients; compare with our ball constants.
+- Smaller ones: manual pass with L2 + X/O (`dinput8.dll`), a match-only rating boost to 124 (Kitserver module), ported gameplays from other PES/WE games (modified exes), goal net physics (visual).
+
+Done for PES6 Plus (read from its site and thread: not released yet, no code or addresses published; details in the vault note "PES6 Plus (Retro++)"). Still to check in our exe because of it: the random power and height roll on every kick, the difficulty level table (0, 2, 3, 4, 5, with a hidden sixth), the keeper's near-post position limit and his reaction delay. The other mods and pages 4 to 163 of the PES 6 forum are not read yet.
