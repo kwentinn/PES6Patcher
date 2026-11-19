@@ -15,8 +15,9 @@ namespace Pes6Research;
 /// </summary>
 static class StartMatchCommand
 {
-    public const string Usage = "startmatch [-Home France] [-Away England] [-Exe PES6.exe] [-Boot 20] [-Shots folder]\n" +
-                                "                                                 starts the game and a CPU-vs-CPU match through the menus";
+    public const string Usage = "startmatch [-Fast] [-Home France] [-Away England] [-Exe PES6.exe] [-Boot 20] [-Shots folder]\n" +
+                                "                                                 starts the game and a CPU-vs-CPU match through the menus\n" +
+                                "                                                 (-Fast: about 37 s, through the game's own demo, no menus)";
 
     const int Enter = 28, Up = 328, Down = 336, Right = 333;
 
@@ -53,6 +54,7 @@ static class StartMatchCommand
         var exe = o.String("Exe") ?? InstalledExe();
         var boot = o.Int("Boot", 20);
         var shots = o.String("Shots");
+        var fast = o.Flag("Fast");
         var steps = Steps(o.String("Home") ?? "France", o.String("Away") ?? "England");   // two of the best sides by default
         o.CheckAllUsed();
         if (GameProcess.IsRunning(processName)) throw new ToolException($"{processName} already runs: startmatch drives the menus from the game's first screen. Close it first.");
@@ -60,6 +62,7 @@ static class StartMatchCommand
         if (shots != null) Directory.CreateDirectory(shots);
 
         Process.Start(new ProcessStartInfo(exe) { WorkingDirectory = Path.GetDirectoryName(exe)!, UseShellExecute = true })?.Dispose();
+        if (fast) return RunFast(processName, o.String("Home") ?? "France", o.String("Away") ?? "England");
         Console.WriteLine($"Started {exe}; waiting {boot} s for the language screen.");
         Thread.Sleep(boot * 1000);
 
@@ -81,6 +84,75 @@ static class StartMatchCommand
         if (!InMatch(game)) throw new ToolException("no match after the menus: look at the screenshots (-Shots)");
         var carrier = game.ReadOrZero(Carrier, 1)[0];
         Console.WriteLine($"Match started (carrier {carrier}). No player's buttons are read here: check the first screenshot of the match for a cursor if in doubt.");
+        return 0;
+    }
+
+    // Addresses of the fast path (read in Ghidra and validated in game on 2026-11-19, see the vault note "Matches sans surveillance"):
+    const uint GameMode = 0x3BECC60;                 // 1 language, 2 option file, 3 logos, 4 title, 5 menus, 8 match, 0xC demo
+    const uint DemoTable = 0xD4F8F0;                 // 13 entries of 12 bytes: home id, away id (dwords), settings
+    const uint DemoStep = 0x3A6ADE4, MatchStep = 0x10C9938, DemoLimit = 0x9AE5E5;
+    const uint ResetPad = 0x78F220;                  // function that zeroes a pad object the demo path never creates (null write after ~50 s)
+    const uint LogoCounter = 0x1031354, DemoScene = 0x3A6ADE2, DemoEntry = 0x3A6ADE1, TitleIdle = 0x3A79B50;
+
+    static uint Mode(GameProcess game) => BitConverter.ToUInt32(game.ReadOrZero(GameMode, 4));
+
+    static void WaitFor(GameProcess game, Func<bool> done, int seconds, string what)
+    {
+        for (var t = 0; t < seconds * 4; t++)
+        {
+            if (game.HasExited) throw new ToolException($"the game closed while waiting for {what}");
+            if (done()) return;
+            Thread.Sleep(250);
+        }
+        throw new ToolException($"timeout waiting for {what}");
+    }
+
+    /// <summary>
+    /// The menus take 40 s of the 82 s of the slow path. Here: the language and the logos by key, then at the title the idle counter is
+    /// set to its threshold so the game starts its own demo (a CPU-vs-CPU match loaded as a real one) with the two teams written in the
+    /// demo's table; the demo then plays on (mode 0xC: the match mode 8 crashes on pad objects only the menus create), its 70 s limit removed.
+    /// </summary>
+    static int RunFast(string processName, string home, string away)
+    {
+        var ids = new[] { home, away }.Select(t => Array.FindIndex(EuropeA, n => n.Equals(t, StringComparison.OrdinalIgnoreCase))).ToArray();
+        GameProcess? opened = null;
+        for (var i = 0; i < 120 && opened == null; i++)
+            try { opened = GameProcess.Open(processName, write: true); } catch (ToolException) { Thread.Sleep(250); }
+        using var game = opened ?? throw new ToolException("the game did not start");
+        void Dword(uint address, uint value) => game.Write(address, BitConverter.GetBytes(value));
+
+        WaitFor(game, () => Mode(game) == 1, 60, "the language screen");
+        Thread.Sleep(3000);
+        if (!SkipKey.Press(game, Down) || !SkipKey.Press(game, Enter)) throw new ToolException("the game did not take the focus, nothing sent");
+        Console.WriteLine("language: Français");
+        WaitFor(game, () => { if (Mode(game) == 3) SkipKey.Press(game, Enter); return Mode(game) == 4; }, 60, "the title screen");
+        Console.WriteLine("title; starting the demo with the teams");
+        Thread.Sleep(3000);
+
+        for (var k = 0; k < 13; k++)
+        {
+            Dword(DemoTable + (uint)(12 * k), (uint)ids[0]);
+            Dword(DemoTable + (uint)(12 * k) + 4, (uint)ids[1]);
+        }
+        game.Write(ResetPad, [0xC3]);
+        Dword(LogoCounter, 2);
+        game.Write(DemoScene, [2]);
+        game.Write(DemoEntry, [0]);
+        Dword(TitleIdle, 3000);
+
+        WaitFor(game, () => Mode(game) == 0xC && game.ReadU8(DemoStep) == 8 && game.ReadU8(MatchStep) == 8, 90, "the demo to kick off");
+        // the demo ends after 70 s of play: its "JLE continue" (0F 8E rel32) becomes "JMP continue" so the match lasts to the final whistle
+        var jle = game.Read(DemoLimit, 6);
+        if (jle[0] == 0x0F && jle[1] == 0x8E)
+        {
+            var jmp = BitConverter.GetBytes(BitConverter.ToInt32(jle, 2) + 1);
+            game.Write(DemoLimit, [0xE9, jmp[0], jmp[1], jmp[2], jmp[3], 0x90]);
+        }
+        else Console.WriteLine("warning: the demo time limit was not found, the match stops after about 70 s");
+        WaitFor(game, () => InMatch(game), 20, "the match");
+        Thread.Sleep(3000);
+        var carrier = game.ReadOrZero(Carrier, 1)[0];
+        Console.WriteLine($"Match started (carrier {carrier}), {home} against {away}, no menus.");
         return 0;
     }
 
