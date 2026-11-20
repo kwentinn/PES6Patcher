@@ -51,7 +51,7 @@ sealed class PendingKick
 {
     public long StartMs; public int Player, State, Receiver, Genre, Gauge;
     public uint Buttons;
-    public float TargetX, TargetZ, StartBallX, StartBallZ;
+    public float TargetX, TargetZ, StartBallX, StartBallZ, EndBallX, EndBallZ;
     public int PeakSpeed, VzAtPeak;
     public float VzFloatAtPeak;
 }
@@ -152,6 +152,7 @@ sealed class HudTracker
             p.TargetX = Float(p.Player, 0x9C); p.TargetZ = Float(p.Player, 0xA0);
             if (Ms - p.StartMs < KickWindowMs) continue;
             pending.RemoveAt(i);
+            p.EndBallX = BallX; p.EndBallZ = BallZ;
             var line = Describe(p);
             Kicks.Add(line);
             if (Kicks.Count > 12) Kicks.RemoveAt(0);
@@ -161,12 +162,12 @@ sealed class HudTracker
 
     static bool IsKickState(byte s) => s is 4 or 5 or 6 or 8 or 9 or 27 or 30 or 34 or 44 or 48;
 
-    public static string KickKind(int state, uint buttons, int receiver)
+    public static string KickKind(int state, uint buttons, int receiver, bool towardGoal = false)
     {
         var kind = state switch
         {
-            4 => receiver != 0 ? "passe (etat 4)" : "tir a l'arret",
-            5 => receiver != 0 ? "passe courte" : "tir en course / passe",
+            4 => towardGoal || receiver == 0 ? "tir a l'arret" : "passe (etat 4)",
+            5 => towardGoal ? "tir en course" : receiver != 0 ? "passe courte" : "tir en course / passe",
             6 => "passe en profondeur",
             8 => "passe en hauteur",
             9 => "centre",
@@ -180,11 +181,25 @@ sealed class HudTracker
         return kind;
     }
 
+    // A state 4 / 5 kick whose ball ends up heading for the opponent's goal mouth is a shot, whatever +0x48 still holds
+    // (the receiver byte is not always cleared: super shots were logged as passes). Goal line about x = +-13400, mouth about +-940 (256 units per metre).
+    bool HeadsForGoal(PendingKick p)
+    {
+        if (p.State is not (4 or 5)) return false;
+        var firstOpponent = p.Player <= 11 ? 12 : 1;
+        var keeper = Enumerable.Range(firstOpponent, 11).FirstOrDefault(i => Byte(i, Slot) == 0, firstOpponent);
+        var goalX = Float(keeper, X) > 0 ? 13400f : -13400f;
+        float dx = p.EndBallX - p.StartBallX, dz = p.EndBallZ - p.StartBallZ;
+        if (MathF.Abs(dx) < 500 || MathF.Sign(dx) != MathF.Sign(goalX - p.StartBallX)) return false;
+        return MathF.Abs(p.StartBallZ + dz * (goalX - p.StartBallX) / dx) < 3000;
+    }
+
     string Describe(PendingKick p)
     {
         var who = $"P{p.Player}(t{Byte(p.Player, Team)}s{Byte(p.Player, Slot)})";
-        var receiver = p.Receiver != 0 ? $" -> P{p.Receiver}" : "";
-        return $"{TimeSpan.FromMilliseconds(p.StartMs):mm\\:ss\\.f} {who} {KickKind(p.State, p.Buttons, p.Receiver)}{receiver} | state={p.State} " +
+        var goal = HeadsForGoal(p);
+        var receiver = p.Receiver != 0 && !goal ? $" -> P{p.Receiver}" : "";
+        return $"{TimeSpan.FromMilliseconds(p.StartMs):mm\\:ss\\.f} {who} {KickKind(p.State, p.Buttons, p.Receiver, goal)}{receiver} | state={p.State} " +
                $"buttons={p.Buttons:X8} gauge={p.Gauge} genre={p.Genre} target=({p.TargetX:F0},{p.TargetZ:F0}) " +
                $"ball speed={p.PeakSpeed} vz={p.VzFloatAtPeak:F0} from ({p.StartBallX:F0},{p.StartBallZ:F0})";
     }
