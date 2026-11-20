@@ -191,7 +191,16 @@ sealed class HudTracker
         var goalX = Float(keeper, X) > 0 ? 13400f : -13400f;
         float dx = p.EndBallX - p.StartBallX, dz = p.EndBallZ - p.StartBallZ;
         if (MathF.Abs(dx) < 500 || MathF.Sign(dx) != MathF.Sign(goalX - p.StartBallX)) return false;
-        return MathF.Abs(p.StartBallZ + dz * (goalX - p.StartBallX) / dx) < 3000;
+        if (MathF.Abs(p.StartBallZ + dz * (goalX - p.StartBallX) / dx) >= 3000) return false;
+        // a long ground pass toward the goal also heads there: it is a pass when its receiver stands on the ball's path (within ~10 m)
+        if (p.Receiver != 0)
+        {
+            float rx = Float(p.Receiver, X) - p.StartBallX, rz = Float(p.Receiver, Z) - p.StartBallZ, len = MathF.Sqrt(dx * dx + dz * dz);
+            var along = (rx * dx + rz * dz) / len;
+            var across = MathF.Abs(rx * dz - rz * dx) / len;
+            if (along > 0 && across < 2500) return false;
+        }
+        return true;
     }
 
     string Describe(PendingKick p)
