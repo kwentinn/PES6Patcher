@@ -11,6 +11,7 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["positions"] = (PositionsCommand.Run, [], PositionsCommand.Usage),
     ["placement"] = (PlacementCommand.Run, [], PlacementCommand.Usage),
     ["key"] = (KeyCommand.Run, [], KeyCommand.Usage),
+    ["hud"] = (HudCommand.Run, ["Text"], HudCommand.Usage),
     ["snap"] = (SnapCommand.Run, [], SnapCommand.Usage),
     ["snapdiff"] = (SnapDiffCommand.Run, [], SnapDiffCommand.Usage),
     ["memlog"] = (MemLogCommand.Run, [], MemLogCommand.Usage),
