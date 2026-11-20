@@ -166,8 +166,8 @@ sealed class HudTracker
     {
         var kind = state switch
         {
-            4 => towardGoal || receiver == 0 ? "tir a l'arret" : "passe (etat 4)",
-            5 => towardGoal ? "tir en course" : receiver != 0 ? "passe courte" : "tir en course / passe",
+            4 => "tir a l'arret",
+            5 => towardGoal ? "tir en course" : "passe courte",
             6 => "passe en profondeur",
             8 => "passe en hauteur",
             9 => "centre",
@@ -181,34 +181,13 @@ sealed class HudTracker
         return kind;
     }
 
-    // A state 4 / 5 kick whose ball ends up heading for the opponent's goal mouth is a shot, whatever +0x48 still holds
-    // (the receiver byte is not always cleared: super shots were logged as passes). Goal line about x = +-13400, mouth about +-940 (256 units per metre).
-    bool HeadsForGoal(PendingKick p)
-    {
-        if (p.State is not (4 or 5)) return false;
-        var firstOpponent = p.Player <= 11 ? 12 : 1;
-        var keeper = Enumerable.Range(firstOpponent, 11).FirstOrDefault(i => Byte(i, Slot) == 0, firstOpponent);
-        var goalX = Float(keeper, X) > 0 ? 13400f : -13400f;
-        float dx = p.EndBallX - p.StartBallX, dz = p.EndBallZ - p.StartBallZ;
-        if (MathF.Abs(dx) < 500 || MathF.Sign(dx) != MathF.Sign(goalX - p.StartBallX)) return false;
-        if (MathF.Abs(p.StartBallZ + dz * (goalX - p.StartBallX) / dx) >= 3000) return false;
-        // a long ground pass toward the goal also heads there: it is a pass when its receiver stands on the ball's path (within ~10 m)
-        if (p.Receiver != 0)
-        {
-            float rx = Float(p.Receiver, X) - p.StartBallX, rz = Float(p.Receiver, Z) - p.StartBallZ, len = MathF.Sqrt(dx * dx + dz * dz);
-            var along = (rx * dx + rz * dz) / len;
-            var across = MathF.Abs(rx * dz - rz * dx) / len;
-            if (along > 0 && across < 2500) return false;
-        }
-        return true;
-    }
-
     string Describe(PendingKick p)
     {
         var who = $"P{p.Player}(t{Byte(p.Player, Team)}s{Byte(p.Player, Slot)})";
-        // the buttons are the intent: 0x8000 = shot, 0x4000 = short pass (seen on human kicks); the geometry only decides for the rest (AI, other passes)
-        var goal = (p.Buttons | p.Pressed) is var b && (b & 0x8000) != 0 && (b & 0x4000) == 0 || ((b & 0x4000) == 0 && HeadsForGoal(p));
-        var receiver = p.Receiver != 0 && !goal ? $" -> P{p.Receiver}" : "";
+        // The caller of the kick function (measured 2026-11-20 with calls 0x478020) says the gesture: 0x5BBC9F is a shot (state 4), 0x71042D7E a short or
+        // through pass (state 5 / 6), 0x56A585 a lofted pass (8), 0x587C90 a cross (9), 0x562A70 a header (34). State 5 with the shot button (0x8000) is a shot on the run.
+        var goal = (p.Buttons | p.Pressed) is var b && p.State == 5 && (b & 0x8000) != 0 && (b & 0x4000) == 0;
+        var receiver = p.Receiver != 0 && p.State != 4 && !goal ? $" -> P{p.Receiver}" : "";
         return $"{TimeSpan.FromMilliseconds(p.StartMs):mm\\:ss\\.f} {who} {KickKind(p.State, p.Buttons, p.Receiver, goal)}{receiver} | state={p.State} " +
                $"buttons={p.Buttons:X8} pressed={p.Pressed:X8} gauge={p.Gauge} genre={p.Genre} target=({p.TargetX:F0},{p.TargetZ:F0}) " +
                $"ball speed={p.PeakSpeed} vz={p.VzFloatAtPeak:F0} from ({p.StartBallX:F0},{p.StartBallZ:F0})";
