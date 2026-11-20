@@ -542,6 +542,31 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void The_shot_gauge_can_be_slowed()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).ShotGauge);
+        var options = new PatchOptions(398, FreeDirection: false, Display: false);
+        // movzx ecx,byte [esi+0x4D] ; movzx edx,byte [esi+0xD0] ; cmp ecx,edx: the gauge against the copy kept in the player record
+        byte[] gauge = [0x0F, 0xB6, 0x4E, 0x4D, 0x0F, 0xB6, 0x96, 0xD0, 0, 0, 0, 0x39, 0xD1];
+        Assert.True(ExePatcher.Build(original, options).AsSpan().IndexOf(gauge) < 0);
+
+        var built = ExePatcher.Build(original, options with { ShotGaugeSpeed = 75 });
+        Assert.True(built.AsSpan().IndexOf(gauge) > 0);
+        Assert.True(built.AsSpan().IndexOf(new byte[] { 0x69, 0xC9, 96, 0, 0, 0 }) > 0);        // imul ecx,ecx,96: 75 % of 128
+        var sites = ExeLocator.LocateShotGauge(original)!;
+        Assert.Equal(0xE9, built[new PeImage(built).Offset(sites.Dispatch)]);                  // the state dispatch jumps to the cave
+
+        // with the pass gauges, their dispatch cave carries it
+        var both = ExePatcher.Build(original, options with { PassPowerGauges = true, ShotGaugeSpeed = 60 });
+        Assert.True(both.AsSpan().IndexOf(gauge) > 0);
+        Assert.True(both.AsSpan().IndexOf(new byte[] { 0x69, 0xC9, 77, 0, 0, 0 }) > 0);
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { ShotGaugeSpeed = 20 }));
+    }
+
+    [Fact]
     public void Super_shot_makes_a_human_l1_r1_shot_flat_and_fast()
     {
         var original = Load("PES6.orig.exe");
@@ -555,7 +580,7 @@ public class PatcherTests(ITestOutputHelper output)
         var built = ExePatcher.Build(original, options with { SuperShot = 14 });
         int at = built.AsSpan().IndexOf(shot);
         Assert.True(at > 0);
-        var body = built.AsSpan(at, 220);
+        var body = built.AsSpan(at, 400);
         // mov eax,[esi+0xB0] ; and eax,0x01000C00 ; cmp eax,0x01000C00 (L1 and a right shoulder, measured at the kick)
         Assert.True(body.IndexOf(new byte[] { 0x8B, 0x86, 0xB0, 0, 0, 0, 0x25, 0x00, 0x0C, 0x00, 0x01, 0x3D, 0x00, 0x0C, 0x00, 0x01 }) > 0);
         Assert.True(body.IndexOf(new byte[] { 0xB9, 14, 0, 0, 0 }) > 0);                // mov ecx,14 (the height)
@@ -568,6 +593,9 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 9000 }));
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { SuperShot = 14, SuperShotSpeed = 70000 }));
         Assert.True(body.IndexOf(new byte[] { 0x89, 0x4C, 0x24, 0x30 }) > 0);           // mov [esp+0x30],ecx
+        // the bytes tried live in the game: the gauge read and capped, then the height curve with its jumps
+        Assert.True(body.IndexOf(new byte[] { 0x0F, 0xB6, 0x56, CodeCaves.ShotGaugeField, 0x81, 0xFA, 0x80, 0, 0, 0, 0x76, 0x05, 0xBA, 0x80, 0, 0, 0, 0x81, 0xFA, 0x6C, 0, 0, 0, 0x77, 0x0E }) > 0);
+        Assert.True(body.IndexOf(new byte[] { 0xBB, 0x00, 0x01, 0, 0, 0x29, 0xFB, 0x0F, 0xAF, 0xDF, 0xC1, 0xEB, 0x07, 0x81, 0xFA, 0x6C, 0, 0, 0, 0x76, 0x08, 0x89, 0xD7, 0x83, 0xEF, 0x6C, 0x8D, 0x1C, 0x7B, 0x83, 0xF9, 0x09, 0x76, 0x16 }) > 0);
         Assert.Equal(0xE9, built[new PeImage(built).Offset(0x478020)]);
 
         var debug = ExePatcher.Build(original, options with { SuperShot = 14, SuperShotDebug = true });

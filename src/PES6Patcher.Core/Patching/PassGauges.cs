@@ -25,6 +25,7 @@ internal static class PassGauges
 		code.Mark("dispatch");
 		code.Bytes(0x9C); // pushfd
 		code.Bytes(0x60); // pushad
+		if (options.ShotGaugeSpeed < 100) CodeCaves.ShotGaugeCore(code, options.ShotGaugeSpeed); // slowed shot gauge, see ShotGaugeCore
 		// Player record zero can also report pad zero. It cannot receive a pass.
 		code.Bytes(0x0F, 0xB6, 0x06); // movzx eax, byte [esi]
 		code.Bytes(0x48); // dec eax

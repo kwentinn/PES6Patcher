@@ -41,6 +41,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="CloseDribbleStrengthDebug">Test key: F10 in game changes <paramref name="CloseDribbleStrength"/> by 25 % and shows it (through Kitserver).</param>
 /// <param name="DefenceLine">Higher defensive line: share of the fixed drop the game adds to every team's line (2560 units, about 11 m) taken off, in % (0 = unchanged).</param>
 /// <param name="ForwardRuns">The forwards (roles 24 and over) can be picked as the runner of the run beyond the last line (mode 0x0F, one runner a side), which the game never gave them: more runs into the box for crosses.</param>
+/// <param name="ShotGaugeSpeed">Speed at which the shot gauge (the game's own, 0 to 0x80 in about 0.25 s) fills, in % of the game's (100 = unchanged): a slower gauge leaves more time to dose a shot.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself may run at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged; 100 = the Pro setting, tested in matches): he trots instead of sprinting to a near place, the runs (overlaps, runs behind the last line) stay free.</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
 	int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
@@ -50,7 +51,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
 	int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
 	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0,
-	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false)
+	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false, int ShotGaugeSpeed = 100)
 {
 	/// <summary>
 	/// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -77,6 +78,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	/// limits. 100 % lets him sprint towards a place more than about 17 m away, 50 % from about 33 m; from 400 % on the cap hardly bites.
 	/// </summary>
 	public const int DefaultOffBallPace = 100, MinOffBallPace = 25, MaxOffBallPace = 400;
+
+	/// <summary>Shot gauge fill speed, in % of the game's (100 = unchanged): default when the option is on (tuned in game: 75 % fills in about 0.33 s instead of 0.25 s) and limits.</summary>
+	public const int DefaultShotGaugeSpeed = 75, MinShotGaugeSpeed = 40, MaxShotGaugeSpeed = 100;
 
 	/// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
 	public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
@@ -189,9 +193,12 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
 	/// <summary>The forwards can be made runners (mode 0x0F).</summary>
 	public bool ForwardRuns { get; init; }
 
+	/// <summary>The fill speed of the shot gauge can be slowed (the player state dispatch is found).</summary>
+	public bool ShotGauge { get; init; }
+
 	public bool PassPowerGauges { get; init; }
 
-	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns;
+	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns || ShotGauge;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -243,6 +250,7 @@ public static class ExePatcher
 				DefenceLine = ExeLocator.LocateDefenceLine(exe) != null,
 				OffBallPace = ExeLocator.LocateOffBallPace(exe) != null,
 				ForwardRuns = ExeLocator.LocateForwardRuns(exe) != null,
+				ShotGauge = ExeLocator.LocateShotGauge(exe) != null,
 			};
 		}
 		catch (InvalidDataException ex)
@@ -616,6 +624,20 @@ public static class ExePatcher
 			plan.Add((hook.Cave, hook.CaveBytes));
 			plan.Add((hook.Entry, hook.EntryBytes));
 		}
+
+		// shot gauge: its fill is slowed at the start of the player state dispatch (with the pass gauges, their dispatch cave does it)
+		if (options.ShotGaugeSpeed < 100)
+		{
+			if (options.ShotGaugeSpeed < PatchOptions.MinShotGaugeSpeed) throw new ArgumentOutOfRangeException(nameof(options), options.ShotGaugeSpeed, null);
+			var sites = ExeLocator.LocateShotGauge(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.ShotGauge"), 0)]);
+			if (!options.PassPowerGauges)
+			{
+				var hook = CodeCaves.ShotGaugeSlowdown(Cave(CodeCaves.ShotGaugeSlowdown(0, sites, options.ShotGaugeSpeed).CaveBytes.Length), sites, options.ShotGaugeSpeed);
+				plan.Add((hook.Cave, hook.CaveBytes));
+				plan.Add((hook.Entry, hook.EntryBytes));
+			}
+		}
+		else if (options.ShotGaugeSpeed > PatchOptions.MaxShotGaugeSpeed) throw new ArgumentOutOfRangeException(nameof(options), options.ShotGaugeSpeed, null);
 
 		// analog stick dead zone: each axis is zeroed near the centre; a smaller zone lets a stick held near an axis
 		// steer instead of snapping onto it

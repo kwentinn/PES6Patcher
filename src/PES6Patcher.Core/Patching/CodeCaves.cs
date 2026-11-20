@@ -336,6 +336,40 @@ internal static class CodeCaves
 	/// </summary>
 	public const int SuperShotButtons = 0x01000C00;
 
+	/// <summary>Where, in each player record, the shot gauge slowdown keeps the gauge it let through last frame (+0xC0 to +0xDF were always 0 in the measured records).</summary>
+	public const int ShotGaugeShadow = 0xD0;
+
+	/// <summary>
+	/// Slows the shot gauge's fill: the game adds 8 a frame to <c>[player+0x4D]</c> while the shot button is held (found by watching
+	/// it; the instruction that does it was never found). At each player's state dispatch (esi = the player), what the gauge rose by
+	/// since the copy kept in the record is cut to <paramref name="percent"/> %, and the copy follows: a gauge that falls (a kick) or
+	/// stays is only copied. The caller saves ecx and edx.
+	/// </summary>
+	internal static void ShotGaugeCore(CodeBuilder code, int percent) =>
+		code.Bytes(0x0F, 0xB6, 0x4E, 0x4D)                          // movzx ecx,byte [esi+gauge]
+			.Bytes([0x0F, 0xB6, 0x96], ShotGaugeShadow)             // movzx edx,byte [esi+copy]
+			.Bytes(0x39, 0xD1)                                      // cmp ecx,edx
+			.Jump(0x76, "shotGaugeCopy")                            // jbe shotGaugeCopy
+			.Bytes(0x29, 0xD1)                                      // sub ecx,edx             ; the rise
+			.Bytes([0x69, 0xC9], (percent * 128 + 50) / 100)        // imul ecx,ecx,percent x 128 / 100
+			.Bytes(0x83, 0xC1, 0x40)                                // add ecx,64
+			.Bytes(0xC1, 0xE9, 0x07)                                // shr ecx,7               ; rise x percent / 100, rounded
+			.Bytes(0x01, 0xD1)                                      // add ecx,edx
+			.Bytes(0x88, 0x4E, 0x4D)                                // mov [esi+gauge],cl
+			.Mark("shotGaugeCopy")
+			.Bytes([0x88, 0x8E], ShotGaugeShadow);                  // mov [esi+copy],cl
+
+	/// <summary>The dispatch's first instruction (<c>movzx eax,[esi+0x16]</c>, 9 bytes with the jump) runs the gauge slowdown first.</summary>
+	public static Hook ShotGaugeSlowdown(int cave, ShotGaugeSites sites, int percent)
+	{
+		var code = new CodeBuilder(cave).Bytes(0x51, 0x52);         // push ecx ; push edx
+		ShotGaugeCore(code, percent);
+		code.Bytes(0x5A, 0x59)                                      // pop edx ; pop ecx
+			.Bytes(0x0F, 0xB6, 0x46, 0x16)                          // movzx eax,byte [esi+0x16]
+			.JumpTo(sites.Continuation);                            // the game's state dispatch
+		return new Hook("Hook.ShotGauge", sites.Dispatch, CodeBuilder.JumpPatch(sites.Dispatch, cave, 9), cave, code.Build());
+	}
+
 	/// <summary>
 	/// Super shot (prototype): at the kick function's entry, a shot of a human team whose shooter holds L1 and R1 leaves
 	/// at <see cref="SuperShotFix.Speed"/> and <see cref="SuperShotFix.Height"/> (the F12 value when set). A shot is the
@@ -419,11 +453,89 @@ internal static class CodeCaves
 			.Bytes(0x83, 0xC0, 50)                                  // add eax,50
 			.Bytes([0x69, 0xC0], fix.Speed)                         // imul eax,eax,speed
 			.Bytes([0xBB], 149)                                     // mov ebx,149
-			.Bytes(0x33, 0xD2, 0xF7, 0xF3)                          // xor edx,edx ; div ebx
-			.Bytes(0x89, 0x44, 0x24, 0x2C)                          // mov [esp+0x2C],eax    ; speed
+			.Bytes(0x33, 0xD2, 0xF7, 0xF3);                         // xor edx,edx ; div ebx
+		EmitSuperShotGauge(code, fix);
+		code.Bytes(0x89, 0x44, 0x24, 0x2C)                          // mov [esp+0x2C],eax    ; speed
 			.Bytes(0x89, 0x4C, 0x24, 0x30)                          // mov [esp+0x30],ecx    ; height
 			.Mark("superDone")
 			.Bytes(0x61);                                           // popad
+	}
+
+	/// <summary>The shooter's shot gauge, 0 to 0x80 (the game adds 8 per frame while the shot button is held, so it is full in about
+	/// 0.25 s, and keeps the value after the release); the kick function still sees it. Measured in game with and without L1 + R1.</summary>
+	public const int ShotGaugeField = 0x4D;
+
+	/// <summary>The gauge value at which the super shot is at its best: 108 of 128, about 85 %.</summary>
+	private const int SuperGaugeIdeal = 108;
+
+	/// <summary>The height of a barely charged super shot: a flat drive, never a lob.</summary>
+	private const int SuperLowHeight = 9;
+
+	/// <summary>
+	/// Speed, height and star weight follow the shot gauge (esi = the shooter, eax = the speed and ecx = the height chosen so far;
+	/// edx, ebx and edi are free). With g the gauge capped at 128 and 108 the ideal charge:
+	/// speed x (0.6 at 0 up to 1 at 108, then down to 0.92 at 128); height from <see cref="SuperLowHeight"/> up to the chosen
+	/// height at 108 along a curve that rises fast (1 - (1 - x)^2), then up to 1.31 times it at 128, never above the option's maximum;
+	/// the star's weight share x (g / 128)^2, so a soft shot is not weighed down. Whatever the gauge, the speed stays at least
+	/// 1.125 times the speed the game gave the same shot without L1 + R1.
+	/// </summary>
+	private static void EmitSuperShotGauge(CodeBuilder code, SuperShotFix fix)
+	{
+		code.Bytes(0x0F, 0xB6, 0x56, ShotGaugeField)                // movzx edx,byte [esi+gauge]
+			.Bytes([0x81, 0xFA], 128)                               // cmp edx,128
+			.Jump(0x76, "gaugeCapped")                              // jbe gaugeCapped
+			.Bytes([0xBA], 128)                                     // mov edx,128
+			.Mark("gaugeCapped")
+			.Bytes([0x81, 0xFA], SuperGaugeIdeal)                   // cmp edx,ideal
+			.Jump(0x77, "gaugeOver")                                // ja gaugeOver
+			.Bytes(0x6B, 0xDA, 121)                                 // imul ebx,edx,121      ; x 121 / 128 = about 102 / 108
+			.Bytes(0xC1, 0xEB, 0x07)                                // shr ebx,7
+			.Bytes([0x81, 0xC3], 154)                               // add ebx,154           ; 154 + 102 = 256 at the ideal
+			.Jump(0xEB, "gaugeSpeed")                               // jmp gaugeSpeed
+			.Mark("gaugeOver")
+			.Bytes([0xBB], 256 + SuperGaugeIdeal)                   // mov ebx,256 + ideal
+			.Bytes(0x29, 0xD3)                                      // sub ebx,edx           ; 256 - (g - ideal)
+			.Mark("gaugeSpeed")
+			.Bytes(0x0F, 0xAF, 0xC3)                                // imul eax,ebx
+			.Bytes(0xC1, 0xE8, 0x08)                                // shr eax,8             ; speed x factor / 256
+			// a super shot is always stronger than the shot the game had worked out (still the argument on the stack): at least 1.125 times it
+			.Bytes(0x8B, 0x5C, 0x24, 0x2C)                          // mov ebx,[esp+0x2C]
+			.Bytes(0x89, 0xDF, 0xC1, 0xEF, 0x03, 0x01, 0xFB)        // mov edi,ebx ; shr edi,3 ; add ebx,edi
+			.Bytes(0x39, 0xD8)                                      // cmp eax,ebx
+			.Jump(0x73, "gaugeStronger")                            // jae gaugeStronger
+			.Bytes(0x89, 0xD8)                                      // mov eax,ebx
+			.Mark("gaugeStronger");
+		if (fix.HeavyState != 0 && fix.Weight > 0)
+			code.Bytes([0x0F, 0xB6, 0x1D], fix.HeavyState)          // movzx ebx,byte [heavy]
+				.Bytes(0x0F, 0xAF, 0xDA, 0xC1, 0xEB, 0x07)          // imul ebx,edx ; shr ebx,7
+				.Bytes(0x0F, 0xAF, 0xDA, 0xC1, 0xEB, 0x07)          // imul ebx,edx ; shr ebx,7   ; x (g / 128)^2
+				.Bytes([0x88, 0x1D], fix.HeavyState);               // mov [heavy],bl
+		code.Bytes([0x69, 0xFA], 151)                               // imul edi,edx,151      ; x = g x 151 / 128 = g / 108 on 0..128
+			.Bytes(0xC1, 0xEF, 0x07)                                // shr edi,7
+			.Bytes([0x81, 0xFF], 128)                               // cmp edi,128
+			.Jump(0x76, "gaugeRise")                                // jbe gaugeRise
+			.Bytes([0xBF], 128)                                     // mov edi,128
+			.Mark("gaugeRise")
+			.Bytes([0xBB], 256)                                     // mov ebx,256
+			.Bytes(0x29, 0xFB)                                      // sub ebx,edi
+			.Bytes(0x0F, 0xAF, 0xDF)                                // imul ebx,edi
+			.Bytes(0xC1, 0xEB, 0x07)                                // shr ebx,7             ; x (256 - x) / 128 = 1 - (1 - x)^2 in 128ths
+			.Bytes([0x81, 0xFA], SuperGaugeIdeal)                   // cmp edx,ideal
+			.Jump(0x76, "gaugeHeight")                              // jbe gaugeHeight
+			.Bytes(0x89, 0xD7)                                      // mov edi,edx
+			.Bytes(0x83, 0xEF, SuperGaugeIdeal)                     // sub edi,ideal
+			.Bytes(0x8D, 0x1C, 0x7B)                                // lea ebx,[ebx+edi*2]   ; over the ideal: up to 168 / 128
+			.Mark("gaugeHeight")
+			.Bytes(0x83, 0xF9, SuperLowHeight)                      // cmp ecx,low
+			.Jump(0x76, "gaugeLow")                                 // jbe gaugeLow
+			.Bytes(0x83, 0xE9, SuperLowHeight)                      // sub ecx,low
+			.Bytes(0x0F, 0xAF, 0xCB)                                // imul ecx,ebx
+			.Bytes(0xC1, 0xE9, 0x07)                                // shr ecx,7
+			.Bytes(0x83, 0xC1, SuperLowHeight)                      // add ecx,low
+			.Bytes(0x83, 0xF9, (byte)PatchOptions.MaxSuperShot)     // cmp ecx,max
+			.Jump(0x76, "gaugeLow")                                 // jbe gaugeLow
+			.Bytes([0xB9], PatchOptions.MaxSuperShot)               // mov ecx,max
+			.Mark("gaugeLow");
 	}
 
 	/// <summary>Super shot under way: the shooter's address, in a free dword of the human scores block (+0..+3 are the scores and the shot direction).</summary>

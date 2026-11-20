@@ -27,7 +27,7 @@ static class BreakpointCommands
         var address = o.Address("Address", 0x4C9DC0);
         var seconds = o.Int("Seconds", 10);
         var outPath = Path.GetFullPath(o.String("Out") ?? "calls.csv");
-        var nArgs = o.Int("NArgs", 3);
+        var nArgs = o.Int("NArgs", 3); var shift = o.Int("Shift", 0);   // 12 at 0x478027 (after the hook's replayed pushes)
         o.CheckAllUsed();
 
         using var game = GameProcess.Open(processName);
@@ -38,18 +38,19 @@ static class BreakpointCommands
         {
             if (hit.Eip != address || rows >= 400000) return;
             var st = game.ReadOrZero(hit.Esp, 64);
-            uint ret = BitConverter.ToUInt32(st, 0), p = BitConverter.ToUInt32(st, 4);
+            uint ret = BitConverter.ToUInt32(st, shift), p = BitConverter.ToUInt32(st, 4 + shift);
             var pl = game.ReadOrZero(p, 0x20);
             var line = string.Create(CultureInfo.InvariantCulture,
                 $"{clock.ElapsedMilliseconds},{ret:X},{((long)p - 0x3BDC980) / PlayerSize},{pl[Team]},{pl[Slot]},{pl[State]}," +
                 $"{game.ReadOrZero(Carrier, 1)[0]},{Ball(game).X:F0}");
             for (var i = 0; i < nArgs - 1; i++)
             {
-                int v = BitConverter.ToInt32(st, 8 + 4 * i); var f = BitConverter.ToSingle(st, 8 + 4 * i);
+                int v = BitConverter.ToInt32(st, 8 + shift + 4 * i); var f = BitConverter.ToSingle(st, 8 + shift + 4 * i);
                 line += string.Create(CultureInfo.InvariantCulture, $",{v},{(Math.Abs(f) > 0.01 && Math.Abs(f) < 1e6 ? f : 0):F0}");
             }
             // a few return-looking values further up the stack: the callers' callers
             for (var i = 4; i < 16; i++) { var v = BitConverter.ToUInt32(st, 4 * i); if (v is > 0x401000 and < 0x8C0000) line += $",{v:X}"; }
+            line += $",gauge={game.ReadOrZero(p + 0x4D, 1)[0]}"; line += $",buttons={BitConverter.ToUInt32(game.ReadOrZero(p + 0xB0, 4), 0):X8}";
             w.WriteLine(line);
             rows++;
         });

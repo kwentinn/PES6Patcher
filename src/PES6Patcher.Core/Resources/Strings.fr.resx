@@ -648,6 +648,15 @@
   <data name="Gameplay.ForwardRuns" xml:space="preserve">
     <value>Les attaquants font des courses dans la surface</value>
   </data>
+  <data name="Hook.ShotGauge" xml:space="preserve">
+    <value>vitesse de la jauge de tir</value>
+  </data>
+  <data name="Log.ShotGauge" xml:space="preserve">
+    <value>Jauge de tir : se remplit à {0} % de la vitesse du jeu, pour mieux doser la frappe.</value>
+  </data>
+  <data name="Gameplay.ShotGaugeSpeed" xml:space="preserve">
+    <value>Vitesse de remplissage de la jauge de tir (% du jeu) :</value>
+  </data>
   <data name="Hook.OffBallPace" xml:space="preserve">
     <value>allure sans ballon</value>
   </data>

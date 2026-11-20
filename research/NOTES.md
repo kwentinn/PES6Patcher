@@ -351,3 +351,21 @@ The PES6 Patcher app installs these settings for any resolution. Its **Restore o
 - In the main menu, a second copy of the player picture shows in the right bar.
 - The free direction follows the stick's precise angle when running and for the most frequent dribble touch; some less frequent touches and special moves keep the game's directions.
 - Only the reference build has been tested in game; other builds are patched when their code matches.
+
+## Super shot at a very low gauge: no lob reproduced (2026-11-20)
+
+Forum report: with L1+R1 and almost no charge the shot is "a powerful lob". `EmitSuperShot` never reads the gauge: it forces speed and height. Measured with `pes6r calls -Address 0x478020` (arguments before the hook; `0x478027` sees them shifted by 12 bytes after the hook's replayed `push ebx/ebp/esi`; the `buttons=` column is the shooter's `+0xB0`): about 30 shots in training and one half against the AI, never a lob. L1 and R1 were held at every kick (`0x01000C00`), so R1's flicker is not the cause. Natural arguments at a very low charge are a lob profile (speed 15 667, height 52); the forced ones are 37 466 and 40–47 (star bonus), identical whatever the charge. Open leads and the proposed fix are in the vault note Tirs.md. The player also found the super shots too high.
+
+## Shot gauge found: `[shooter+0x4D]` (2026-11-20)
+
+`pes6r memlog` on the 11 players of team 0 while one held the shot button: the only byte that ramps in the shooter is `+0x4D`, 0 to `0x80` in steps of 8 per frame (full in about 0.25 s), frozen at release, readable at the kick call (`[esi+0x4D]`) with or without L1+R1. Same field as the pass gauge. Prototype in memory (cave `0x4120C0`, entry `jmp` at `0x411FA1`): speed × (0.6 to 1 up to 85 % of the gauge, then down to 0.92), height concave from 9 up to the super shot height at 85 %, then higher up to the cap of 60, star weight × (gauge/128)². Slowing the gauge is not solved: the byte `0x4DA933` (`add byte [esi+0x4D],8`) does not drive it. Details in the vault note Tirs.md.
+
+## In-game debug overlay: `pes6r hud` (2026-11-20)
+
+Existing debug display: the `...Debug` test keys (F2-F12) show one value through Kitserver's `KDrawText` from code added to the exe. For research, a separate click-through topmost window that only reads the game's memory is cheaper and safe (nothing written, no crash risk); it needs the borderless window (the patcher's setting), not exclusive full screen. Drawing in the game itself is not needed yet.
+
+`pes6r hud [-Text] [-Seconds N] [-Log file]`: live panel (restart state, carrier, pad `0x3BCEE40/48`, ball, carrier gauge `+0x4D` / receiver `+0x48`, defensive-line words `0x3BCDCAE`, offside floats `0x3BE0A10`, attack levels `0x3BE0A6E`, runners = placement modes 0x0F/9/A/B, mini map) and one log line per kick (player state change to 4/5/6/8/9/27/30/34/44/48: type, receiver, buttons over the previous 400 ms, gauge, target `+0x9C/+0xA0`, ball peak speed and vz in the next 500 ms), appended to `bin/hud-events.log`. Insert hides/shows, Delete clears. Code: `Pes6Research/HudCommand.cs`, tests `HudTests.cs`. Not yet validated on real kicks (the game was frozen/minimised); units of vz and +0x9C/+0xA0 to confirm. Full design: vault note "Affichage de débogage en jeu".
+
+## Shot gauge slowdown option (2026-11-20)
+
+`PatchOptions.ShotGaugeSpeed` (100 = unchanged, 40 to 100): a hook at the start of the player state dispatch (same site as the pass gauges, `ExeLocator.LocateShotGauge`) cuts each frame's rise of `[player+0x4D]` to that percentage, keeping a copy of the gauge in `[player+0xD0]`. With the pass gauges on, `PassGauges.Build` carries the same code instead of a second hook. The game's own increment was never found; this works on its result. Tested only as bytes and pasted in memory in a game (75 % = full in about 0.33 s instead of 0.25 s).

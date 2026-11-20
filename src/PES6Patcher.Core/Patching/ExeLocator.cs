@@ -133,6 +133,8 @@ internal sealed record ForwardRunsSites(int Test, int Skip, int Accept);
 internal sealed record PassGaugeSites(int Dispatch, int DispatchContinuation, int Kick, int LeadFirst, int LeadSecond,
 	int Hud, int HudFlags, int HudRender, int HudDraw, int HudSide, int Restart, int Blocked, int Carrier, int Held);
 
+internal sealed record ShotGaugeSites(int Dispatch, int Continuation);
+
 internal sealed record PassLeadSites(int First, int Second);
 
 /// <summary>
@@ -503,6 +505,21 @@ internal sealed class ExeLocator
 	private const string PassGaugeCarrierSignature = "8A 06 3A 05 ?? ?? ?? ?? 0F 85 ?? ?? ?? ?? 85 AE B0 00 00 00 0F 84";
 	private const string PassGaugeDispatchContinuationSignature = "3B 05 ?? ?? ?? ?? E9 ?? ?? ?? ??";
 	private const string PassGaugeHudDrawSignature = "83 EC 10 8B 0D ?? ?? ?? ?? D9 44 24 14 33 C0 85 D2";
+
+	/// <summary>The start of the player state dispatch: where the shot gauge's fill is slowed (the same place the pass gauges hook).</summary>
+	public static ShotGaugeSites? LocateShotGauge(byte[] exe)
+	{
+		var image = new PeImage(exe);
+		var signature = new Signature(PassGaugeDispatchSignature);
+		var hits = image.Sections.Where(section => section.IsCode)
+			.SelectMany(section => signature.FindAll(image, section)).Take(2).ToArray();
+		if (hits.Length != 1) return null;
+		int dispatch = hits[0], continuation = image.Rel32Target(dispatch + 4);
+		if (!new Signature(PassGaugeDispatchContinuationSignature).IsAt(image, continuation) ||
+			image.Rel32Target(continuation + 6) != dispatch + 9)
+			return null;
+		return new ShotGaugeSites(dispatch, continuation);
+	}
 
 	public static PassGaugeSites? LocatePassGauges(byte[] exe)
 	{
