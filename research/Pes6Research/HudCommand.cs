@@ -50,7 +50,7 @@ static class HudCommand
 sealed class PendingKick
 {
     public long StartMs; public int Player, State, Receiver, Genre, Gauge;
-    public uint Buttons;
+    public uint Buttons, Pressed;
     public float TargetX, TargetZ, StartBallX, StartBallZ, EndBallX, EndBallZ;
     public int PeakSpeed, VzAtPeak;
     public float VzFloatAtPeak;
@@ -77,8 +77,8 @@ sealed class HudTracker
     public readonly List<string> Kicks = [];
     public event Action<string>? KickLogged;
 
-    readonly Queue<(long Ms, uint Buttons, int Receiver, int Gauge, int Genre)>[] history =
-        Enumerable.Range(0, PlayerCount).Select(_ => new Queue<(long, uint, int, int, int)>()).ToArray();
+    readonly Queue<(long Ms, uint Buttons, int Receiver, int Gauge, int Genre, uint Pressed)>[] history =
+        Enumerable.Range(0, PlayerCount).Select(_ => new Queue<(long, uint, int, int, int, uint)>()).ToArray();
     readonly byte[] lastState = new byte[PlayerCount];
     readonly long[] lastCarried = Enumerable.Repeat(long.MinValue / 2, PlayerCount).ToArray();   // only a player who just had the ball kicks it
     readonly List<PendingKick> pending = [];
@@ -130,14 +130,14 @@ sealed class HudTracker
         {
             var h = history[id - 1];
             var receiver = Byte(id, 0x48);
-            h.Enqueue((Ms, (uint)Int(id, Buttons), receiver is >= 1 and <= 22 ? receiver : 0, Byte(id, 0x4D), Byte(id, 0x4C)));
+            h.Enqueue((Ms, (uint)Int(id, Buttons), receiver is >= 1 and <= 22 ? receiver : 0, Byte(id, 0x4D), Byte(id, 0x4C), (uint)Int(id, 0xB4)));
             while (h.Count > 0 && Ms - h.Peek().Ms > HistoryMs) h.Dequeue();
             var state = Byte(id, State);
             if (Carrier == id) lastCarried[id - 1] = Ms;
             if (state != lastState[id - 1] && IsKickState(state) && Ms - lastCarried[id - 1] <= 500 && !pending.Any(p => p.Player == id))
             {
                 var p = new PendingKick { StartMs = Ms, Player = id, State = state, StartBallX = BallX, StartBallZ = BallZ };
-                foreach (var e in h) { p.Buttons |= e.Buttons; p.Gauge = Math.Max(p.Gauge, e.Gauge); if (e.Receiver != 0) { p.Receiver = e.Receiver; p.Genre = e.Genre; } }
+                foreach (var e in h) { p.Buttons |= e.Buttons; p.Pressed |= e.Pressed; p.Gauge = Math.Max(p.Gauge, e.Gauge); if (e.Receiver != 0) { p.Receiver = e.Receiver; p.Genre = e.Genre; } }
                 pending.Add(p);
             }
             lastState[id - 1] = state;
@@ -206,10 +206,11 @@ sealed class HudTracker
     string Describe(PendingKick p)
     {
         var who = $"P{p.Player}(t{Byte(p.Player, Team)}s{Byte(p.Player, Slot)})";
-        var goal = HeadsForGoal(p);
+        // the buttons are the intent: 0x8000 = shot, 0x4000 = short pass (seen on human kicks); the geometry only decides for the rest (AI, other passes)
+        var goal = (p.Buttons | p.Pressed) is var b && (b & 0x8000) != 0 && (b & 0x4000) == 0 || ((b & 0x4000) == 0 && HeadsForGoal(p));
         var receiver = p.Receiver != 0 && !goal ? $" -> P{p.Receiver}" : "";
         return $"{TimeSpan.FromMilliseconds(p.StartMs):mm\\:ss\\.f} {who} {KickKind(p.State, p.Buttons, p.Receiver, goal)}{receiver} | state={p.State} " +
-               $"buttons={p.Buttons:X8} gauge={p.Gauge} genre={p.Genre} target=({p.TargetX:F0},{p.TargetZ:F0}) " +
+               $"buttons={p.Buttons:X8} pressed={p.Pressed:X8} gauge={p.Gauge} genre={p.Genre} target=({p.TargetX:F0},{p.TargetZ:F0}) " +
                $"ball speed={p.PeakSpeed} vz={p.VzFloatAtPeak:F0} from ({p.StartBallX:F0},{p.StartBallZ:F0})";
     }
 
