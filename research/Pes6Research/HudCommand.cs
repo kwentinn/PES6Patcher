@@ -256,6 +256,8 @@ sealed class HudTracker
                 l.Add(lines); l.Add(runnerLine);
                 break;
         }
+        var up = Enumerable.Range(1, PlayerCount).Where(i => Byte(i, PlacementMode) == 0xF).Select(i => $"P{i} (camp {(i <= 11 ? 0 : 1)})").ToList();
+        if (up.Count > 0) l.Insert(0, "MONTE : " + string.Join("  ", up));   // the forward runner (placement mode 0x0F), drawn in magenta by the overlay
         return l;
     }
 }
@@ -326,7 +328,8 @@ sealed class HudForm : Form
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         var y = 4f;
         using var white = new SolidBrush(Color.White); using var yellow = new SolidBrush(Color.Gold); using var grey = new SolidBrush(Color.LightGray);
-        foreach (var line in tracker.LiveLines(page)) { g.DrawString(line, font, white, 4, y); y += 15; }
+        using var magenta = new SolidBrush(Color.Magenta); using var bold = new Font(font, FontStyle.Bold);
+        foreach (var line in tracker.LiveLines(page)) { if (line.StartsWith("MONTE")) g.DrawString(line, bold, magenta, 4, y); else g.DrawString(line, font, white, 4, y); y += 15; }
         y += 4;
         if (page != HudPage.Lines && page != HudPage.Ball) { g.DrawString("Ctrl+S tirs  P passes  L lignes  B balle  A tout | Insert cacher, Suppr effacer", small, yellow, 4, y); y += 14; }
         if (page != HudPage.Lines && page != HudPage.Ball)
@@ -355,7 +358,12 @@ sealed class HudForm : Form
             var mode = tracker.Byte(id, PlacementMode);
             var brush = id <= 11 ? red : blue;
             g.FillEllipse(brush, p.X - 4, p.Y - 4, 8, 8);
-            if (mode == 0xF) g.DrawEllipse(Pens.White, p.X - 8, p.Y - 8, 16, 16);
+            if (mode == 0xF)   // the runner: thick magenta ring, a line to where he is heading, a bold label
+            {
+                using var ring = new Pen(Color.Magenta, 3); g.DrawEllipse(ring, p.X - 9, p.Y - 9, 18, 18);
+                var to = Map(tracker.Float(id, 0x6C), tracker.Float(id, 0x70));
+                if (float.IsFinite(to.X) && float.IsFinite(to.Y)) g.DrawLine(ring, p.X, p.Y, to.X, to.Y);
+            }
             if (id == tracker.Carrier) g.DrawEllipse(Pens.Yellow, p.X - 6, p.Y - 6, 12, 12);
             g.DrawString(id.ToString(), small, Brushes.White, p.X + 4, p.Y - 6);
         }
