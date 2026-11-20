@@ -80,6 +80,7 @@ sealed class HudTracker
     readonly Queue<(long Ms, uint Buttons, int Receiver, int Gauge, int Genre)>[] history =
         Enumerable.Range(0, PlayerCount).Select(_ => new Queue<(long, uint, int, int, int)>()).ToArray();
     readonly byte[] lastState = new byte[PlayerCount];
+    readonly long[] lastCarried = Enumerable.Repeat(long.MinValue / 2, PlayerCount).ToArray();   // only a player who just had the ball kicks it
     readonly List<PendingKick> pending = [];
 
     public int Int(int id, int offset) => BitConverter.ToInt32(Data, (id - 1) * PlayerSize + offset);
@@ -132,7 +133,8 @@ sealed class HudTracker
             h.Enqueue((Ms, (uint)Int(id, Buttons), receiver is >= 1 and <= 22 ? receiver : 0, Byte(id, 0x4D), Byte(id, 0x4C)));
             while (h.Count > 0 && Ms - h.Peek().Ms > HistoryMs) h.Dequeue();
             var state = Byte(id, State);
-            if (state != lastState[id - 1] && IsKickState(state) && !pending.Any(p => p.Player == id))
+            if (Carrier == id) lastCarried[id - 1] = Ms;
+            if (state != lastState[id - 1] && IsKickState(state) && Ms - lastCarried[id - 1] <= 500 && !pending.Any(p => p.Player == id))
             {
                 var p = new PendingKick { StartMs = Ms, Player = id, State = state, StartBallX = BallX, StartBallZ = BallZ };
                 foreach (var e in h) { p.Buttons |= e.Buttons; p.Gauge = Math.Max(p.Gauge, e.Gauge); if (e.Receiver != 0) { p.Receiver = e.Receiver; p.Genre = e.Genre; } }
@@ -184,7 +186,7 @@ sealed class HudTracker
         var receiver = p.Receiver != 0 ? $" -> P{p.Receiver}" : "";
         return $"{TimeSpan.FromMilliseconds(p.StartMs):mm\\:ss\\.f} {who} {KickKind(p.State, p.Buttons, p.Receiver)}{receiver} | state={p.State} " +
                $"buttons={p.Buttons:X8} gauge={p.Gauge} genre={p.Genre} target=({p.TargetX:F0},{p.TargetZ:F0}) " +
-               $"ball speed={p.PeakSpeed} vz={p.VzAtPeak}/{p.VzFloatAtPeak:F1} from ({p.StartBallX:F0},{p.StartBallZ:F0})";
+               $"ball speed={p.PeakSpeed} vz={p.VzFloatAtPeak:F0} from ({p.StartBallX:F0},{p.StartBallZ:F0})";
     }
 
     public static string ModeName(int m) => m switch
@@ -201,27 +203,61 @@ sealed class HudTracker
         return s.ToString().TrimEnd();
     }
 
-    /// <summary>The text of the live panel (the kicks follow it).</summary>
-    public List<string> LiveLines()
+    public static bool IsShotLine(string kick) => kick.Contains(") tir") || kick.Contains(") tete") || kick.Contains(") coup de pied");
+
+    /// <summary>The kicks of the page: shots (shot, header, set piece) or passes (pass, cross); all of them on the other pages.</summary>
+    public IEnumerable<string> KicksFor(HudPage page) => page switch
+    {
+        HudPage.Shots => Kicks.Where(IsShotLine),
+        HudPage.Passes => Kicks.Where(k => !IsShotLine(k)),
+        _ => Kicks,
+    };
+
+    /// <summary>The text of the live panel for a page (the kicks follow it).</summary>
+    public List<string> LiveLines(HudPage page)
     {
         var l = new List<string>();
         if (!Ok) { l.Add("pas de match (memoire illisible)"); return l; }
         var c = Carrier is >= 1 and <= 22 ? Carrier : 0;
-        l.Add($"arret={Restart}  porteur={(c == 0 ? "-" : $"P{c}")}  etat={(c == 0 ? "-" : Byte(c, State).ToString())}  " +
-              $"mode={(c == 0 ? "-" : ModeName(Byte(c, PlacementMode)))}");
-        l.Add($"balle x={BallX:F0} z={BallZ:F0} h={-BallH:F0}  vit={BallSpeed}  vz={BallVzInt}");
         var hp = BitConverter.ToUInt32(Pad, 8); var pp = BitConverter.ToUInt32(Pad, 0);
-        l.Add($"manette1 tenu={hp:X8} {PadNames(hp)}  appui={pp:X8}");
-        if (c != 0)
-            l.Add($"porteur: jauge+4D={Byte(c, 0x4D)} recev+48={Byte(c, 0x48):X2} genre+4C={Byte(c, 0x4C)} boutons={Int(c, Buttons):X8} {PadNames((uint)Int(c, Buttons))}");
-        l.Add($"ligne def mot  camp0={BitConverter.ToInt16(Words, 0xE)} camp1={BitConverter.ToInt16(Words, 0x10)}  hors-jeu {BitConverter.ToSingle(Offside, 0):F0} / {BitConverter.ToSingle(Offside, 4):F0}  attaque {Attack[0]}/{Attack[1]}");
+        var state = $"arret={Restart}  porteur={(c == 0 ? "-" : $"P{c}")}  etat={(c == 0 ? "-" : Byte(c, State).ToString())}  mode={(c == 0 ? "-" : ModeName(Byte(c, PlacementMode)))}";
+        var ball = $"balle x={BallX:F0} z={BallZ:F0} h={-BallH:F0}  vit={BallSpeed}  vz={BallVzFloat:F0}";
+        var pad = $"manette1 tenu={hp:X8} {PadNames(hp)}  appui={pp:X8}";
+        var carrier = c == 0 ? null : $"porteur: jauge+4D={Byte(c, 0x4D)} recev+48={Byte(c, 0x48):X2} genre+4C={Byte(c, 0x4C)} boutons={Int(c, Buttons):X8} {PadNames((uint)Int(c, Buttons))}";
+        var lines = $"ligne def mot  camp0={BitConverter.ToInt16(Words, 0xE)} camp1={BitConverter.ToInt16(Words, 0x10)}  hors-jeu {BitConverter.ToSingle(Offside, 0):F0} / {BitConverter.ToSingle(Offside, 4):F0}  attaque {Attack[0]}/{Attack[1]}";
         var runners = Enumerable.Range(1, PlayerCount).Where(i => Byte(i, PlacementMode) is 0xF or 9 or 0xA or 0xB)
             .Select(i => $"P{i}:{ModeName(Byte(i, PlacementMode))}");
-        l.Add("coureurs: " + (string.Join(" ", runners) is { Length: > 0 } r ? r : "-"));
+        var runnerLine = "coureurs: " + (string.Join(" ", runners) is { Length: > 0 } r ? r : "-");
+        switch (page)
+        {
+            case HudPage.Shots:
+                l.Add("TIRS  " + (c == 0 ? "porteur -" : $"porteur P{c}  jauge={Byte(c, 0x4D)}/128  boutons={Int(c, Buttons):X8} {PadNames((uint)Int(c, Buttons))}"));
+                l.Add($"balle vit={BallSpeed}  vz={BallVzFloat:F0}  h={-BallH:F0}");
+                break;
+            case HudPage.Passes:
+                l.Add("PASSES  " + (c == 0 ? "porteur -" : $"porteur P{c}  etat={Byte(c, State)}  jauge={Byte(c, 0x4D)}/128  receveur={Byte(c, 0x48):X2}  genre={Byte(c, 0x4C)}"));
+                l.Add(pad);
+                l.Add($"balle vit={BallSpeed}  vz={BallVzFloat:F0}  h={-BallH:F0}");
+                break;
+            case HudPage.Lines:
+                l.Add("LIGNES / PLACEMENT"); l.Add(lines); l.Add(runnerLine);
+                break;
+            case HudPage.Ball:
+                l.Add(state); l.Add(ball); l.Add(pad);
+                if (carrier != null) l.Add(carrier);
+                break;
+            default:
+                l.Add(state); l.Add(ball); l.Add(pad);
+                if (carrier != null) l.Add(carrier);
+                l.Add(lines); l.Add(runnerLine);
+                break;
+        }
         return l;
     }
 }
 
+/// <summary>What the overlay shows (Ctrl+S, Ctrl+P, Ctrl+L, Ctrl+B, Ctrl+A).</summary>
+enum HudPage { All, Shots, Passes, Lines, Ball }
 /// <summary>The overlay window: a transparent-to-clicks topmost panel placed over the game window.</summary>
 sealed class HudForm : Form
 {
@@ -234,6 +270,8 @@ sealed class HudForm : Form
     readonly long until;
     readonly Font font = new("Consolas", 9f), small = new("Consolas", 8f);
     bool shown = true, insertWas, deleteWas;
+    HudPage page = HudPage.Shots;
+    readonly Dictionary<int, bool> keyWas = [];
 
     public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds)
     {
@@ -263,6 +301,14 @@ sealed class HudForm : Form
         var delete = (GetAsyncKeyState(VkDelete) & 0x8000) != 0;
         if (delete && !deleteWas) tracker.Clear();
         deleteWas = delete;
+        if ((GetAsyncKeyState(0x11) & 0x8000) != 0)   // Ctrl + S / P / L / B / A picks the page
+            foreach (var (key, p) in new[] { (0x53, HudPage.Shots), (0x50, HudPage.Passes), (0x4C, HudPage.Lines), (0x42, HudPage.Ball), (0x41, HudPage.All) })
+            {
+                var down = (GetAsyncKeyState(key) & 0x8000) != 0;
+                if (down && !keyWas.GetValueOrDefault(key)) page = p;
+                keyWas[key] = down;
+            }
+        else keyWas.Clear();
         tracker.Update(game, clock.ElapsedMilliseconds);
         if (!shown) return;
         if (game.MainWindow != IntPtr.Zero && GetWindowRect(game.MainWindow, out var r) && r.Left > -10000) Location = new Point(r.Left + 8, r.Top + 70);
@@ -276,11 +322,13 @@ sealed class HudForm : Form
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         var y = 4f;
         using var white = new SolidBrush(Color.White); using var yellow = new SolidBrush(Color.Gold); using var grey = new SolidBrush(Color.LightGray);
-        foreach (var line in tracker.LiveLines()) { g.DrawString(line, font, white, 4, y); y += 15; }
+        foreach (var line in tracker.LiveLines(page)) { g.DrawString(line, font, white, 4, y); y += 15; }
         y += 4;
-        g.DrawString("tirs / passes (Insert cacher, Suppr effacer) :", small, yellow, 4, y); y += 14;
-        foreach (var k in tracker.Kicks.TakeLast(6)) { g.DrawString(k.Length > 112 ? k[..112] : k, small, grey, 4, y); y += 13; }
-        DrawMap(g, new Rectangle(4, (int)y + 6, Width - 8, Height - (int)y - 10));
+        if (page != HudPage.Lines && page != HudPage.Ball) { g.DrawString("Ctrl+S tirs  P passes  L lignes  B balle  A tout | Insert cacher, Suppr effacer", small, yellow, 4, y); y += 14; }
+        if (page != HudPage.Lines && page != HudPage.Ball)
+            foreach (var k in tracker.KicksFor(page).TakeLast(6)) { g.DrawString(k.Length > 112 ? k[..112] : k, small, grey, 4, y); y += 13; }
+        if (page is HudPage.Lines or HudPage.Passes or HudPage.All)
+            DrawMap(g, new Rectangle(4, (int)y + 6, Width - 8, Height - (int)y - 10));
     }
 
     void DrawMap(Graphics g, Rectangle r)

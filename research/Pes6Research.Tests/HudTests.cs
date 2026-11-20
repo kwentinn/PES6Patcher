@@ -15,6 +15,7 @@ public class HudTests
         memory.Set(p7 + 0x48, 9);                                          // receiver P9, chosen before the state changes
         memory.Set(p7 + 0xB0, 0x00, 0x04, 0x00, 0x00);                     // L1 held
         memory.Set(p7 + 0x4D, 64);
+        memory.Set(GameLayout.Carrier, 7);                                 // P7 has the ball
         tracker.Update(memory, 1000);
         memory.Set(p7 + GameLayout.State, 5);
         tracker.Update(memory, 1020);
