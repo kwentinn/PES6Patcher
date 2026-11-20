@@ -29,7 +29,7 @@ public class HudTests
     [Fact]
     public void Super_shot_buttons_and_no_receiver_make_a_shot()
     {
-        Assert.Equal("tir a l'arret +L1+R1", HudTracker.KickKind(4, 0x01000C00, 5));
+        Assert.Equal("tir +L1+R1", HudTracker.KickKind(4, 0x01000C00, 5));
         Assert.Equal("passe en profondeur", HudTracker.KickKind(6, 0, 3));
     }
 }

@@ -52,7 +52,7 @@ sealed class PendingKick
     public long StartMs; public int Player, State, Receiver, Genre, Gauge;
     public uint Buttons, Pressed;
     public float TargetX, TargetZ, StartBallX, StartBallZ, EndBallX, EndBallZ;
-    public int PeakSpeed, VzAtPeak;
+    public int PeakSpeed, VzAtPeak, Run;
     public float VzFloatAtPeak;
 }
 
@@ -136,7 +136,7 @@ sealed class HudTracker
             if (Carrier == id) lastCarried[id - 1] = Ms;
             if (state != lastState[id - 1] && IsKickState(state) && Ms - lastCarried[id - 1] <= 500 && !pending.Any(p => p.Player == id))
             {
-                var p = new PendingKick { StartMs = Ms, Player = id, State = state, StartBallX = BallX, StartBallZ = BallZ };
+                var p = new PendingKick { StartMs = Ms, Player = id, State = state, Run = Int(id, Speed), StartBallX = BallX, StartBallZ = BallZ };
                 foreach (var e in h) { p.Buttons |= e.Buttons; p.Pressed |= e.Pressed; p.Gauge = Math.Max(p.Gauge, e.Gauge); if (e.Receiver != 0) { p.Receiver = e.Receiver; p.Genre = e.Genre; } }
                 pending.Add(p);
             }
@@ -166,7 +166,7 @@ sealed class HudTracker
     {
         var kind = state switch
         {
-            4 => "tir a l'arret",
+            4 => "tir",
             5 => towardGoal ? "tir en course" : "passe courte",
             6 => "passe en profondeur",
             8 => "passe en hauteur",
@@ -189,7 +189,7 @@ sealed class HudTracker
         var goal = (p.Buttons | p.Pressed) is var b && p.State == 5 && (b & 0x8000) != 0 && (b & 0x4000) == 0;
         var receiver = p.Receiver != 0 && p.State != 4 && !goal ? $" -> P{p.Receiver}" : "";
         return $"{TimeSpan.FromMilliseconds(p.StartMs):mm\\:ss\\.f} {who} {KickKind(p.State, p.Buttons, p.Receiver, goal)}{receiver} | state={p.State} " +
-               $"buttons={p.Buttons:X8} pressed={p.Pressed:X8} gauge={p.Gauge} genre={p.Genre} target=({p.TargetX:F0},{p.TargetZ:F0}) " +
+               $"buttons={p.Buttons:X8} pressed={p.Pressed:X8} run={p.Run} gauge={p.Gauge} genre={p.Genre} target=({p.TargetX:F0},{p.TargetZ:F0}) " +
                $"ball speed={p.PeakSpeed} vz={p.VzFloatAtPeak:F0} from ({p.StartBallX:F0},{p.StartBallZ:F0})";
     }
 
