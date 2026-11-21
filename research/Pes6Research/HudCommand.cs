@@ -173,11 +173,22 @@ sealed class HudTracker
         var c = Carrier is >= 1 and <= 22 ? Carrier : 0;
         if (c == 0) return;
         if (gameForRun != null) gameForRun.TryRead(0xBC3FF0, toggle);
+        // what the dribble state's handler (0x5ADA90) compares to end the dribble (decompiled 2026-11-21): the ball's +0x30 against the float
+        // at 0xB8AD5C, and a threshold from the player's stat word (+0x3BCF5CC, bits 2-7) against the ball's +0x7FC; 0x3BE09FC is read first
+        var extra = new byte[16]; var stat = new byte[4]; var thr0 = new byte[4]; var input = new byte[4]; var b7fc = new byte[4];
+        if (gameForRun != null && ballAddress != 0)
+        {
+            gameForRun.TryRead(ballAddress + 0x7FC, b7fc); gameForRun.TryRead(0xB8AD5C, thr0); gameForRun.TryRead(0x3BE09FC, input);
+            gameForRun.TryRead(0x3BCF5CC + (uint)((Byte(c, Team) * 0x20 + Byte(c, Slot)) * 0x348), stat);
+        }
+        int s = (BitConverter.ToInt32(stat, 0) >> 2) & 0x3F, thr = (-0x94 - s) * 0x60 / 0xB7;
+        var cond = $" vz={BallVzFloat:F0}<={BitConverter.ToSingle(thr0, 0):F0}:{(BallVzFloat <= BitConverter.ToSingle(thr0, 0) ? 1 : 0)} thr={thr}<=b7fc={BitConverter.ToSingle(b7fc, 0):F0}:{(thr <= BitConverter.ToSingle(b7fc, 0) ? 1 : 0)} in09fc={BitConverter.ToInt32(input, 0)}";
         float dx = Float(c, X) - BallX, dz = Float(c, Z) - BallZ;
         RunLogged?.Invoke($"{TimeSpan.FromMilliseconds(Ms):mm\\:ss\\.ff} [{Label}] P{c} etat={Byte(c, State)} vit={Int(c, Speed)} pos=({Float(c, X):F0},{Float(c, Z):F0}) balle=({BallX:F0},{BallZ:F0}) d={MathF.Sqrt(dx * dx + dz * dz):F0} vballe={BallSpeed} " +
-                          $"gauche={BitConverter.ToUInt16(LeftTable, 0):X4}/{LeftTable[2]} brut={Raw[4]:X2} {Raw[5]:X2} R1={((~BitConverter.ToUInt16(Raw, 0) & 0x800) != 0 ? 1 : 0)} f1={toggle[0]} b={Int(c, Buttons):X8} t={DateTime.Now:HH:mm:ss.f}");
+                          $"gauche={BitConverter.ToUInt16(LeftTable, 0):X4}/{LeftTable[2]} brut={Raw[4]:X2} {Raw[5]:X2} R1={((~BitConverter.ToUInt16(Raw, 0) & 0x800) != 0 ? 1 : 0)} f1={toggle[0]} b={Int(c, Buttons):X8} t={DateTime.Now:HH:mm:ss.f}{cond}");
     }
     IGameMemory? gameForRun;
+    uint ballAddress;
 
     public void Clear() { Kicks.Clear(); lock (Calls) Calls.Clear(); }
 
@@ -225,6 +236,7 @@ sealed class HudTracker
         game.TryRead(OffsideLines, Offside);
         game.TryRead(AttackLevels, Attack);
         var bp = BallAddress(game);
+        ballAddress = bp;
         BallOk = bp != 0 && game.TryRead(bp, Ball);
         if (!BallOk) Array.Clear(Ball);
         else
