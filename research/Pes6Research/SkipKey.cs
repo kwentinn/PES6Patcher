@@ -11,7 +11,7 @@ namespace Pes6Research;
 static class SkipKey
 {
     /// <summary>True when the key was sent; false (and nothing sent) when the game has no window or could not take the focus.</summary>
-    public static bool Press(GameProcess game, int scanCode)
+    public static bool Press(GameProcess game, int scanCode, int holdMs = 90)
     {
         var window = game.MainWindow;
         if (window == IntPtr.Zero) return false;
@@ -22,7 +22,7 @@ static class SkipKey
         // a scan code over 0xFF is an extended key (the arrows: 328 up, 336 down, 331 left, 333 right); without the flag
         // DirectInput would see the numeric pad
         var flags = ScanCode | (scanCode > 0xFF ? Extended : 0);
-        keybd_event(0, (byte)scanCode, flags, UIntPtr.Zero); Thread.Sleep(90);
+        keybd_event(0, (byte)scanCode, flags, UIntPtr.Zero); Thread.Sleep(holdMs);
         keybd_event(0, (byte)scanCode, flags | KeyUp, UIntPtr.Zero);
         return true;
     }

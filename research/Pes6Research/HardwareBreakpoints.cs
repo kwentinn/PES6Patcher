@@ -36,7 +36,7 @@ sealed class HardwareBreakpoints
     /// Runs for <paramref name="seconds"/> with the addresses in DR0.. and DR7 as given. For execute breakpoints the resume flag is
     /// set after each hit, so the instruction runs instead of trapping again.
     /// </summary>
-    public static void Run(GameProcess game, int processId, uint[] addresses, uint dr7, bool execute, double seconds, Action<Hit> onHit)
+    public static void Run(GameProcess game, int processId, uint[] addresses, uint dr7, bool execute, double seconds, Action<Hit> onHit, Func<bool>? cancelled = null)
     {
         if (addresses.Length is 0 or > 4) throw new ToolException("1 to 4 addresses");
         var threads = new HashSet<int>();
@@ -49,7 +49,7 @@ sealed class HardwareBreakpoints
         var clock = Stopwatch.StartNew();
         try
         {
-            while (!stop && clock.Elapsed.TotalSeconds < seconds)
+            while (!stop && clock.Elapsed.TotalSeconds < seconds && cancelled?.Invoke() != true)
             {
                 if (!WaitForDebugEvent(ev, 100)) continue;
                 int code = BitConverter.ToInt32(ev, 0), pid = BitConverter.ToInt32(ev, 4), tid = BitConverter.ToInt32(ev, 8);

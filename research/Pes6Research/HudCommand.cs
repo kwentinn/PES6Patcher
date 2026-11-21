@@ -14,14 +14,21 @@ namespace Pes6Research;
 /// </summary>
 static class HudCommand
 {
-    public const string Usage = "hud [-Text] [-Seconds N] [-Log hud-events.log] [-Every 15]\n" +
-                                "                                                 debug overlay over the game window (Insert = show/hide, Delete = clear); -Text prints the kicks in the console instead";
+    public const string Usage = "hud [-Text] [-Calls] [-Guide] [-Seconds N] [-Log hud-events.log] [-Every 15]\n" +
+                                "                                                 debug overlay over the game window (Insert = show/hide, Delete = clear); -Text prints the kicks in the console instead;\n" +
+                                "                                                 -Guide shows on screen, with a beep at each step, what to do with the pad (right stick, R1) and logs the raw pad changes;\n" +
+                                "                                                 -Calls attaches the debugger to the ball kick function 0x478020 and adds the Ctrl+K page: every call with its callers";
+
+    const uint KickFunction = 0x478020;
 
     public static int Run(Options o, string processName)
     {
         var text = o.Flag("Text");
         var seconds = o.Int("Seconds", 0);
         var every = o.Int("Every", 15);
+        var calls = o.Flag("Calls");
+        var guideRun = o.Flag("GuideRun");
+        var guide = o.Flag("Guide") || guideRun;
         var log = Path.GetFullPath(o.String("Log") ?? Path.Combine(AppContext.BaseDirectory, "hud-events.log"));
         o.CheckAllUsed();
         using var game = GameProcess.Open(processName);
@@ -31,18 +38,38 @@ static class HudCommand
         Record($"# hud started {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         if (!text) Console.WriteLine($"overlay on; kicks logged to {log}. Insert = show/hide, Delete = clear, Ctrl+C here to stop.");
         var clock = System.Diagnostics.Stopwatch.StartNew();
-        if (text)
+        using var stop = new CancellationTokenSource();
+        Thread? debugger = null;
+        tracker.CallLogged += line => Record("call " + line);
+        tracker.PadLogged += line => Record("pad " + line);
+        tracker.RunLogged += line => Record("run " + line);
+        tracker.RunLog = guideRun;
+        if (calls)
         {
-            while (!game.HasExited && (seconds == 0 || clock.Elapsed.TotalSeconds < seconds))
+            debugger = new Thread(() =>
             {
-                tracker.Update(game, clock.ElapsedMilliseconds);
-                Thread.Sleep(every);
+                try { HardwareBreakpoints.Run(game, game.Id, [KickFunction], HardwareBreakpoints.ExecuteDr7(1), execute: true, seconds > 0 ? seconds : 1e9,
+                          hit => { if (hit.Eip == KickFunction) tracker.AddCall(game, hit.Esp, clock.ElapsedMilliseconds); }, () => stop.IsCancellationRequested); }
+                catch (ToolException e) { Console.Error.WriteLine(e.Message); }
+            }) { IsBackground = true };
+            debugger.Start();
+        }
+        try
+        {
+            if (text)
+            {
+                while (!game.HasExited && (seconds == 0 || clock.Elapsed.TotalSeconds < seconds))
+                {
+                    tracker.Update(game, clock.ElapsedMilliseconds);
+                    Thread.Sleep(every);
+                }
+                return 0;
             }
+            Application.EnableVisualStyles();
+            Application.Run(new HudForm(game, tracker, clock, every, seconds, guide, guideRun));
             return 0;
         }
-        Application.EnableVisualStyles();
-        Application.Run(new HudForm(game, tracker, clock, every, seconds));
-        return 0;
+        finally { stop.Cancel(); debugger?.Join(); }   // the debugger must detach cleanly, or the game crashes on the leftover breakpoint
     }
 }
 
@@ -98,7 +125,90 @@ sealed class HudTracker
     public float DirX, DirZ;
     float prevBallX, prevBallZ;
 
-    public void Clear() => Kicks.Clear();
+    /// <summary>The raw pad structures (decompiled 0x8B7D10): per pad 0x58 bytes, a button word (0 = pressed) then 4 raw axes (0x80 = centre).</summary>
+    public const uint RawPad = 0x3A5C390; const int RawSize = 0x58;
+    public readonly byte[] Raw = new byte[RawSize * 2];
+    readonly byte[] loggedRaw = new byte[RawSize * 2];
+    public string Label = "";
+    public event Action<string>? PadLogged;
+
+    /// <summary>The game's own stick tables (written by 0x4B2300): per pad 4 bytes, angle word, amplitude 0-8, direction bits. Left at 0x1016680, right at 0x10165A0.</summary>
+    public readonly byte[] LeftTable = new byte[8], RightTable = new byte[8];
+
+    /// <summary>Both sticks' angle and amplitude from the tables, and the orientation words of the carrier (+0x26, +0x28, +0x42).</summary>
+    public string StickText(int pad)
+    {
+        var c = Carrier is >= 1 and <= 22 ? Carrier : 0;
+        var heading = c == 0 ? "-" : $"{BitConverter.ToUInt16(Data, (c - 1) * PlayerSize + 0x26):X4}/{BitConverter.ToUInt16(Data, (c - 1) * PlayerSize + 0x28):X4}/{BitConverter.ToUInt16(Data, (c - 1) * PlayerSize + 0x42):X4}";
+        return $"gauche={BitConverter.ToUInt16(LeftTable, pad * 4):X4}/{LeftTable[pad * 4 + 2]} droit={BitConverter.ToUInt16(RightTable, pad * 4):X4}/{RightTable[pad * 4 + 2]} porteur{c}+26/28/42={heading}";
+    }
+
+    public static string RawText(byte[] raw, int pad) =>
+        $"manette{pad} boutons={(ushort)~BitConverter.ToUInt16(raw, pad * RawSize):X4} axes={raw[pad * RawSize + 2]:X2} {raw[pad * RawSize + 3]:X2} {raw[pad * RawSize + 4]:X2} {raw[pad * RawSize + 5]:X2}";
+
+    /// <summary>Logs a pad line when a button changes or an axis moves by 8 or more since the last logged line.</summary>
+    void LogRaw()
+    {
+        for (var pad = 0; pad < 2; pad++)
+        {
+            var o = pad * RawSize;
+            var changed = BitConverter.ToUInt16(Raw, o) != BitConverter.ToUInt16(loggedRaw, o);
+            for (var a = 2; a < 6; a++) changed |= Math.Abs(Raw[o + a] - loggedRaw[o + a]) >= 8;
+            if (!changed) continue;
+            Array.Copy(Raw, o, loggedRaw, o, 6);
+            PadLogged?.Invoke($"{TimeSpan.FromMilliseconds(Ms):mm\\:ss\\.ff} [{Label}] {RawText(Raw, pad)} {StickText(pad)}");
+        }
+    }
+
+    /// <summary>-GuideRun: one line every 45 ms about the carrier (state, speed, position), the ball, the left stick and the F1 toggle byte of the patcher's debug build (0xBC3FF0).</summary>
+    public bool RunLog;
+    public event Action<string>? RunLogged;
+    long lastRunMs = -1000;
+    readonly byte[] toggle = new byte[1];
+
+    void LogRun()
+    {
+        if (Ms - lastRunMs < 45) return;
+        lastRunMs = Ms;
+        var c = Carrier is >= 1 and <= 22 ? Carrier : 0;
+        if (c == 0) return;
+        if (gameForRun != null) gameForRun.TryRead(0xBC3FF0, toggle);
+        float dx = Float(c, X) - BallX, dz = Float(c, Z) - BallZ;
+        RunLogged?.Invoke($"{TimeSpan.FromMilliseconds(Ms):mm\\:ss\\.ff} [{Label}] P{c} etat={Byte(c, State)} vit={Int(c, Speed)} pos=({Float(c, X):F0},{Float(c, Z):F0}) balle=({BallX:F0},{BallZ:F0}) d={MathF.Sqrt(dx * dx + dz * dz):F0} vballe={BallSpeed} " +
+                          $"gauche={BitConverter.ToUInt16(LeftTable, 0):X4}/{LeftTable[2]} brut={Raw[4]:X2} {Raw[5]:X2} R1={((~BitConverter.ToUInt16(Raw, 0) & 0x800) != 0 ? 1 : 0)} f1={toggle[0]} b={Int(c, Buttons):X8} t={DateTime.Now:HH:mm:ss.f}");
+    }
+    IGameMemory? gameForRun;
+
+    public void Clear() { Kicks.Clear(); lock (Calls) Calls.Clear(); }
+
+    /// <summary>The last calls of the ball kick function 0x478020 (filled by the debugger thread, shown on the Ctrl+K page).</summary>
+    public readonly List<string> Calls = [];
+    public event Action<string>? CallLogged;
+
+    /// <summary>A marker line in the call list and log (Ctrl+1 to Ctrl+4), to tell which gesture the next calls belong to.</summary>
+    public void Mark(string label, long ms)
+    {
+        var line = $"{TimeSpan.FromMilliseconds(ms):mm\\:ss\\.f} ==== {label} ====";
+        lock (Calls) { Calls.Add(line); if (Calls.Count > 14) Calls.RemoveAt(0); }
+        CallLogged?.Invoke(line);
+    }
+
+    /// <summary>One call of the kick function, seen at its entry: <paramref name="esp"/> points at the return address, then the player and the arguments.</summary>
+    public void AddCall(IGameMemory game, uint esp, long ms)
+    {
+        var st = game.ReadOrZero(esp, 64);
+        uint ret = BitConverter.ToUInt32(st, 0), p = BitConverter.ToUInt32(st, 4);
+        var pl = game.ReadOrZero(p, 0x20);
+        int Arg(int i) => BitConverter.ToInt32(st, 8 + 4 * i);
+        var callers = new List<string>();
+        for (var i = 2; i < 16 && callers.Count < 2; i++) { var v = BitConverter.ToUInt32(st, 4 * i); if (v is > 0x401000 and < 0x8C0000) callers.Add($"{v:X}"); }
+        var buttons = BitConverter.ToUInt32(game.ReadOrZero(p + 0xB0, 4), 0);
+        var pad = game.ReadOrZero(PadMemory, 16);   // pad 1: pressed at +0, held at +8
+        var line = $"{TimeSpan.FromMilliseconds(ms):mm\\:ss\\.f} P{((long)p - 0x3BDC980) / PlayerSize} etat={pl[State]} ret={ret:X} par={string.Join(",", callers)} " +
+                   $"dir={Arg(0)} vit={Arg(1)} haut={Arg(2)} drap={Arg(3)} boutons={buttons:X8} manette={BitConverter.ToUInt32(pad, 8):X8}/{BitConverter.ToUInt32(pad, 0):X8}";
+        lock (Calls) { Calls.Add(line); if (Calls.Count > 14) Calls.RemoveAt(0); }
+        CallLogged?.Invoke(line);
+    }
 
     public void Update(IGameMemory game, long ms)
     {
@@ -109,6 +219,8 @@ sealed class HudTracker
         if (game.TryRead(GameLayout.Carrier, one)) Carrier = one[0];
         if (game.TryRead(RestartState, one)) Restart = one[0];
         game.TryRead(PadMemory, Pad);
+        game.TryRead(0x1016680, LeftTable); game.TryRead(0x10165A0, RightTable);
+        if (game.TryRead(RawPad, Raw)) LogRaw();
         game.TryRead(PlacementWords, Words);
         game.TryRead(OffsideLines, Offside);
         game.TryRead(AttackLevels, Attack);
@@ -122,6 +234,7 @@ sealed class HudTracker
             prevBallX = BallX; prevBallZ = BallZ;
         }
         Track();
+        if (RunLog) { gameForRun = game; LogRun(); }
     }
 
     void Track()
@@ -243,6 +356,11 @@ sealed class HudTracker
                 l.Add(pad);
                 l.Add($"balle vit={BallSpeed}  vz={BallVzFloat:F0}  h={-BallH:F0}");
                 break;
+            case HudPage.Calls:
+                l.Add("APPELS de la frappe 0x478020  (lancer hud -Calls)");
+                l.Add(pad);
+                if (carrier != null) l.Add(carrier);
+                break;
             case HudPage.Lines:
                 l.Add("LIGNES / PLACEMENT"); l.Add(lines); l.Add(runnerLine);
                 break;
@@ -263,7 +381,7 @@ sealed class HudTracker
 }
 
 /// <summary>What the overlay shows (Ctrl+S, Ctrl+P, Ctrl+L, Ctrl+B, Ctrl+A).</summary>
-enum HudPage { All, Shots, Passes, Lines, Ball }
+enum HudPage { All, Shots, Passes, Lines, Ball, Calls }
 /// <summary>The overlay window: a transparent-to-clicks topmost panel placed over the game window.</summary>
 sealed class HudForm : Form
 {
@@ -279,9 +397,71 @@ sealed class HudForm : Form
     HudPage page = HudPage.Shots;
     readonly Dictionary<int, bool> keyWas = [];
 
-    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds)
+    // The guided capture (-Guide): what to do with the pad, step by step, with a beep at each change.
+    static readonly (string Label, int Seconds)[] StickSteps =
+    [
+        ("PREPARE-TOI : balle au pied, immobile", 8),
+        ("COURS tout droit, stick GAUCHE tenu (une direction)", 8),
+        ("en courant: stick DROIT dans la MEME direction (3 fois)", 14),
+        ("en courant: stick DROIT dans la direction OPPOSEE (3 fois)", 14),
+        ("en courant: stick DROIT sur le COTE (3 fois)", 14),
+        ("FINI, merci", 5),
+    ];
+    // -GuideRun (bugs #58 and #59): run with the left stick, let go, again; then the same with R1 (sprint).
+    static readonly (string Label, int Seconds)[] RunSteps =
+    [
+        ("PREPARE-TOI : balle au pied, immobile", 8),
+        ("COURS : stick GAUCHE a fond, une direction", 5), ("RELACHE le stick, ne touche plus a rien", 4),
+        ("COURS : stick GAUCHE a fond, une direction", 5), ("RELACHE le stick, ne touche plus a rien", 4),
+        ("COURS : stick GAUCHE a fond, une direction", 5), ("RELACHE le stick, ne touche plus a rien", 4),
+        ("SPRINT : R1 + stick GAUCHE", 5), ("RELACHE TOUT (stick ET R1)", 4),
+        ("SPRINT : R1 + stick GAUCHE", 5), ("RELACHE TOUT (stick ET R1)", 4),
+        ("SPRINT : R1 + stick GAUCHE", 5), ("RELACHE TOUT (stick ET R1)", 4),
+        ("FINI, merci", 5),
+    ];
+    readonly (string Label, int Seconds)[] steps;
+    readonly bool guide;
+    long guideStart = -1;
+    int guideStep = -1;
+    string guideText = "";
+
+    void Guide()
     {
-        this.game = game; this.tracker = tracker; this.clock = clock;
+        if (!guide) return;
+        if (guideStart < 0)
+        {
+            guideText = "Ctrl+G pour COMMENCER le guide";
+            if ((GetAsyncKeyState(0x11) & 0x8000) == 0 || (GetAsyncKeyState(0x47) & 0x8000) == 0) return;
+            guideStart = clock.ElapsedMilliseconds;
+        }
+        var t = (clock.ElapsedMilliseconds - guideStart) / 1000.0;
+        var step = 0; var begin = 0.0;
+        while (step < steps.Length - 1 && t >= begin + steps[step].Seconds) { begin += steps[step].Seconds; step++; }
+        var left = Math.Max(0, begin + steps[step].Seconds - t);
+        guideText = $"{steps[step].Label}   {left:F0} s";
+        if (step == guideStep) return;
+        guideStep = step;
+        tracker.Label = steps[step].Label;
+        tracker.Mark(steps[step].Label, clock.ElapsedMilliseconds);
+        Speak(steps[step].Label);
+        Task.Run(() => { try { if (step == steps.Length - 1) { Console.Beep(660, 150); Console.Beep(880, 150); Console.Beep(1100, 300); } else Console.Beep(880 + 120 * step, 250); } catch (Exception) { } });
+    }
+
+    /// <summary>Says the step aloud (Windows SAPI through a hidden PowerShell), for when the overlay is not visible.</summary>
+    static void Speak(string text)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("powershell", $"-NoProfile -WindowStyle Hidden -Command \"(New-Object -ComObject SAPI.SpVoice).Speak('{text.Replace("'", " ")}') | Out-Null\"")
+                { CreateNoWindow = true, UseShellExecute = false });
+        }
+        catch (Exception) { }
+    }
+
+    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds, bool guide = false, bool runSteps = false)
+    {
+        this.game = game; this.tracker = tracker; this.clock = clock; this.guide = guide;
+        steps = runSteps ? RunSteps : StickSteps;
         until = seconds > 0 ? seconds * 1000L : long.MaxValue;
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
         BackColor = Color.FromArgb(16, 16, 20); Opacity = 0.86; DoubleBuffered = true;
@@ -308,14 +488,22 @@ sealed class HudForm : Form
         if (delete && !deleteWas) tracker.Clear();
         deleteWas = delete;
         if ((GetAsyncKeyState(0x11) & 0x8000) != 0)   // Ctrl + S / P / L / B / A picks the page
-            foreach (var (key, p) in new[] { (0x53, HudPage.Shots), (0x50, HudPage.Passes), (0x4C, HudPage.Lines), (0x42, HudPage.Ball), (0x41, HudPage.All) })
+            foreach (var (key, p) in new[] { (0x53, HudPage.Shots), (0x50, HudPage.Passes), (0x4C, HudPage.Lines), (0x42, HudPage.Ball), (0x41, HudPage.All), (0x4B, HudPage.Calls) })
             {
                 var down = (GetAsyncKeyState(key) & 0x8000) != 0;
                 if (down && !keyWas.GetValueOrDefault(key)) page = p;
                 keyWas[key] = down;
             }
         else keyWas.Clear();
+        if ((GetAsyncKeyState(0x11) & 0x8000) != 0)   // Ctrl + 1..4 marks the call log: 1 normal dribble, 2 R1 x3, 3 right stick, 4 other
+            foreach (var (key, label) in new[] { (0x31, "dribble normal"), (0x32, "R1 x3"), (0x33, "stick droit avant"), (0x34, "autre") })
+            {
+                var down = (GetAsyncKeyState(key) & 0x8000) != 0;
+                if (down && !keyWas.GetValueOrDefault(key)) tracker.Mark(label, clock.ElapsedMilliseconds);
+                keyWas[key] = down;
+            }
         tracker.Update(game, clock.ElapsedMilliseconds);
+        Guide();
         if (!shown) return;
         if (game.MainWindow != IntPtr.Zero && GetWindowRect(game.MainWindow, out var r) && r.Left > -10000) Location = new Point(r.Left + 8, r.Top + 70);
         else Location = new Point(20, 70);   // game minimised or without a window
@@ -327,12 +515,23 @@ sealed class HudForm : Form
         var g = e.Graphics;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
         var y = 4f;
+        if (guide)
+        {
+            using var big = new Font("Consolas", 14f, FontStyle.Bold); using var lime = new SolidBrush(Color.LimeGreen);
+            g.DrawString(guideText, big, lime, 4, y); y += 26;
+            g.DrawString(HudTracker.RawText(tracker.Raw, 0) + "  |  " + HudTracker.RawText(tracker.Raw, 1), font, Brushes.White, 4, y); y += 18;
+        }
         using var white = new SolidBrush(Color.White); using var yellow = new SolidBrush(Color.Gold); using var grey = new SolidBrush(Color.LightGray);
         using var magenta = new SolidBrush(Color.Magenta); using var bold = new Font(font, FontStyle.Bold);
         foreach (var line in tracker.LiveLines(page)) { if (line.StartsWith("MONTE")) g.DrawString(line, bold, magenta, 4, y); else g.DrawString(line, font, white, 4, y); y += 15; }
         y += 4;
-        if (page != HudPage.Lines && page != HudPage.Ball) { g.DrawString("Ctrl+S tirs  P passes  L lignes  B balle  A tout | Insert cacher, Suppr effacer", small, yellow, 4, y); y += 14; }
-        if (page != HudPage.Lines && page != HudPage.Ball)
+        if (page != HudPage.Lines && page != HudPage.Ball) { g.DrawString("Ctrl+S tirs  P passes  L lignes  B balle  K appels  A tout | Insert cacher, Suppr effacer", small, yellow, 4, y); y += 14; }
+        if (page == HudPage.Calls)
+        {
+            string[] calls; lock (tracker.Calls) calls = [.. tracker.Calls];
+            foreach (var k in calls) { g.DrawString(k.Length > 112 ? k[..112] : k, small, grey, 4, y); y += 13; }
+        }
+        else if (page != HudPage.Lines && page != HudPage.Ball)
             foreach (var k in tracker.KicksFor(page).TakeLast(6)) { g.DrawString(k.Length > 112 ? k[..112] : k, small, grey, 4, y); y += 13; }
         if (page is HudPage.Lines or HudPage.Passes or HudPage.All)
             DrawMap(g, new Rectangle(4, (int)y + 6, Width - 8, Height - (int)y - 10));
