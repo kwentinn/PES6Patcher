@@ -1104,7 +1104,7 @@ public class PatcherTests(ITestOutputHelper output)
     /// F1 switch at the start of the close dribbling part: set-up call on the first touch, then (when the
     /// Kitserver message is not installed) push ; call [GetAsyncKeyState] ; test ; je ; xor ; then cmp ; jne.
     /// </summary>
-    private const int CloseDribbleSwitchSize = 51;
+    private const int CloseDribbleSwitchSize = 51 + CodeCaves.RelayStickScanSize;   // the F1 switch, then the stick scan
 
     private const int SwitchState = 0xBC3FF0;   // last 16 bytes of .rdata
 

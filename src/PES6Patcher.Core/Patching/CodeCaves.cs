@@ -12,13 +12,13 @@ internal static class CodeCaves
 	public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156, ForwardRunsSize = 15;
 
 	/// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
-	public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 184, RelayStrengthKeySize = 13, RelayTailSize = 11;
+	public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 184, RelayStrengthKeySize = 13, RelayTailSize = 11, RelayStickScanSize = 23;
 
 	/// <summary>Key that switches close dribbling on and off in game.</summary>
 	public const byte CloseDribbleSwitchKey = 0x70;   // VK_F1
 
-	public static int KickRelaySize(bool direction, bool closeDribble, bool strengthKey = false) =>
-		(direction ? RelayDirectionSize : 0) + (closeDribble ? RelayCloseDribbleSize + (strengthKey ? RelayStrengthKeySize : 0) : 0) + RelayTailSize;
+	public static int KickRelaySize(bool direction, bool closeDribble, bool strengthKey = false, bool stickScan = true) =>
+		(direction ? RelayDirectionSize : 0) + (closeDribble ? RelayCloseDribbleSize + (strengthKey ? RelayStrengthKeySize : 0) + (stickScan ? RelayStickScanSize : 0) : 0) + RelayTailSize;
 
 	/// <summary>Close dribbling: touch speed x 14/16 while running, x 13/16 while sprinting (tuned in game).</summary>
 	public const byte RunTouchSixteenths = 14, SprintTouchSixteenths = 13;
@@ -347,8 +347,19 @@ internal static class CodeCaves
 				.Bytes(StateByte(0x35, 0, 1))                      // xor byte [off],1
 				.Mark("switched")
 				.Bytes(StateByte(0x3D, 0, 0))                      // cmp byte [off],0
-				.Jump(0x75, "original")                             // jne original          ; switched off
-				.Bytes(0x8B, 0x04, 0x24);                           // mov eax,[esp]        ; return address
+				.Jump(0x75, "original");                            // jne original          ; switched off
+			if (sites.StickTable != 0)
+				// no stick pushed on any pad (a released stick: the dribble winds down by itself, and the game ends it with a final touch
+				// only when the ball and the player are in line): the touches are left as the game's, shortened ones kept the player drifting
+				code.Bytes(0x33, 0xC9)                              // xor ecx,ecx          ; pad index
+					.Mark("stickScan")
+					.Bytes([0x80, 0x3C, 0x8D], sites.StickTable + 2).Bytes(0)   // cmp byte [ecx*4+magnitude],0
+					.Jump(0x75, "stickHeld")                        // jne stickHeld
+					.Bytes(0x41, 0x83, 0xF9, 0x08)                  // inc ecx ; cmp ecx,8
+					.Jump(0x7C, "stickScan")                        // jl stickScan
+					.JumpTo("original")                             // jmp original          ; nobody pushes a stick
+					.Mark("stickHeld");
+			code.Bytes(0x8B, 0x04, 0x24);                           // mov eax,[esp]        ; return address
 			foreach (int touch in sites.RunTouches)
 				code.Bytes([0x3D], touch).Jump(0x74, "run");        // cmp eax,touch ; je run
 			foreach (int touch in sites.SprintTouches)

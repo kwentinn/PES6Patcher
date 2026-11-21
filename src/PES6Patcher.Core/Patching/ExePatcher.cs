@@ -325,7 +325,7 @@ public static class ExePatcher
 		if (strengthKey && freeKick == null) throw new PatchException(problems);
 		if (dribbleDirection || options.CloseDribble)
 		{
-			int size = CodeCaves.KickRelaySize(dribbleDirection, options.CloseDribble, strengthKey);
+			int size = CodeCaves.KickRelaySize(dribbleDirection, options.CloseDribble, strengthKey, dribble!.StickTable != 0);
 			int relayCave = Cave(size);
 			int switchSetUp = 0;
 			if (options.CloseDribble)

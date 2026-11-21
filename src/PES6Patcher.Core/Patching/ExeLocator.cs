@@ -30,6 +30,9 @@ internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTou
 	/// </summary>
 	public int SwitchState { get; init; }
 
+	/// <summary>The game's left stick table (angle word, amplitude byte at +2, 4 bytes a pad): close dribbling leaves the touches alone while no stick is pushed (0 = not found: always shortened).</summary>
+	public int StickTable { get; init; }
+
 	/// <summary>
 	/// Dribble accuracy of the players in the match: low 7 bits of the dword at this address +
 	/// (player[0x12] * 32 + player[0x11]) * 0x348. Found from the game's dribble touch direction noise, which reads the
@@ -946,6 +949,7 @@ internal sealed class ExeLocator
 				ProcAddressImport = procAddress,
 				TickCountImport = tickCount,
 				SwitchState = state,
+				StickTable = StickTableOf(),
 				DribbleAccuracy = accuracy,
 			}
 			: null;
@@ -955,6 +959,9 @@ internal sealed class ExeLocator
 		[.. BitConverter.GetBytes(-256f), .. BitConverter.GetBytes(-224f), .. BitConverter.GetBytes(512f), .. BitConverter.GetBytes(448f)];
 
 	private List<int> Hits(string pattern) => new Signature(pattern).FindAll(_image, _code);
+
+	/// <summary>The left stick table, from the stick tables' writer (see <see cref="BallPushLeftStick"/>): 0 when it is not found exactly once.</summary>
+	private int StickTableOf() => Hits(BallPushLeftStick) is [var at] ? _image.ReadInt32(at + 8) - 2 : 0;
 
 	private int Unique(string pattern, string whatKey)
 	{
