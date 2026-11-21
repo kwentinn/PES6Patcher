@@ -100,6 +100,130 @@ internal static class CodeCaves
 		return new Hook("Hook.ForwardRuns", sites.Test, CodeBuilder.JumpPatch(sites.Test, cave, 6), cave, code);
 	}
 
+	/// <summary>The ball push's state (<see cref="BallPushSites.State"/>): byte +0 R1 was down, dword +4 frame, +8 frame of the last R1 tap, +0xC taps, +0x10 armed (1 = R1 x3, 2 = right stick), +0x14 frame armed, byte +0x18 stick was down, dword +0x1C stick angle.</summary>
+	private const int PushR1Down = 0, PushFrame = 4, PushLastTap = 8, PushTaps = 0xC, PushArmed = 0x10, PushArmedFrame = 0x14, PushStickDown = 0x18, PushStickAngle = 0x1C;
+
+	/// <summary>Frames (60 a second): three R1 taps within 36 of each other arm the push, which lasts 90; the right stick counts as pushed from 7 of 8.</summary>
+	private const byte PushTapWindow = 36, PushArmedFrames = 90, PushStickAmplitude = 7;
+
+	/// <summary>Right stick push: the touch goes at most 20 degrees (0x0E39 of 0x10000) from the direction the player runs.</summary>
+	private const int PushMaxTurn = 0x0E39;
+
+	/// <summary>
+	/// Ball push, pad half: at the entry of the pad reader (it replays the 7 bytes it replaces), for pad 0 only, once a frame, it counts the
+	/// taps of R1 (button word 0x0800, 0 = pressed) and watches the right stick (the game's own table: amplitude 7 or more): three taps
+	/// within <see cref="PushTapWindow"/> frames arm the push (1), the stick pushed to the edge arms it too (2, with the stick's angle);
+	/// the push is dropped after <see cref="PushArmedFrames"/> frames. <see cref="BallPushTouch"/> uses it.
+	/// </summary>
+	public static Hook BallPushPad(int cave, BallPushSites sites)
+	{
+		int s = sites.State;
+		var code = new CodeBuilder(cave)
+			.Bytes(0x51, 0x53, 0x55, 0x8B, 0x6C, 0x24, 0x10)       // push ecx ; push ebx ; push ebp ; mov ebp,[esp+0x10]   ; the replaced bytes
+			.Bytes(0x50, 0x52)                                      // push eax ; push edx
+			.Bytes(0x85, 0xED).JumpNear(0x85, "done")               // test ebp,ebp ; jnz done   ; pad 0 only
+			.Bytes([0xFF, 0x05], s + PushFrame)                     // inc [frame]
+			.Bytes([0x0F, 0xB7, 0x05], sites.PadBase)               // movzx eax,word [buttons]
+			.Bytes(0x25, 0x00, 0x08, 0x00, 0x00)                    // and eax,0x800
+			.Bytes(0x0F, 0x94, 0xC2)                                // sete dl           ; 1 = R1 pressed
+			.Bytes([0x0F, 0xB6, 0x05], s + PushR1Down)              // movzx eax,byte [R1 was down]
+			.Bytes([0x88, 0x15], s + PushR1Down)                    // mov [R1 was down],dl
+			.Bytes(0x84, 0xC0).Jump(0x75, "tapsDone")               // test al,al ; jnz tapsDone   ; held, not a new tap
+			.Bytes(0x84, 0xD2).Jump(0x74, "tapsDone")               // test dl,dl ; jz tapsDone
+			.Bytes([0xA1], s + PushFrame)                           // mov eax,[frame]
+			.Bytes([0x8B, 0x15], s + PushLastTap)                   // mov edx,[last tap]
+			.Bytes([0xA3], s + PushLastTap)                         // mov [last tap],eax
+			.Bytes(0x2B, 0xC2)                                      // sub eax,edx
+			.Bytes(0x83, 0xF8, PushTapWindow).Jump(0x76, "keep")    // cmp eax,36 ; jbe keep
+			.Bytes([0xC7, 0x05], s + PushTaps).Bytes(0, 0, 0, 0)    // mov [taps],0      ; too late: start again
+			.Mark("keep")
+			.Bytes([0xFF, 0x05], s + PushTaps)                      // inc [taps]
+			.Bytes([0x83, 0x3D], s + PushTaps).Bytes(3)             // cmp [taps],3
+			.Jump(0x72, "tapsDone")                                 // jb tapsDone
+			.Bytes([0xC7, 0x05], s + PushTaps).Bytes(0, 0, 0, 0)    // mov [taps],0
+			.Bytes([0xC7, 0x05], s + PushArmed).Bytes(1, 0, 0, 0)   // mov [armed],1
+			.Bytes([0xA1], s + PushFrame)                           // mov eax,[frame]
+			.Bytes([0xA3], s + PushArmedFrame)                      // mov [armed frame],eax
+			.Mark("tapsDone")
+			.Bytes([0x0F, 0xB6, 0x05], sites.RightStick + 2)        // movzx eax,byte [right stick amplitude]
+			.Bytes(0x83, 0xF8, PushStickAmplitude)                  // cmp eax,7
+			.Bytes(0x0F, 0x93, 0xC2)                                // setae dl          ; 1 = pushed to the edge
+			.Bytes([0x0F, 0xB6, 0x05], s + PushStickDown)           // movzx eax,byte [stick was down]
+			.Bytes([0x88, 0x15], s + PushStickDown)                 // mov [stick was down],dl
+			.Bytes(0x84, 0xC0).Jump(0x75, "stickDone")              // test al,al ; jnz stickDone
+			.Bytes(0x84, 0xD2).Jump(0x74, "stickDone")              // test dl,dl ; jz stickDone
+			.Bytes([0x0F, 0xB7, 0x05], sites.RightStick)            // movzx eax,word [right stick angle]
+			.Bytes([0xA3], s + PushStickAngle)                      // mov [stick angle],eax
+			.Bytes([0xC7, 0x05], s + PushArmed).Bytes(2, 0, 0, 0)   // mov [armed],2
+			.Bytes([0xA1], s + PushFrame)                           // mov eax,[frame]
+			.Bytes([0xA3], s + PushArmedFrame)                      // mov [armed frame],eax
+			.Mark("stickDone")
+			.Bytes([0x83, 0x3D], s + PushArmed).Bytes(0)            // cmp [armed],0
+			.Jump(0x74, "done")                                     // je done
+			.Bytes([0xA1], s + PushFrame)                           // mov eax,[frame]
+			.Bytes([0x2B, 0x05], s + PushArmedFrame)                // sub eax,[armed frame]
+			.Bytes(0x83, 0xF8, PushArmedFrames).Jump(0x76, "done") // cmp eax,90 ; jbe done
+			.Bytes([0xC7, 0x05], s + PushArmed).Bytes(0, 0, 0, 0)   // mov [armed],0     ; too old
+			.Mark("done")
+			.Bytes(0x5A, 0x58)                                      // pop edx ; pop eax
+			.JumpTo(sites.PadEntry + 7)                             // back after the replaced bytes
+			.Build();
+		return new Hook("Hook.BallPush", sites.PadEntry, CodeBuilder.JumpPatch(sites.PadEntry, cave, 7), cave, code);
+	}
+
+	/// <summary>
+	/// Ball push, touch half: the dribble relay's call of the kick function (touch: player, direction, speed, height, flag) goes through
+	/// this cave. When the push is armed and the touch is a human team's (the score learnt at the kick function's entry), the speed is
+	/// raised by a quarter (R1 x3) or a half (right stick, only while the player runs: state 2, or 25 after R1); with the stick, the
+	/// direction becomes the stick's, at most 20 degrees from the direction the player runs (his left stick if pushed, else his
+	/// orientation +0x26), and the player himself is left alone. One touch only. The kick function is then jumped to, so it returns to the relay.
+	/// </summary>
+	public static Hook BallPushTouch(int cave, BallPushSites sites, ShotSites humans)
+	{
+		int s = sites.State;
+		var code = new CodeBuilder(cave)
+			.Bytes([0x83, 0x3D], s + PushArmed).Bytes(0)            // cmp [armed],0
+			.JumpNear(0x84, "go")                                   // je go
+			.Bytes(0x8B, 0x44, 0x24, 0x04)                          // mov eax,[esp+4]   ; player
+			.Bytes(0x0F, 0xB6, 0x48, 0x12, 0x83, 0xE1, 0x01)        // movzx ecx,byte [eax+0x12] ; and ecx,1 ; team
+			.Bytes([0x80, 0xB9, .. BitConverter.GetBytes(humans.HumanScores), HumanScore])   // cmp byte [ecx+scores],HumanScore
+			.JumpNear(0x82, "go")                                   // jb go             ; not a human team
+			.Bytes(0xB1, 0x02)                                      // mov cl,2          ; speed + speed / 4
+			.Bytes([0x83, 0x3D], s + PushArmed).Bytes(2)            // cmp [armed],2
+			.Jump(0x75, "speed")                                    // jne speed
+			.Bytes(0x0F, 0xB6, 0x50, 0x16)                          // movzx edx,byte [eax+0x16]   ; state
+			.Bytes(0x83, 0xFA, 0x02).Jump(0x74, "running")          // cmp edx,2 ; je running      ; run or sprint
+			.Bytes(0x83, 0xFA, 0x19).JumpNear(0x85, "go")           // cmp edx,25 ; jne go         ; the touch after R1
+			.Mark("running")
+			.Bytes(0x0F, 0xB7, 0x48, 0x26)                          // movzx ecx,word [eax+0x26]   ; orientation
+			.Bytes([0x80, 0x3D], sites.LeftStick + 2).Bytes(0)      // cmp byte [left stick amplitude],0
+			.Jump(0x74, "haveRef")                                  // je haveRef
+			.Bytes([0x0F, 0xB7, 0x0D], sites.LeftStick)             // movzx ecx,word [left stick angle]
+			.Mark("haveRef")
+			.Bytes([0x8B, 0x15], s + PushStickAngle)                // mov edx,[stick angle]
+			.Bytes(0x2B, 0xD1)                                      // sub edx,ecx
+			.Bytes(0x0F, 0xBF, 0xD2)                                // movsx edx,dx      ; the turn from the running direction
+			.Bytes([0x81, 0xFA], PushMaxTurn).Jump(0x7E, "low")     // cmp edx,max ; jle low
+			.Bytes([0xBA], PushMaxTurn)                             // mov edx,max
+			.Mark("low")
+			.Bytes([0x81, 0xFA], -PushMaxTurn).Jump(0x7D, "high")   // cmp edx,-max ; jge high
+			.Bytes([0xBA], -PushMaxTurn)                            // mov edx,-max
+			.Mark("high")
+			.Bytes(0x03, 0xD1)                                      // add edx,ecx
+			.Bytes(0x0F, 0xB7, 0xD2)                                // movzx edx,dx
+			.Bytes(0x89, 0x54, 0x24, 0x08)                          // mov [esp+8],edx   ; the touch's direction
+			.Bytes(0xB1, 0x01)                                      // mov cl,1          ; speed + speed / 2
+			.Mark("speed")
+			.Bytes(0x8B, 0x44, 0x24, 0x0C)                          // mov eax,[esp+0xC] ; speed
+			.Bytes(0x8B, 0xD0, 0xD3, 0xFA, 0x03, 0xC2)              // mov edx,eax ; sar edx,cl ; add eax,edx
+			.Bytes(0x89, 0x44, 0x24, 0x0C)                          // mov [esp+0xC],eax
+			.Bytes([0xC7, 0x05], s + PushArmed).Bytes(0, 0, 0, 0)   // mov [armed],0     ; one touch
+			.Mark("go")
+			.JumpTo(sites.KickEntry)                                // the kick function returns to the relay
+			.Build();
+		return new Hook("Hook.BallPush", sites.RelayCall, CodeBuilder.CallPatch(sites.RelayCall, cave, 5), cave, code);
+	}
+
 	/// <summary>
 	/// The direction function turns the 8-way direction bits into a heading (its body is virtualised
 	/// by the exe protection). The cave calls its original body (copied as is), then - only when the

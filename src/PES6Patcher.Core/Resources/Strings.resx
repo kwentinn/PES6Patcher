@@ -648,6 +648,15 @@
   <data name="Gameplay.ForwardRuns" xml:space="preserve">
     <value>Forwards make runs into the box</value>
   </data>
+  <data name="Hook.BallPush" xml:space="preserve">
+    <value>ball push</value>
+  </data>
+  <data name="Log.BallPush" xml:space="preserve">
+    <value>Ball push: R1 pressed three times, or the right stick pushed to the edge while the player runs, sends his next touch further ahead (right stick: toward the stick, at most 20 degrees from his running direction). Human teams only.</value>
+  </data>
+  <data name="Gameplay.BallPush" xml:space="preserve">
+    <value>Push the ball ahead (R1 three times, or right stick)</value>
+  </data>
   <data name="Hook.ShotGauge" xml:space="preserve">
     <value>shot gauge speed</value>
   </data>

@@ -41,6 +41,7 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="CloseDribbleStrengthDebug">Test key: F10 in game changes <paramref name="CloseDribbleStrength"/> by 25 % and shows it (through Kitserver).</param>
 /// <param name="DefenceLine">Higher defensive line: share of the fixed drop the game adds to every team's line (2560 units, about 11 m) taken off, in % (0 = unchanged).</param>
 /// <param name="ForwardRuns">The forwards (roles 24 and over) can be picked as the runner of the run beyond the last line (mode 0x0F, one runner a side), which the game never gave them: more runs into the box for crosses.</param>
+/// <param name="BallPush">R1 pressed three times, or the right stick pushed to the edge while a human team's player runs, sends his next touch further ahead (right stick: toward the stick, 20 degrees at most from his running direction).</param>
 /// <param name="ShotGaugeSpeed">Speed at which the shot gauge (the game's own, 0 to 0x80 in about 0.25 s) fills, in % of the game's (100 = unchanged): a slower gauge leaves more time to dose a shot.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself may run at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged; 100 = the Pro setting, tested in matches): he trots instead of sprinting to a near place, the runs (overlaps, runs behind the last line) stay free.</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
@@ -51,7 +52,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
 	int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
 	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0,
-	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false, int ShotGaugeSpeed = 100)
+	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false, int ShotGaugeSpeed = 100, bool BallPush = false)
 {
 	/// <summary>
 	/// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -196,9 +197,12 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
 	/// <summary>The fill speed of the shot gauge can be slowed (the player state dispatch is found).</summary>
 	public bool ShotGauge { get; init; }
 
+	/// <summary>The ball push (R1 three times, right stick) can be added (the pad reader, the stick tables and the dribble relay are found).</summary>
+	public bool BallPush { get; init; }
+
 	public bool PassPowerGauges { get; init; }
 
-	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns || ShotGauge;
+	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns || ShotGauge || BallPush;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -250,6 +254,7 @@ public static class ExePatcher
 				DefenceLine = ExeLocator.LocateDefenceLine(exe) != null,
 				OffBallPace = ExeLocator.LocateOffBallPace(exe) != null,
 				ForwardRuns = ExeLocator.LocateForwardRuns(exe) != null,
+				BallPush = shot != null && ExeLocator.LocateBallPush(exe) != null,
 				ShotGauge = ExeLocator.LocateShotGauge(exe) != null,
 			};
 		}
@@ -278,7 +283,7 @@ public static class ExePatcher
 		if (options.CloseDribble && dribble == null) throw new PatchException(problems);
 		if (options.SkipIntro && intro == null) throw new PatchException(problems);
 		if (options.FreeKick && freeKick == null) throw new PatchException(problems);
-		if ((options.ShotPower < 100 || options.ShotAccuracy < 100 || options.Headers < 100 || options.SuperShot > 0) && shot == null) throw new PatchException(problems);
+		if ((options.ShotPower < 100 || options.ShotAccuracy < 100 || options.Headers < 100 || options.SuperShot > 0 || options.BallPush) && shot == null) throw new PatchException(problems);
 		if (options.SuperShot != 0 && options.SuperShot is < PatchOptions.MinSuperShot or > PatchOptions.MaxSuperShot)
 			throw new ArgumentOutOfRangeException(nameof(options), options.SuperShot, null);
 		if (options.SuperShot != 0 && options.SuperShotSpeed is < PatchOptions.MinSuperShotSpeed or > PatchOptions.MaxSuperShotSpeed)
@@ -430,7 +435,7 @@ public static class ExePatcher
 		bool headers = options.Headers < 100;
 		bool superShot = options.SuperShot > 0;
 		bool tackle = options.Tackle != 100;
-		var humans = shots || headers || superShot || tackle ? shot : null;   // human teams learnt at the kick function's entry
+		var humans = shots || headers || superShot || tackle || options.BallPush ? shot : null;   // human teams learnt at the kick function's entry
 		bool superWeight = superShot && options.SuperShotWeight > 0;
 		var superFix = superShot
 			? new CodeCaves.SuperShotFix(options.SuperShotSpeed, options.SuperShot, superShotKey ? CodeCaves.SuperShotStateAddress(freeKick!) : 0,
@@ -626,6 +631,22 @@ public static class ExePatcher
 			var hook = CodeCaves.ForwardRuns(Cave(CodeCaves.ForwardRunsSize), sites);
 			plan.Add((hook.Cave, hook.CaveBytes));
 			plan.Add((hook.Entry, hook.EntryBytes));
+		}
+
+		// ball push: R1 three times or the right stick pushed to the edge arms a push of the next touch of a human team (pad half, at the
+		// pad reader's entry; touch half, at the dribble relay's call of the kick function); its state lives in the end of .rdata
+		if (options.BallPush)
+		{
+			var sites = ExeLocator.LocateBallPush(original) ?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.BallPush"), 0)]);
+			var pad = CodeCaves.BallPushPad(0, sites);
+			var touch = CodeCaves.BallPushTouch(0, sites, shot!);
+			pad = CodeCaves.BallPushPad(Cave(pad.CaveBytes.Length), sites);
+			touch = CodeCaves.BallPushTouch(Cave(touch.CaveBytes.Length), sites, shot!);
+			plan.Add((pad.Cave, pad.CaveBytes));
+			plan.Add((touch.Cave, touch.CaveBytes));
+			plan.Add((pad.Entry, pad.EntryBytes));
+			plan.Add((touch.Entry, touch.EntryBytes));
+			image.MakeWritable(image.SectionOf(sites.State)!);
 		}
 
 		// shot gauge: its fill is slowed at the start of the player state dispatch (with the pass gauges, their dispatch cave does it)

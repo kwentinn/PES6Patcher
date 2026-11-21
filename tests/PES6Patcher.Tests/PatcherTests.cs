@@ -722,6 +722,47 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(CodeCaves.ForwardRunsSize, 15);
     }
     [Fact]
+    public void Ball_push_hooks_the_pad_reader_and_the_dribble_relay_call()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).BallPush);
+        var sites = ExeLocator.LocateBallPush(original)!;
+        // the pad reader 0x8B7D10 (structures of 0x58 bytes from 0x3A5C390), the stick tables written by 0x4B2300 (left 0x1016680,
+        // right 0x10165A0), the kick function's call in the dribble relay 0x4781F0 and its target 0x478020
+        Assert.Equal(0x8B7D10, sites.PadEntry);
+        Assert.Equal(0x3A5C390, sites.PadBase);
+        Assert.Equal(0x10165A0, sites.RightStick);
+        Assert.Equal(0x1016680, sites.LeftStick);
+        Assert.Equal(0x47822B, sites.RelayCall);
+        Assert.Equal(0x478020, sites.KickEntry);
+        Assert.Equal(new PeImage(original).Named(".rdata")!.End - 0x60, sites.State);
+
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var with = new PeImage(ExePatcher.Build(original, options with { BallPush = true }));
+
+        // pad half: the first 7 bytes of the pad reader become a jump to a cave that replays them and jumps back after them
+        Assert.Equal(0xE9, with.Bytes[with.Offset(sites.PadEntry)]);
+        int pad = sites.PadEntry + 5 + with.ReadInt32(sites.PadEntry + 1);
+        byte[] replayed = [0x51, 0x53, 0x55, 0x8B, 0x6C, 0x24, 0x10];
+        Assert.True(with.Matches(pad, replayed));
+        int padSize = CodeCaves.BallPushPad(0, sites).CaveBytes.Length;
+        Assert.Equal(0xE9, with.Bytes[with.Offset(pad + padSize - 5)]);
+        Assert.Equal(sites.PadEntry + 7, pad + padSize + with.ReadInt32(pad + padSize - 4));
+
+        // touch half: the call of the kick function in the relay goes to a cave that ends by jumping to the kick function
+        Assert.Equal(0xE8, with.Bytes[with.Offset(sites.RelayCall)]);
+        int touch = sites.RelayCall + 5 + with.ReadInt32(sites.RelayCall + 1);
+        Assert.NotEqual(sites.KickEntry, touch);
+        var shot = ExeLocator.Locate(original).Shot!;
+        int touchSize = CodeCaves.BallPushTouch(0, sites, shot).CaveBytes.Length;
+        Assert.Equal(0xE9, with.Bytes[with.Offset(touch + touchSize - 5)]);
+        Assert.Equal(sites.KickEntry, touch + touchSize + with.ReadInt32(touch + touchSize - 4));
+
+    }
+
+    [Fact]
     public void Defence_line_takes_the_fixed_drop_off_in_both_halves()
     {
         var original = Load("PES6.orig.exe");

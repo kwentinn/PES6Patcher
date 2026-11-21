@@ -648,6 +648,15 @@
   <data name="Gameplay.ForwardRuns" xml:space="preserve">
     <value>Les attaquants font des courses dans la surface</value>
   </data>
+  <data name="Hook.BallPush" xml:space="preserve">
+    <value>poussée du ballon</value>
+  </data>
+  <data name="Log.BallPush" xml:space="preserve">
+    <value>Poussée du ballon : R1 appuyé trois fois, ou stick droit poussé à fond pendant la course, envoie la prochaine touche plus loin devant le joueur (stick droit : vers le stick, à 20 degrés au plus de sa direction de course). Équipes humaines seulement.</value>
+  </data>
+  <data name="Gameplay.BallPush" xml:space="preserve">
+    <value>Pousser le ballon devant soi (R1 trois fois, ou stick droit)</value>
+  </data>
   <data name="Hook.ShotGauge" xml:space="preserve">
     <value>vitesse de la jauge de tir</value>
   </data>

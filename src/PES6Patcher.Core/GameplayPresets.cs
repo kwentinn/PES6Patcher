@@ -64,6 +64,7 @@ public static class GameplayPresets
 			DefenceLine = PatchOptions.DefaultDefenceLine,
 				OffBallPace = offBallPace,
 			ForwardRuns = true,
+			BallPush = true,
 		};
 	}
 

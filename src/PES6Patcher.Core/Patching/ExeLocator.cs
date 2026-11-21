@@ -126,6 +126,14 @@ internal sealed record LoftedAimSites(int Gauge, int Angle);
 internal sealed record ForwardRunsSites(int Test, int Skip, int Accept);
 
 /// <summary>
+/// Ball push (R1 three times, right stick): <see cref="PadEntry"/> = the entry of the function that reads a pad every frame (7 bytes
+/// replayed by the cave), <see cref="PadBase"/> = the pad's raw structure (the button word, 0 = pressed, at +0), <see cref="RightStick"/> and
+/// <see cref="LeftStick"/> = the game's own stick tables (angle word at +0, amplitude 0 to 8 at +2), <see cref="RelayCall"/> = the call of the
+/// kick function in the dribble relay (5 bytes) and <see cref="KickEntry"/> its target, <see cref="State"/> = 32 bytes of .rdata (zero padding).
+/// </summary>
+internal sealed record BallPushSites(int PadEntry, int PadBase, int RightStick, int LeftStick, int RelayCall, int KickEntry, int State);
+
+/// <summary>
 /// Pass lead: where the pass point (passer +0x9C / +0xA0) is placed ahead of the receiver, the lead (passer +0xA8) is
 /// read twice: <see cref="First"/> = mov eax,[edi+0xA8] (6 bytes, for the cosine), <see cref="Second"/> = mov ecx,[edi+0xA8]
 /// (6 bytes, for the sine).
@@ -710,6 +718,36 @@ internal sealed class ExeLocator
 		if (test.Count != 1 || accept.Count != 1) return null;
 		int ja = test[0] + 10;
 		return new ForwardRunsSites(ja, ja + 6 + image.ReadInt32(ja + 2), accept[0]);
+	}
+
+	/// <summary>push ecx ; push ebx ; push ebp ; mov ebp,[esp+0x10] ; imul ebp,ebp,0x58 ; mov eax,[ebp+pad+0x1C] ; mov ecx,[ebp+pad+0x30] ; push esi ; lea esi,[ebp+pad+0x14] ; mov [esi+0xC]...: the pad reader (pad number in, 0x58 bytes a pad).</summary>
+	private const string BallPushPadReader = "51 53 55 8B 6C 24 10 6B ED 58 8B 85 ?? ?? ?? ?? 8B 8D ?? ?? ?? ?? 56 8D B5 ?? ?? ?? ?? 89 46 10";
+
+	/// <summary>The dribble relay up to the call of the kick function: speed / 4 stored in the ball, speed made positive, arguments pushed, call.</summary>
+	private const string BallPushRelay = "8B 4C 24 0C 8B C1 99 83 E2 03 03 C2 8B 15 ?? ?? ?? ?? C1 F8 02 85 C9 89 42 74 A1 ?? ?? ?? ?? 66 C7 40 6A 00 00 7F 02 F7 D9 8B 54 24 10 8B 44 24 08 6A 01 52 51 8B 4C 24 10 50 51 E8 ?? ?? ?? ?? 83 C4 14 C3";
+
+	/// <summary>The stick tables' writer: the first loop (left stick) starts with mov ebp,table+2 ; mov ebx,pad bytes+0x13 ; movzx esi,[ebx-2].</summary>
+	private const string BallPushLeftStick = "83 EC 0C 53 55 56 57 BD ?? ?? ?? ?? BB ?? ?? ?? ?? 0F B6 73 FE";
+
+	/// <summary>The same writer's second loop (right stick): mov ebp,table+2 ; mov ebx,pad bytes+0x14 ; movzx esi,[ebx+1].</summary>
+	private const string BallPushRightStick = "BD ?? ?? ?? ?? BB ?? ?? ?? ?? 0F B6 73 01 85 F6";
+
+	public static BallPushSites? LocateBallPush(byte[] exe)
+	{
+		var image = new PeImage(exe);
+		List<int> Find(string pattern) => [.. image.Sections.Where(s => s.IsCode).SelectMany(s => new Signature(pattern).FindAll(image, s))];
+		var pad = Find(BallPushPadReader);
+		var relay = Find(BallPushRelay);
+		var left = Find(BallPushLeftStick);
+		var right = Find(BallPushRightStick);
+		var rdata = image.Named(".rdata");
+		if (pad.Count != 1 || relay.Count != 1 || left.Count != 1 || right.Count != 1 || rdata == null) return null;
+		int padBase = image.ReadInt32(pad[0] + 12) - 0x1C;
+		if (image.ReadInt32(pad[0] + 18) != padBase + 0x30) return null;   // the second field read is where it should be
+		int call = relay[0] + 0x3B;
+		int state = rdata.End - 0x60;
+		if (!image.Matches(state, new byte[0x20])) return null;
+		return new BallPushSites(pad[0], padBase, image.ReadInt32(right[0] + 1) - 2, image.ReadInt32(left[0] + 8) - 2, call, image.Rel32Target(call), state);
 	}
 
 	public static LoftedAimSites? LocateLoftedAim(byte[] exe)
