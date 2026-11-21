@@ -263,7 +263,10 @@ public static class ExePatcher
 	public static bool IsSupported(byte[] exe) => Analyze(exe) is { AlreadyPatched: false } r && r.AnyFix;
 
 	/// <summary>Returns a patched copy of <paramref name="original"/>.</summary>
-	public static byte[] Build(byte[] original, PatchOptions options)
+	public static byte[] Build(byte[] original, PatchOptions options) => Build(original, options, avoidNemesis: true);
+
+	/// <summary><paramref name="avoidNemesis"/> false: the cave layout of the builds before 1.31 (tests against the exes validated in game).</summary>
+	internal static byte[] Build(byte[] original, PatchOptions options, bool avoidNemesis)
 	{
 		if (options.Half is < 256 or > 2048) throw new ArgumentOutOfRangeException(nameof(options), Loc.T("Error.HalfOutOfRange"));
 
@@ -293,7 +296,7 @@ public static class ExePatcher
 			throw new ArgumentOutOfRangeException(nameof(options), options.ShotAccuracy, null);
 
 		var plan = new List<(int Va, byte[] Bytes)>();
-		var caves = new CaveAllocator(image);
+		var caves = new CaveAllocator(image, avoidNemesis);
 		int Cave(int size) => caves.Allocate(size) is var at and not 0 ? at : throw new PatchException([Loc.T("Check.HookCave", size + " bytes")]);
 
 		if (options.Display) PlanDisplay(display!, options.Half, plan, Cave);

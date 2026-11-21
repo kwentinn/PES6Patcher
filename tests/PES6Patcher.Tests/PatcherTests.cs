@@ -84,10 +84,30 @@ public class PatcherTests(ITestOutputHelper output)
         if (original == null || expected == null) return;
 
         Assert.True(ExePatcher.IsSupported(original));
-        var built = ExePatcher.Build(original, new PatchOptions(half, FreeDirection: true));
+        var built = ExePatcher.Build(original, new PatchOptions(half, FreeDirection: true), avoidNemesis: false);
 
         // since 1.5, the free direction also hooks the kick relay (dribble touches): the rest is v6
         AssertSameExceptKickRelay(expected, built, CodeCaves.KickRelaySize(direction: true, closeDribble: false));
+    }
+
+    [Fact]
+    public void No_cave_goes_in_the_padding_Nemesis_writes_to()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        // the most code: every fix and the test keys
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true, FreeKick: true, FreeKickDebug: true,
+            ShotPower: 80, ShotPowerDebug: true, ShotAccuracy: 50, ShotAccuracyDebug: true, Spread: 20, SpreadDebug: true,
+            SpeedGap: 300, SpeedGapDebug: true, SprintTurn: 90, SprintTurnDebug: true, Tackle: 180, TackleDebug: true, LobPower: 70,
+            LoftedAim: true, PassLead: 60, PassLeadDebug: true, StickDeadZone: 18, CarrierTurn: 22, CloseDribbleStrength: 125,
+            CloseDribbleStrengthDebug: true, AccelerationGap: true, Headers: 70, HeadersDebug: true, DefenceLine: 50, SuperShot: 32,
+            SuperShotDebug: true, OffBallPace: 200, PassPowerGauges: true, ForwardRuns: true, ShotGaugeSpeed: 75);
+        var image = new PeImage(original);
+        foreach (var built in new[] { ExePatcher.Build(original, options), ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true)) })
+            foreach (var (start, length) in CaveAllocator.Nemesis)
+                Assert.True(original.AsSpan(image.Offset(start), length).SequenceEqual(built.AsSpan(image.Offset(start), length)),
+                    $"0x{start:X} changed");
     }
 
     /// <summary>
@@ -179,7 +199,7 @@ public class PatcherTests(ITestOutputHelper output)
         if (original == null || v6 == null) return;
 
         Assert.True(ExePatcher.Analyze(original).CloseDribble);
-        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true, CloseDribble: true));
+        var built = ExePatcher.Build(original, new PatchOptions(398, FreeDirection: true, CloseDribble: true), avoidNemesis: false);
 
         // everything else is the v6 build; after the direction part, the cave compares the return
         // address with the 7 dribble touches
@@ -1008,8 +1028,8 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.True(report.Display && report.FreeDirection);
 
         var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true);
-        var built = ExePatcher.Build(other, options);
-        var reference = ExePatcher.Build(original, options);
+        var built = ExePatcher.Build(other, options, avoidNemesis: false);
+        var reference = ExePatcher.Build(original, options, avoidNemesis: false);
         reference[timestamp] ^= 0x5A;
         Assert.Equal(reference, built);
         expected[timestamp] ^= 0x5A;
