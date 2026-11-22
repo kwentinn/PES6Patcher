@@ -9,7 +9,7 @@ internal sealed record Hook(string NameKey, int Entry, byte[] EntryBytes, int Ca
 /// </summary>
 internal static class CodeCaves
 {
-	public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156, ForwardRunsSize = 15;
+	public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156, ForwardRunsSize = 25;
 
 	/// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
 	public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 184, RelayStrengthKeySize = 13, RelayTailSize = 11, RelayStickScanSize = 23;
@@ -86,16 +86,21 @@ internal static class CodeCaves
 	/// <summary>
 	/// Forwards as runners: the runner picker leaves at once for roles 24 and over, so a forward never made the run beyond the
 	/// last line (mode 0x0F, one runner a side). The jump on those roles goes to a cave that takes a candidate of role 24 to 64
-	/// as the runner (the code that stores his id in the side's slot), and leaves the other roles to the jump's old target.
+	/// as the runner (the code that stores his id in the side's slot). The jump was conditional (role above 23): the cave tests that
+	/// itself and gives roles 1 to 23 back to the code after the jump, so the defenders keep the game's rules for the run.
 	/// </summary>
 	public static Hook ForwardRuns(int cave, ForwardRunsSites sites)
 	{
 		var code = new CodeBuilder(cave)
-			.Bytes(0x83, 0xF8, 0x40)        // cmp eax,0x40      ; role - 1 (the goalkeeper's 0 wraps to a huge value: not taken)
+			.Bytes(0x83, 0xF8, 0x16)        // cmp eax,0x16      ; role - 1 (the goalkeeper's 0 wraps to a huge value: not below)
+			.Jump(0x76, "resume")           // jbe resume        ; roles 1 to 23 keep the game's own rules (attack level, stats, draws)
+			.Bytes(0x83, 0xF8, 0x40)        // cmp eax,0x40
 			.Jump(0x73, "skip")             // jae skip
-			.JumpTo(sites.Accept)           // jmp accept        ; the candidate runs
+			.JumpTo(sites.Accept)           // jmp accept        ; the forward runs
 			.Mark("skip")
 			.JumpTo(sites.Skip)             // jmp the old target
+			.Mark("resume")
+			.JumpTo(sites.Resume)           // jmp the code after the replaced ja
 			.Build();
 		return new Hook("Hook.ForwardRuns", sites.Test, CodeBuilder.JumpPatch(sites.Test, cave, 6), cave, code);
 	}

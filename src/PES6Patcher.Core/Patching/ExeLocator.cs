@@ -126,7 +126,7 @@ internal sealed record TackleSites(int Range, int Fail);
 internal sealed record LoftedAimSites(int Gauge, int Angle);
 
 /// <summary>The runner picker's role test: the jump on a role above 23 (<paramref name="Test"/>, 6 bytes), where it goes (<paramref name="Skip"/>) and the code that takes the candidate as the runner (<paramref name="Accept"/>).</summary>
-internal sealed record ForwardRunsSites(int Test, int Skip, int Accept);
+internal sealed record ForwardRunsSites(int Test, int Skip, int Accept, int Resume);
 
 /// <summary>
 /// Ball push (R1 three times, right stick): <see cref="PadEntry"/> = the entry of the function that reads a pad every frame (7 bytes
@@ -720,7 +720,7 @@ internal sealed class ExeLocator
 		var accept = Find(ForwardRunsAccept);
 		if (test.Count != 1 || accept.Count != 1) return null;
 		int ja = test[0] + 10;
-		return new ForwardRunsSites(ja, ja + 6 + image.ReadInt32(ja + 2), accept[0]);
+		return new ForwardRunsSites(ja, ja + 6 + image.ReadInt32(ja + 2), accept[0], ja + 6);
 	}
 
 	/// <summary>push ecx ; push ebx ; push ebp ; mov ebp,[esp+0x10] ; imul ebp,ebp,0x58 ; mov eax,[ebp+pad+0x1C] ; mov ecx,[ebp+pad+0x30] ; push esi ; lea esi,[ebp+pad+0x14] ; mov [esi+0xC]...: the pad reader (pad number in, 0x58 bytes a pad).</summary>

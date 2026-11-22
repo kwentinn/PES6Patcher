@@ -708,18 +708,22 @@ public class PatcherTests(ITestOutputHelper output)
         var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
         var with = new PeImage(ExePatcher.Build(original, options with { ForwardRuns = true }));
 
-        // the runner picker 0x61DAC0 leaves for roles above 23 by ja 0x61E482 at 0x61E0AB; it now jumps to a cave
-        // that takes roles 24 to 64 (cmp eax,0x40 ; jae skip) as the runner (jmp 0x61E49D) and leaves the rest to 0x61E482
-        const int test = 0x61E0AB, skipTarget = 0x61E482, accept = 0x61E49D;
+        // the runner picker 0x61DAC0 leaves for roles above 23 by ja 0x61E482 at 0x61E0AB; it now jumps to a cave that gives
+        // roles 1 to 23 back to the code after the ja (cmp eax,0x16 ; jbe resume: the game's own rules for the defenders),
+        // takes roles 24 to 64 (cmp eax,0x40 ; jae skip) as the runner (jmp 0x61E49D) and leaves the rest to 0x61E482
+        const int test = 0x61E0AB, skipTarget = 0x61E482, accept = 0x61E49D, resume = test + 6;
         Assert.Equal(0xE9, with.Bytes[with.Offset(test)]);
         int cave = test + 5 + with.ReadInt32(test + 1);
-        Assert.Equal(0x83, with.Bytes[with.Offset(cave)]);
-        Assert.Equal(0x40, with.Bytes[with.Offset(cave) + 2]);
-        Assert.Equal(0xE9, with.Bytes[with.Offset(cave) + 5]);
-        Assert.Equal(accept, cave + 10 + with.ReadInt32(cave + 6));
-        Assert.Equal(0xE9, with.Bytes[with.Offset(cave) + 10]);
-        Assert.Equal(skipTarget, cave + 15 + with.ReadInt32(cave + 11));
-        Assert.Equal(CodeCaves.ForwardRunsSize, 15);
+        int at = with.Offset(cave);
+        Assert.Equal(new byte[] { 0x83, 0xF8, 0x16, 0x76 }, with.Bytes[at..(at + 4)]);
+        Assert.Equal(new byte[] { 0x83, 0xF8, 0x40, 0x73 }, with.Bytes[(at + 5)..(at + 9)]);
+        Assert.Equal(0xE9, with.Bytes[at + 10]);
+        Assert.Equal(accept, cave + 15 + with.ReadInt32(cave + 11));
+        Assert.Equal(0xE9, with.Bytes[at + 15]);
+        Assert.Equal(skipTarget, cave + 20 + with.ReadInt32(cave + 16));
+        Assert.Equal(0xE9, with.Bytes[at + 20]);
+        Assert.Equal(resume, cave + 25 + with.ReadInt32(cave + 21));
+        Assert.Equal(25, CodeCaves.ForwardRunsSize);
     }
     [Fact]
     public void Ball_push_hooks_the_pad_reader_and_the_dribble_relay_call()
