@@ -1,0 +1,37 @@
+Waiting for a match (up to 30 min): start CPU against CPU in the game.
+Match found.
+forward-runs-fixed: original
+speed-x2: applied
+[0] cycle 1, phase A
+forward-runs-fixed: applied
+speed-x2: applied
+[55] cycle 1, phase B
+forward-runs-fixed: original
+speed-x2: applied
+[110] cycle 2, phase A
+forward-runs-fixed: applied
+speed-x2: applied
+[165] cycle 2, phase B
+forward-runs-fixed: original
+speed-x2: applied
+[220] cycle 3, phase A
+forward-runs-fixed: applied
+speed-x2: applied
+[275] cycle 3, phase B
+forward-runs-fixed: put back as before (original)
+speed-x2: put back as before (original)
+1320 samples (496 used: the side without the ball, settled) -> C:\dev\PES6Patcher\research\issue50-ab2.csv
+game step seen: 2; skip key pressed 4 time(s)
+  t=168 skip key, ball x=14016 z=-658, goal seen 0 s ago, lost=False, frozen=True
+  t=188 skip key, ball x=14298 z=3795, goal seen 20 s ago, lost=False, frozen=True
+  t=210 skip key, ball x=-14562 z=4944, goal seen 42 s ago, lost=False, frozen=True
+  t=242 skip key, ball x=14089 z=-2223, goal seen 74 s ago, lost=False, frozen=True
+Back four (mean x of the 4 deepest outfielders) and line word, own goal at -12400, by ball zone:
+ball -16000..-12000:  A back4=-10623 line=-11490 (n= 14)   B back4=-10549 line=-11929 (n=  3)   B-A back4=   74 line= -439
+ball -12000.. -8000:  A back4= -8284 line=-10864 (n= 14)   B back4= -9370 line=-11130 (n= 15)   B-A back4=-1087 line= -266
+ball  -8000.. -4000:  A back4= -6622 line= -8189 (n= 47)   B back4= -6297 line= -8040 (n= 26)   B-A back4=  325 line=  149
+ball  -4000..     0:  A back4= -5285 line= -5969 (n= 47)   B back4= -4405 line= -5233 (n= 66)   B-A back4=  880 line=  736
+ball      0..  4000:  A back4= -2764 line= -3711 (n= 31)   B back4= -3024 line= -3599 (n= 69)   B-A back4= -260 line=  112
+ball   4000..  8000:  A back4= -1797 line= -1824 (n= 43)   B back4= -1772 line= -2221 (n= 15)   B-A back4=   25 line= -397
+ball   8000.. 12000:  A back4=   247 line=  -669 (n= 29)   B back4=   409 line=  -229 (n=  6)   B-A back4=  162 line=  440
+ball  12000.. 16000:  A back4= -4590 line= -2278 (n= 34)   B back4= -5701 line= -2913 (n= 37)   B-A back4=-1110 line= -635

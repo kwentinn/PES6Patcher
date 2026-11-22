@@ -1,0 +1,69 @@
+Waiting for a match (up to 30 min): start CPU against CPU in the game.
+Match found.
+forward-runs-off: original
+speed-x2: applied
+[0] cycle 1, phase A
+forward-runs-off: applied
+speed-x2: applied
+[90] cycle 1, phase B
+forward-runs-off: original
+speed-x2: applied
+[180] cycle 2, phase A
+forward-runs-off: applied
+speed-x2: applied
+[270] cycle 2, phase B
+forward-runs-off: original
+speed-x2: applied
+[360] cycle 3, phase A
+forward-runs-off: applied
+speed-x2: applied
+[451] cycle 3, phase B
+forward-runs-off: put back as before (original)
+speed-x2: put back as before (original)
+1718 samples (692 used: the side without the ball, settled) -> C:\dev\PES6Patcher\research\issue50-ab1.csv
+game step seen: 2; skip key pressed 36 time(s)
+  t=72 stop key 1 (before: issue50-ab1-stop-1.png)
+  t=73 play resumed after 1 stop key(s)
+  t=84 skip key, ball x=13963 z=173, goal seen 0 s ago, lost=False, frozen=True
+  t=233 skip key, ball x=-13882 z=-223, goal seen 0 s ago, lost=True, frozen=False
+  t=237 skip key, ball x=-13882 z=-223, goal seen 0 s ago, lost=True, frozen=True
+  t=449 stop key 1 (before: issue50-ab1-stop-1.png)
+  t=452 stop key 28 (before: issue50-ab1-stop-2.png)
+  t=455 stop key 1 (before: issue50-ab1-stop-3.png)
+  t=458 stop key 28 (before: issue50-ab1-stop-4.png)
+  t=461 stop key 1 (before: issue50-ab1-stop-5.png)
+  t=464 stop key 28 (before: issue50-ab1-stop-6.png)
+  t=467 stop key 1 (before: issue50-ab1-stop-7.png)
+  t=470 stop key 28 (before: issue50-ab1-stop-8.png)
+  t=473 stop key 1 (before: issue50-ab1-stop-9.png)
+  t=476 stop key 28 (before: issue50-ab1-stop-10.png)
+  t=479 stop key 1 (before: issue50-ab1-stop-11.png)
+  t=482 stop key 28 (before: issue50-ab1-stop-12.png)
+  t=486 stop key 1 (before: issue50-ab1-stop-1.png)
+  t=489 stop key 28 (before: issue50-ab1-stop-2.png)
+  t=492 stop key 1 (before: issue50-ab1-stop-3.png)
+  t=495 stop key 28 (before: issue50-ab1-stop-4.png)
+  t=498 stop key 1 (before: issue50-ab1-stop-5.png)
+  t=501 stop key 28 (before: issue50-ab1-stop-6.png)
+  t=504 stop key 1 (before: issue50-ab1-stop-7.png)
+  t=507 stop key 28 (before: issue50-ab1-stop-8.png)
+  t=510 stop key 1 (before: issue50-ab1-stop-9.png)
+  t=513 stop key 28 (before: issue50-ab1-stop-10.png)
+  t=516 stop key 1 (before: issue50-ab1-stop-11.png)
+  t=519 stop key 28 (before: issue50-ab1-stop-12.png)
+  t=522 stop key 1 (before: issue50-ab1-stop-1.png)
+  t=525 stop key 28 (before: issue50-ab1-stop-2.png)
+  t=528 stop key 1 (before: issue50-ab1-stop-3.png)
+  t=531 stop key 28 (before: issue50-ab1-stop-4.png)
+  t=534 stop key 1 (before: issue50-ab1-stop-5.png)
+  t=537 stop key 28 (before: issue50-ab1-stop-6.png)
+  t=541 stop key 1 (before: issue50-ab1-stop-7.png)
+Back four (mean x of the 4 deepest outfielders) and line word, own goal at -12400, by ball zone:
+ball -16000..-12000:  A back4=-11044 line=-11848 (n=  6)   B back4=   NaN line=   NaN (n=  0)   B-A back4=  NaN line=  NaN
+ball -12000.. -8000:  A back4= -9206 line=-10997 (n= 35)   B back4= -8276 line= -9973 (n=  6)   B-A back4=  930 line= 1024
+ball  -8000.. -4000:  A back4= -7429 line= -8048 (n= 77)   B back4= -6935 line= -7784 (n= 44)   B-A back4=  494 line=  264
+ball  -4000..     0:  A back4= -5215 line= -5623 (n= 89)   B back4= -4567 line= -5605 (n= 56)   B-A back4=  648 line=   18
+ball      0..  4000:  A back4= -2838 line= -3223 (n=110)   B back4= -2899 line= -3395 (n= 59)   B-A back4=  -61 line= -172
+ball   4000..  8000:  A back4= -2053 line= -2329 (n= 46)   B back4= -1677 line= -1888 (n= 59)   B-A back4=  376 line=  441
+ball   8000.. 12000:  A back4= -1203 line=  -851 (n= 28)   B back4= -1215 line=  -786 (n= 41)   B-A back4=  -11 line=   66
+ball  12000.. 16000:  A back4=  1917 line=   -76 (n=  8)   B back4= -3074 line= -1399 (n= 28)   B-A back4=-4992 line=-1323
