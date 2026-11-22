@@ -137,6 +137,16 @@ internal sealed record ForwardRunsSites(int Test, int Skip, int Accept, int Resu
 internal sealed record BallPushSites(int PadEntry, int PadBase, int RightStick, int LeftStick, int RelayCall, int KickEntry, int State);
 
 /// <summary>
+/// Cross gauge: the cross (player state 9) is started by <see cref="StartCross"/> (0x588010), called from <see cref="Call1"/> and
+/// <see cref="Call2"/> (the two places of the state 9 handler's wait phases) and <see cref="Call3"/> (a planner); each is a 5-byte
+/// call. <see cref="Phase"/> = the wait counter's increment in the second phase (5 bytes), <see cref="Power"/> = the load of the fatigue
+/// word that follows the power computation (6 bytes, <see cref="Fatigue"/> its address: eax is the power asked), <see cref="Cap"/> =
+/// the add of the fatigue to the stat's cap (8 bytes: add eax,edx ; push eax ; push ebx ; mov [esp+0x28],eax) and
+/// <see cref="TickCount"/> = the import slot of GetTickCount, <see cref="State"/> = the state (<see cref="CrossGauge.StateSize"/> bytes of .rdata, zero padding).
+/// </summary>
+internal sealed record CrossGaugeSites(int Call1, int Call2, int Call3, int StartCross, int Phase, int Power, int Fatigue, int Cap, int TickCount, int State);
+
+/// <summary>
 /// Pass lead: where the pass point (passer +0x9C / +0xA0) is placed ahead of the receiver, the lead (passer +0xA8) is
 /// read twice: <see cref="First"/> = mov eax,[edi+0xA8] (6 bytes, for the cosine), <see cref="Second"/> = mov ecx,[edi+0xA8]
 /// (6 bytes, for the sine).
@@ -751,6 +761,50 @@ internal sealed class ExeLocator
 		int state = rdata.End - 0x60;
 		if (!image.Matches(state, new byte[0x20])) return null;
 		return new BallPushSites(pad[0], padBase, image.ReadInt32(right[0] + 1) - 2, image.ReadInt32(left[0] + 8) - 2, call, image.Rel32Target(call), state);
+	}
+
+	/// <summary>mov al,[flag] ; test al,al ; jnz exit ; push esi ; call start_cross ; add esp,4 ; jmp exit: the first call, at the end of the wait phase.</summary>
+	private const string CrossGaugeCallFirst = "A0 ?? ?? ?? ?? 84 C0 0F 85 ?? ?? ?? ?? 56 E8 ?? ?? ?? ?? 83 C4 04 E9";
+
+	/// <summary>jb exit ; push esi ; call start_cross ; add esp,4 ; jmp exit ; push esi ; call ...: the second call, once the wait counter ran out.</summary>
+	private const string CrossGaugeCallSecond = "0F 82 ?? ?? ?? ?? 56 E8 ?? ?? ?? ?? 83 C4 04 E9 ?? ?? ?? ?? 56 E8";
+
+	/// <summary>push esi ; call start_cross ; mov al,[esi+0x16] ; add esp,4 ; cmp al,9 ; je ...: the planner's call.</summary>
+	private const string CrossGaugeCallPlanner = "56 E8 ?? ?? ?? ?? 8A 46 16 83 C4 04 3C 09 0F 84";
+
+	/// <summary>mov dl,[esi+0x4E] ; inc dl ; mov [esi+0x4E],dl ; mov cl,[limit] ; mov al,dl ; cmp al,cl: the wait counter of the second phase.</summary>
+	private const string CrossGaugePhase = "8A 56 4E FE C2 88 56 4E 8A 0D ?? ?? ?? ?? 8A C2 3A C1";
+
+	/// <summary>mov edi,[fatigue] ; mov ebx,eax ; add esp,0x18 ; cmp ebx,0x3000 ; jge: the power of the cross, as the game asks it.</summary>
+	private const string CrossGaugePower = "8B 3D ?? ?? ?? ?? 8B D8 83 C4 18 81 FB 00 30 00 00 7D 05";
+
+	/// <summary>mov edx,edi ; neg edx ; shl edx,5 ; add eax,edx ; push eax ; push ebx ; mov [esp+0x28],eax ; call min: the stat's cap.</summary>
+	private const string CrossGaugeCap = "8B D7 F7 DA C1 E2 05 03 C2 50 53 89 44 24 28 E8";
+
+	public static CrossGaugeSites? LocateCrossGauge(byte[] exe)
+	{
+		var image = new PeImage(exe);
+		int Find(string pattern)
+		{
+			var signature = new Signature(pattern);
+			var hits = image.Sections.Where(section => section.IsCode).SelectMany(section => signature.FindAll(image, section)).Take(2).ToArray();
+			return hits.Length == 1 ? hits[0] : 0;
+		}
+
+		int first = Find(CrossGaugeCallFirst), second = Find(CrossGaugeCallSecond), planner = Find(CrossGaugeCallPlanner);
+		int phase = Find(CrossGaugePhase), power = Find(CrossGaugePower), cap = Find(CrossGaugeCap);
+		int tick = image.ImportSlot("KERNEL32.dll", "GetTickCount");
+		if (first == 0 || second == 0 || planner == 0 || phase == 0 || power == 0 || cap == 0 || tick == 0) return null;
+		int call1 = first + 14, call2 = second + 7, call3 = planner + 1;
+		int target = image.Rel32Target(call1);
+		if (image.Rel32Target(call2) != target || image.Rel32Target(call3) != target) return null;
+		int fatigue = image.ReadInt32(power + 2);
+		bool IsData(int address, int length) => image.Sections.Any(section => !section.IsCode && address >= section.Va && (long)address + length <= (long)section.Va + section.VirtualSize);
+		if (!IsData(fatigue, 4)) return null;
+		var rdata = image.Named(".rdata");
+		int state = rdata == null ? 0 : rdata.End - 0xA8;   // below the ball push (0x60), the shot scores (0x40) and the Kitserver state (0x30)
+		if (rdata == null || !image.Matches(state, new byte[CrossGauge.StateSize])) return null;
+		return new CrossGaugeSites(call1, call2, call3, target, phase, power, fatigue, cap + 7, tick, state);
 	}
 
 	public static LoftedAimSites? LocateLoftedAim(byte[] exe)

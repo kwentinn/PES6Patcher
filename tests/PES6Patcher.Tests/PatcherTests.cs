@@ -767,6 +767,78 @@ public class PatcherTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public void Cross_gauge_hooks_the_three_calls_the_wait_phase_the_power_and_the_cap()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).CrossGauge);
+        var sites = ExeLocator.LocateCrossGauge(original)!;
+        // the cross start 0x588010, called from the state 9 handler's two waiting places and from a planner; the wait counter's
+        // increment, the power the game asks (fatigue word 0x3BE0DE8 loaded right after) and the stat's cap
+        Assert.Equal(0x588779, sites.Call1);
+        Assert.Equal(0x58891D, sites.Call2);
+        Assert.Equal(0x4E4010, sites.Call3);
+        Assert.Equal(0x588010, sites.StartCross);
+        Assert.Equal(0x58889E, sites.Phase);
+        Assert.Equal(0x587A51, sites.Power);
+        Assert.Equal(0x3BE0DE8, sites.Fatigue);
+        Assert.Equal(0x587AD2, sites.Cap);
+        Assert.NotEqual(0, sites.TickCount);
+
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var built = ExePatcher.Build(original, options with { CrossGauge = true });
+        var with = new PeImage(built);
+
+        // the state (the fill time, then the pads' holds) is in the end of .rdata, made writable
+        Assert.Equal(PatchOptions.DefaultCrossGaugeMs, with.ReadInt32(sites.State));
+        Assert.Equal(new PeImage(original).Named(".rdata")!.End - 0xA8, sites.State);
+        Assert.Equal(0x80000000u, BitConverter.ToUInt32(built, RdataFlagsOffset(built)) & 0x80000000u);
+
+        // every hooked place is a jump into a cave
+        (int Site, int Length)[] hooks = [(sites.Call1, 5), (sites.Call2, 5), (sites.Call3, 5), (sites.Phase, 5), (sites.Power, 6), (sites.Cap, 8)];
+        foreach (var (site, length) in hooks)
+        {
+            Assert.Equal(0xE9, with.Bytes[with.Offset(site)]);
+            for (int n = 5; n < length; n++) Assert.Equal(0x90, with.Bytes[with.Offset(site) + n]);
+            Assert.NotEqual(0xCC, with.Bytes[with.Offset(with.Rel32Target(site))]);
+        }
+
+        // a relay starts with the human test, ends with the call and a jump back after the hooked call
+        int relay = with.Rel32Target(sites.Call1);
+        Assert.True(with.Matches(relay, [0x80, 0x7E, 0x47, 0x08]));
+        Assert.Equal(sites.StartCross, with.Rel32Target(relay + 38));
+        Assert.Equal(sites.Call1 + 5, with.Rel32Target(relay + 43));
+
+        // the helper (the one validated in game, 0.35 s, started 33 ms early), with the three addresses it uses
+        int helper = with.Rel32Target(relay + 18);
+        byte[] expected =
+        [
+            0x60, 0x9C, 0xFF, 0x15, .. BitConverter.GetBytes(sites.TickCount),
+            0x0F, 0xB6, 0x4E, 0x47, 0xC1, 0xE1, 0x03, 0x81, 0xC1, .. BitConverter.GetBytes(sites.State + 4),
+            0x8B, 0x51, 0x04, 0x85, 0xD2, 0x74, 0x10, 0x89, 0xC3, 0x29, 0xD3, 0x81, 0xFB, 0x64, 0x00, 0x00, 0x00, 0x77, 0x04, 0x8B, 0x19, 0xEB, 0x05,
+            0x8D, 0x58, 0xDF, 0x89, 0x19, 0x89, 0x41, 0x04, 0x29, 0xD8, 0xC1, 0xE0, 0x07, 0x31, 0xD2, 0x8B, 0x0D, .. BitConverter.GetBytes(sites.State),
+            0xF7, 0xF1, 0x3D, 0x80, 0x00, 0x00, 0x00, 0x76, 0x05, 0xB8, 0x80, 0x00, 0x00, 0x00, 0x88, 0x46, 0x4D, 0x9D, 0x61, 0xC3,
+        ];
+        Assert.True(with.Matches(helper, expected));
+
+        // the power: the fatigue load replayed, a human's power from the gauge (0x4000 + 0x5000 at most), then back after the hooked load
+        int power = with.Rel32Target(sites.Power);
+        Assert.True(with.Matches(power, [0x8B, 0x3D, .. BitConverter.GetBytes(sites.Fatigue), 0x80, 0x7E, 0x47, 0x08, 0x73, 0x24, 0x52]));
+        Assert.True(with.Matches(power + 30, [0x69, 0xD2, 0x00, 0x50, 0x00, 0x00, 0xC1, 0xEA, 0x07, 0x81, 0xC2, 0x00, 0x40, 0x00, 0x00, 0x89, 0xD0, 0x5A]));
+        Assert.Equal(sites.Power + 6, with.Rel32Target(power + 48));
+
+        // the cap: the add replayed, a human's gauge adds 0x3000 at most, then the pushes replayed and back after the hooked bytes
+        int cap = with.Rel32Target(sites.Cap);
+        Assert.True(with.Matches(cap, [0x03, 0xC2, 0x80, 0x7E, 0x47, 0x08, 0x73, 0x0F, 0x0F, 0xB6, 0x4E, 0x4D, 0x69, 0xC9, 0x00, 0x30, 0x00, 0x00, 0xC1, 0xE9, 0x07, 0x01, 0xC8, 0x50, 0x53, 0x89, 0x44, 0x24, 0x28]));
+        Assert.Equal(sites.Cap + 8, with.Rel32Target(cap + 29));
+
+        // the fill time has limits
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { CrossGauge = true, CrossGaugeMs = PatchOptions.MinCrossGaugeMs - 1 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { CrossGauge = true, CrossGaugeMs = PatchOptions.MaxCrossGaugeMs + 1 }));
+    }
+
+    [Fact]
     public void Defence_line_takes_the_fixed_drop_off_in_both_halves()
     {
         var original = Load("PES6.orig.exe");

@@ -657,6 +657,21 @@
   <data name="Gameplay.BallPush" xml:space="preserve">
     <value>Push the ball ahead (R1 three times, or right stick)</value>
   </data>
+  <data name="Hook.CrossGauge" xml:space="preserve">
+    <value>cross gauge</value>
+  </data>
+  <data name="Log.CrossGauge" xml:space="preserve">
+    <value>Cross gauge: a human player's cross is held while the circle stays down and its power follows how long it was held (full in {0} ms); it starts when the circle is let go, or at once when the gauge is full.</value>
+  </data>
+  <data name="Gameplay.CrossGauge" xml:space="preserve">
+    <value>Cross power gauge (hold the circle from a wing)</value>
+  </data>
+  <data name="Gameplay.CrossGaugeMs" xml:space="preserve">
+    <value>Cross gauge: time to fill (ms):</value>
+  </data>
+  <data name="Error.CrossGaugeUnavailable" xml:space="preserve">
+    <value>This executable has no room for the cross gauge.</value>
+  </data>
   <data name="Hook.ShotGauge" xml:space="preserve">
     <value>shot gauge speed</value>
   </data>

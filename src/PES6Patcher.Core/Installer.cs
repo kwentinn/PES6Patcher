@@ -45,6 +45,8 @@ namespace PES6Patcher.Core;
 /// <param name="ForwardRuns">The forwards can be picked as the runner of the run beyond the last line (the game only picked defenders and midfielders): more runs into the box.</param>
 /// <param name="ShotGaugeSpeed">Speed at which the shot gauge fills, in % of the game's (100 = unchanged).</param>
 /// <param name="BallPush">R1 pressed three times, or the right stick pushed to the edge while a human player runs, sends his next touch further ahead (right stick: toward the stick, 20 degrees at most from his running direction).</param>
+/// <param name="CrossGauge">The cross (circle from a wing) is held while the circle stays down and its power follows how long it was held; it starts when the circle is let go, or at once when the gauge is full.</param>
+/// <param name="CrossGaugeMs">Time the circle must be held to fill the cross gauge, in milliseconds.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself runs at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged).</param>
 /// <param name="SuperShot">Height of a human team's shot taken with L1 and R1 held (the super shot: a shot, not a lob), in the kick function's units (the game's shots: 13 to 35; 0 = off).</param>
 /// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
@@ -102,7 +104,9 @@ public sealed record InstallSettings(
     int LoftedThroughFrames = 25,
     bool ForwardRuns = false,
     int ShotGaugeSpeed = 100,
-    bool BallPush = false
+    bool BallPush = false,
+    bool CrossGauge = false,
+    int CrossGaugeMs = PatchOptions.DefaultCrossGaugeMs
 )
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
@@ -150,6 +154,7 @@ public static class Installer
         bool forwardRuns = settings.Gameplay && settings.ForwardRuns;
         int shotGauge = settings.Gameplay ? settings.ShotGaugeSpeed : 100;
         bool ballPush = settings.Gameplay && settings.BallPush;
+        bool crossGauge = settings.Gameplay && settings.CrossGauge;
         // without any exe fix, the exe goes back to the original
         byte[] patched =
             passPowerGauges
@@ -175,6 +180,7 @@ public static class Installer
             || forwardRuns
             || shotGauge < 100
             || ballPush
+            || crossGauge
             || settings.SkipIntro
                 ? ExePatcher.Build(
                     original,
@@ -223,7 +229,9 @@ public static class Installer
                         settings.LoftedThroughFrames,
                         forwardRuns,
                         shotGauge,
-                        ballPush
+                        ballPush,
+                        crossGauge,
+                        settings.CrossGaugeMs
                     )
                 )
                 : original;
@@ -273,6 +281,8 @@ public static class Installer
             log(Loc.T("Log.OffBallPace", offBallPace));
         if (forwardRuns)
             log(Loc.T("Log.ForwardRuns"));
+        if (crossGauge)
+            log(Loc.T("Log.CrossGauge", settings.CrossGaugeMs));
         if (ballPush)
             log(Loc.T("Log.BallPush"));
         if (shotGauge < 100)

@@ -657,6 +657,21 @@
   <data name="Gameplay.BallPush" xml:space="preserve">
     <value>Pousser le ballon devant soi (R1 trois fois, ou stick droit)</value>
   </data>
+  <data name="Hook.CrossGauge" xml:space="preserve">
+    <value>jauge de centre</value>
+  </data>
+  <data name="Log.CrossGauge" xml:space="preserve">
+    <value>Jauge de centre : le centre d'un joueur humain est retenu tant que le rond est tenu et sa puissance suit la durée de l'appui (plein en {0} ms) ; il part au relâchement du rond, ou tout de suite quand la jauge est pleine.</value>
+  </data>
+  <data name="Gameplay.CrossGauge" xml:space="preserve">
+    <value>Jauge de puissance des centres (rond tenu depuis une aile)</value>
+  </data>
+  <data name="Gameplay.CrossGaugeMs" xml:space="preserve">
+    <value>Jauge de centre : durée du plein (ms) :</value>
+  </data>
+  <data name="Error.CrossGaugeUnavailable" xml:space="preserve">
+    <value>Cet exécutable n'a pas la place pour la jauge de centre.</value>
+  </data>
   <data name="Hook.ShotGauge" xml:space="preserve">
     <value>vitesse de la jauge de tir</value>
   </data>

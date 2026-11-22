@@ -10,7 +10,7 @@ namespace PES6Patcher;
 internal sealed class MainForm : Form
 {
     /// <summary>What the user entered, carried over when the window is rebuilt in another language.</summary>
-    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, decimal CloseDribbleStrength, bool CloseDribbleStrengthDebug, bool AccelerationGap, bool Headers, decimal HeadersPercent, bool HeadersDebug, bool DefenceLine, decimal DefenceLinePercent, bool OffBallPace, decimal OffBallPacePercent, bool SuperShot, decimal SuperShotPercent, decimal SuperShotSpeed, decimal SuperShotWeight, decimal SuperShotStar, bool SuperShotDebug, bool SkipIntro, decimal Speed, string Log, bool PassPowerGauges, decimal ShortPassFrames, decimal ThroughPassFrames, decimal LoftedThroughFrames, bool ForwardRuns, decimal ShotGaugeSpeed, bool BallPush);
+    internal sealed record State(string Folder, string? Exe, bool Display, decimal Width, decimal Height, bool Borderless, bool Gameplay, bool FreeDirection, bool CloseDribble, bool FreeKick, decimal FreeKickWeight, bool FreeKickDebug, bool Shot, decimal ShotPower, bool ShotPowerDebug, bool Accuracy, decimal ShotAccuracy, bool ShotAccuracyDebug, decimal LobPower, bool Spread, decimal SpreadPercent, bool SpreadDebug, bool SpeedGap, decimal SpeedGapPercent, bool SpeedGapDebug, bool SprintTurn, decimal SprintTurnDegrees, bool SprintTurnDebug, bool Tackle, decimal TacklePercent, bool TackleDebug, bool LoftedAim, bool PassLead, decimal PassLeadPercent, bool PassLeadDebug, bool StickDeadZone, decimal StickDeadZonePercent, bool CarrierTurn, decimal CarrierTurnDegrees, decimal CloseDribbleStrength, bool CloseDribbleStrengthDebug, bool AccelerationGap, bool Headers, decimal HeadersPercent, bool HeadersDebug, bool DefenceLine, decimal DefenceLinePercent, bool OffBallPace, decimal OffBallPacePercent, bool SuperShot, decimal SuperShotPercent, decimal SuperShotSpeed, decimal SuperShotWeight, decimal SuperShotStar, bool SuperShotDebug, bool SkipIntro, decimal Speed, string Log, bool PassPowerGauges, decimal ShortPassFrames, decimal ThroughPassFrames, decimal LoftedThroughFrames, bool ForwardRuns, decimal ShotGaugeSpeed, bool BallPush, bool CrossGauge, decimal CrossGaugeMs);
 
     /// <summary>Set when the language changed: the window must be rebuilt with these values.</summary>
     public State? RebuildWith { get; private set; }
@@ -125,6 +125,12 @@ private readonly CheckBox _offBallPace = new() { Text = Loc.T("Gameplay.OffBallP
     private readonly CheckBox _forwardRuns = new() { Text = Loc.T("Gameplay.ForwardRuns"), AutoSize = true };
     private readonly CheckBox _ballPush = new() { Text = Loc.T("Gameplay.BallPush"), AutoSize = true };
     private readonly CheckBox _passGauges = new() { Text = Loc.T("Gameplay.PassPowerGauges"), AutoSize = true };
+    private readonly CheckBox _crossGauge = new() { Text = Loc.T("Gameplay.CrossGauge"), AutoSize = true };
+    private readonly NumericUpDown _crossGaugeMs = new()
+    {
+        Minimum = PatchOptions.MinCrossGaugeMs, Maximum = PatchOptions.MaxCrossGaugeMs, Increment = 50,
+        Value = PatchOptions.DefaultCrossGaugeMs, Width = 60, Enabled = false,
+    };
     private readonly NumericUpDown _shortPassFrames = GaugeFrames(25);
     private readonly NumericUpDown _throughPassFrames = GaugeFrames(25);
     private readonly NumericUpDown _loftedThroughFrames = GaugeFrames(25);
@@ -229,6 +235,8 @@ private readonly CheckBox _offBallPace = new() { Text = Loc.T("Gameplay.OffBallP
 _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallPace.Enabled && _offBallPace.Checked;        _offBallPace.CheckedChanged += (_, _) => _offBallPacePercent.Enabled = _offBallPace.Enabled && _offBallPace.Checked;
         _stickDeadZone.EnabledChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
         _stickDeadZone.CheckedChanged += (_, _) => _stickDeadZonePercent.Enabled = _stickDeadZone.Enabled && _stickDeadZone.Checked;
+        _crossGauge.EnabledChanged += (_, _) => _crossGaugeMs.Enabled = _crossGauge.Enabled && _crossGauge.Checked;
+        _crossGauge.CheckedChanged += (_, _) => _crossGaugeMs.Enabled = _crossGauge.Enabled && _crossGauge.Checked;
         _passGauges.CheckedChanged += (_, _) => RefreshPassGauges();
         _passGauges.EnabledChanged += (_, _) => RefreshPassGauges();
         _passLead.EnabledChanged += (_, _) => _passLeadPercent.Enabled = _passLeadDebug.Enabled = _passLead.Enabled && _passLead.Checked;
@@ -308,6 +316,8 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
             Flow(LabelText(Loc.T("Gameplay.ShortPassFrames")), _shortPassFrames),
             Flow(LabelText(Loc.T("Gameplay.ThroughPassFrames")), _throughPassFrames),
             Flow(LabelText(Loc.T("Gameplay.LoftedThroughFrames")), _loftedThroughFrames),
+            Flow(_crossGauge),
+            Flow(LabelText(Loc.T("Gameplay.CrossGaugeMs")), _crossGaugeMs),
             Theme("Gameplay.Theme.Other"),
             Flow(_spread, _spreadPercent, LabelText(Loc.T("Gameplay.SpreadPercent"))),
             _spreadDebug,
@@ -411,6 +421,8 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
             _loftedAim.Checked = previous.LoftedAim;
             _forwardRuns.Checked = previous.ForwardRuns;
             _ballPush.Checked = previous.BallPush;
+            _crossGauge.Checked = previous.CrossGauge;
+            _crossGaugeMs.Value = previous.CrossGaugeMs;
             _passLead.Checked = previous.PassLead;
             _passLeadPercent.Value = previous.PassLeadPercent;
             _passLeadDebug.Checked = previous.PassLeadDebug;
@@ -469,7 +481,7 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _defenceLine.Checked, _defenceLinePercent.Value, _offBallPace.Checked, _offBallPacePercent.Value, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotWeight.Value, _superShotStar.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text, _passGauges.Checked, _shortPassFrames.Value, _throughPassFrames.Value, _loftedThroughFrames.Value, _forwardRuns.Checked, _shotGaugeSpeed.Value, _ballPush.Checked);
+        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _defenceLine.Checked, _defenceLinePercent.Value, _offBallPace.Checked, _offBallPacePercent.Value, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotWeight.Value, _superShotStar.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text, _passGauges.Checked, _shortPassFrames.Value, _throughPassFrames.Value, _loftedThroughFrames.Value, _forwardRuns.Checked, _shotGaugeSpeed.Value, _ballPush.Checked, _crossGauge.Checked, _crossGaugeMs.Value);
         Close();
     }
 
@@ -499,11 +511,13 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
             ShortPassFrames: (int)_shortPassFrames.Value, ThroughPassFrames: (int)_throughPassFrames.Value,
             LoftedThroughFrames: (int)_loftedThroughFrames.Value, ForwardRuns: _forwardRuns.Enabled && _forwardRuns.Checked,
             ShotGaugeSpeed: _shotGaugeSpeed.Enabled ? (int)_shotGaugeSpeed.Value : 100,
-            BallPush: _ballPush.Enabled && _ballPush.Checked);
+            BallPush: _ballPush.Enabled && _ballPush.Checked,
+            CrossGauge: _crossGauge.Enabled && _crossGauge.Checked,
+            CrossGaugeMs: (int)_crossGaugeMs.Value);
 
     /// <summary>The gameplay options that "check all" sets (not the test keys).</summary>
     private CheckBox[] GameplayOptions =>
-        [_freeDirection, _stickDeadZone, _closeDribble, _freeKick, _shot, _accuracy, _spread, _speedGap, _sprintTurn, _carrierTurn, _tackle, _defenceLine, _offBallPace, _forwardRuns, _ballPush, _accelerationGap, _loftedAim, _passLead, _passGauges, _headers, _superShot, _physicsMod];
+        [_freeDirection, _stickDeadZone, _closeDribble, _freeKick, _shot, _accuracy, _spread, _speedGap, _sprintTurn, _carrierTurn, _tackle, _defenceLine, _offBallPace, _forwardRuns, _ballPush, _accelerationGap, _loftedAim, _passLead, _passGauges, _crossGauge, _headers, _superShot, _physicsMod];
 
     private bool _settingAll, _recordShown, _applyingPreset;
 
@@ -666,6 +680,9 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         bool ballPush = report is { BallPush: true };
         _ballPush.Enabled = ballPush;
         _ballPush.Text = Loc.T("Gameplay.BallPush") + (ballPush || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
+        bool crossGauge = report is { CrossGauge: true };
+        _crossGauge.Enabled = crossGauge;
+        _crossGauge.Text = Loc.T("Gameplay.CrossGauge") + (crossGauge || report == null ? "" : " " + Loc.T("Gameplay.FreeDirectionUnavailable"));
         bool passLead = report is { PassLead: true };
         _passLead.Enabled = passLead;
         _passGauges.Enabled = report is { PassPowerGauges: true };
@@ -764,6 +781,8 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         _loftedAim.Checked = s.LoftedAim;
         _forwardRuns.Checked = s.ForwardRuns;
         _ballPush.Checked = s.BallPush;
+        _crossGauge.Checked = s.CrossGauge;
+        Set(_crossGaugeMs, s.CrossGaugeMs);
         Set(_shotGaugeSpeed, s.ShotGaugeSpeed);
         _passLead.Checked = s.PassLead < 100;
         if (_passLead.Checked) Set(_passLeadPercent, s.PassLead);

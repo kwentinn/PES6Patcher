@@ -28,7 +28,8 @@ static class HudCommand
         var every = o.Int("Every", 15);
         var calls = o.Flag("Calls");
         var guideRun = o.Flag("GuideRun");
-        var guide = o.Flag("Guide") || guideRun;
+        var guideCross = o.Flag("GuideCross");
+        var guide = o.Flag("Guide") || guideRun || guideCross;
         var log = Path.GetFullPath(o.String("Log") ?? Path.Combine(AppContext.BaseDirectory, "hud-events.log"));
         o.CheckAllUsed();
         using var game = GameProcess.Open(processName);
@@ -66,7 +67,7 @@ static class HudCommand
                 return 0;
             }
             Application.EnableVisualStyles();
-            Application.Run(new HudForm(game, tracker, clock, every, seconds, guide, guideRun));
+            Application.Run(new HudForm(game, tracker, clock, every, seconds, guide, guideRun, guideCross));
             return 0;
         }
         finally { stop.Cancel(); debugger?.Join(); }   // the debugger must detach cleanly, or the game crashes on the leftover breakpoint
@@ -431,8 +432,57 @@ sealed class HudForm : Form
         ("SPRINT : R1 + stick GAUCHE", 5), ("RELACHE TOUT (stick ET R1)", 4),
         ("FINI, merci", 5),
     ];
+    // -GuideCross (issue #56): crosses from the wings at set distances, to read the cross probe's log (ring at 0x3D59E00, count at 0x3D59F08).
+    static readonly (string Label, int Seconds)[] CrossSteps =
+    [
+        ("PREPARE-TOI : balle a l'aile, joueur arrete", 8),
+        ("CENTRE 1 : APPUI BREF sur rond", 12), ("CENTRE 2 : APPUI LONG sur rond (1 s, relache apres)", 12),
+        ("CENTRE 3 : APPUI BREF sur rond", 12), ("CENTRE 4 : APPUI LONG sur rond (1 s, relache apres)", 12),
+        ("CENTRE 5 : APPUI BREF sur rond", 12), ("CENTRE 6 : APPUI LONG sur rond (1 s, relache apres)", 12),
+        ("CENTRE 7 : APPUI BREF sur rond", 12), ("CENTRE 8 : APPUI LONG sur rond (1 s, relache apres)", 12),
+        ("FINI, merci", 5),
+    ];
+    const uint CrossRing = 0x3D59E00, CrossCount = 0x3D59F08;
+    int crossSeen;
+    readonly bool crossProbe;
     readonly (string Label, int Seconds)[] steps;
     readonly bool guide;
+
+    int lastCross = -1;
+
+    /// <summary>While the carrier is in state 9: logs each change of the hold gauge (+0x4D), the wait counter (+0x4E) and the phase (+0x18) with the time, to measure how fast the gauge really moves.</summary>
+    void SampleCross()
+    {
+        var c = tracker.Carrier;
+        var st = c is >= 1 and <= 22 ? tracker.Byte(c, 0x16) : 0;
+        if (st != 8 && st != 9) { lastCross = -1; return; }
+        int g = tracker.Byte(c, 0x4D), e = tracker.Byte(c, 0x4E), ph = tracker.Int(c, 0x18) & 0xFFFF, sub = tracker.Int(c, 0x1A) & 0xFFFF, c220 = tracker.Byte(c, 0x220);
+        var key = HashCode.Combine(st, g, e, ph, sub, c220);
+        if (key == lastCross) return;
+        lastCross = key;
+        tracker.Mark($"S9 etat={st} jauge={g} 4E={e} phase={ph:X} +1A={sub:X} +220={c220} boutons={tracker.Int(c, 0xB0):X}", clock.ElapsedMilliseconds);
+    }
+
+    /// <summary>Reads the cross probe's ring: each new entry is logged with the guide step, the last ones are shown on the overlay.</summary>
+    string[] CrossLines()
+    {
+        var count = BitConverter.ToInt32(game.ReadOrZero(CrossCount, 4), 0);
+        if (count < 0 || count > 100000) return ["sonde centres: compteur illisible"];
+        var ring = game.ReadOrZero(CrossRing, 256);
+        var lines = new List<string> { $"SONDE CENTRES : {count} centre(s)   (brut du jeu | plafond | stat | stat2 | fatigue)" };
+        for (var n = Math.Max(0, count - 8); n < count; n++)
+        {
+            var o = (n & 15) * 16;
+            int raw = BitConverter.ToInt32(ring, o), fat = BitConverter.ToInt32(ring, o + 4), s1 = BitConverter.ToInt32(ring, o + 8), s2 = BitConverter.ToUInt16(ring, o + 12);
+            int gauge = ring[o + 14], g4e = ring[o + 15];   // the probe's second version: the player's +0x4D (hold gauge) and +0x4E at the kick
+            var cap = (s1 * 5 + 0x1E00) * 4 + (s2 >= 0x5F ? 0x800 : 0) + fat * -0x20;
+            var line = $"#{n + 1}  brut {raw}  plafond {cap}  jauge {gauge}  (+4E {g4e})  stat {s1}/{s2}  fatigue {fat}  {(raw > cap ? "-> PLAFONNE" : "-> libre")}";
+            lines.Add(line);
+            if (n >= crossSeen) tracker.Mark($"CENTRE #{n + 1} {line} | etape: {guideText}", clock.ElapsedMilliseconds);
+        }
+        crossSeen = Math.Max(crossSeen, count);
+        return [.. lines];
+    }
     long guideStart = -1;
     int guideStep = -1;
     string guideText = "";
@@ -470,10 +520,10 @@ sealed class HudForm : Form
         catch (Exception) { }
     }
 
-    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds, bool guide = false, bool runSteps = false)
+    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds, bool guide = false, bool runSteps = false, bool crossSteps = false)
     {
-        this.game = game; this.tracker = tracker; this.clock = clock; this.guide = guide;
-        steps = runSteps ? RunSteps : StickSteps;
+        this.game = game; this.tracker = tracker; this.clock = clock; this.guide = guide; crossProbe = crossSteps;
+        steps = crossSteps ? CrossSteps : runSteps ? RunSteps : StickSteps;
         until = seconds > 0 ? seconds * 1000L : long.MaxValue;
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
         BackColor = Color.FromArgb(16, 16, 20); Opacity = 0.86; DoubleBuffered = true;
@@ -515,6 +565,7 @@ sealed class HudForm : Form
                 keyWas[key] = down;
             }
         tracker.Update(game, clock.ElapsedMilliseconds);
+        if (crossProbe) SampleCross();
         Guide();
         if (!shown) return;
         if (game.MainWindow != IntPtr.Zero && GetWindowRect(game.MainWindow, out var r) && r.Left > -10000) Location = new Point(r.Left + 8, r.Top + 70);
@@ -531,7 +582,10 @@ sealed class HudForm : Form
         {
             using var big = new Font("Consolas", 14f, FontStyle.Bold); using var lime = new SolidBrush(Color.LimeGreen);
             g.DrawString(guideText, big, lime, 4, y); y += 26;
-            g.DrawString(HudTracker.RawText(tracker.Raw, 0) + "  |  " + HudTracker.RawText(tracker.Raw, 1), font, Brushes.White, 4, y); y += 18;
+            if (crossProbe)
+                foreach (var l in CrossLines()) { g.DrawString(l, font, Brushes.Gold, 4, y); y += 15; }
+            else
+                g.DrawString(HudTracker.RawText(tracker.Raw, 0) + "  |  " + HudTracker.RawText(tracker.Raw, 1), font, Brushes.White, 4, y); y += 18;
         }
         using var white = new SolidBrush(Color.White); using var yellow = new SolidBrush(Color.Gold); using var grey = new SolidBrush(Color.LightGray);
         using var magenta = new SolidBrush(Color.Magenta); using var bold = new Font(font, FontStyle.Bold);

@@ -176,5 +176,19 @@
     "bytes": [
       { "address": "0x403BD0", "original": "83 F8 40 73 05 E9 C3 A8 21 00 E9 A3 A8 21 00 CC CC CC CC CC CC CC CC CC CC", "patched": "83 F8 16 76 0F 83 F8 40 73 05 E9 BE A8 21 00 E9 9E A8 21 00 E9 C8 A4 21 00" }
     ]
+  },
+  "cross-probe": {
+    "about": "2026-11-22, #56. Read-only probe of the cross (state 9): the hook at 0x587A51 jumps to a cave at 0x5513B00 (.passbar) that logs the output of 0x5854b0 (EAX) at 0x3D59F00 (.data1, writable), [esp+0x50] at 0x3D59F04, [esp+0x54] at 0x3D59F0C and a count at 0x3D59F08. First version stored in .pch (not writable) and crashed the game. Does not change the cross. Undo: restore the original bytes and clear the cave (0x5513B00, 42 bytes).",
+    "bytes": [
+      { "address": "0x587A51", "original": "8B 3D E8 0D BE 03", "patched": "E9 AA C0 F8 04 90" }
+    ]
+  },
+  "cross-gauge": {
+    "about": "2026-11-22, #56. In-memory test of a cross power gauge. The two calls of start_cross 0x588010 (0x588779 and 0x58891D, state 9 handler) go through caves 0x5513F00 / 0x5513F40: for a human (+0x47 < 8) whose circle (+0xB0 & 0x2000) is held and whose +0x4D < 0x80, the cross is not started, +0x4D += 2 and +0x4E = 0. The probe cave 0x5513D80 (hook 0x587A51) then replaces the game's power by 0x4000 + 0x3800 * gauge / 128 (the stat cap still applies). Not tried in game when written. Undo: restore the original bytes below, 0x587A51 to 8B 3D E8 0D BE 03, and clear the three caves.",
+    "bytes": [
+      { "address": "0x588779", "original": "E8 92 F8 FF FF", "patched": "E9 82 B7 F8 04" },
+      { "address": "0x58891D", "original": "E8 EE F6 FF FF", "patched": "E9 1E B6 F8 04" },
+      { "address": "0x587A51", "original": "8B 3D E8 0D BE 03", "patched": "E9 2A C3 F8 04 90" }
+    ]
   }
 }

@@ -52,7 +52,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
 	int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
 	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0,
-	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false, int ShotGaugeSpeed = 100, bool BallPush = false)
+	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false, int ShotGaugeSpeed = 100, bool BallPush = false, bool CrossGauge = false, int CrossGaugeMs = PatchOptions.DefaultCrossGaugeMs)
 {
 	/// <summary>
 	/// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -82,6 +82,9 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
 	/// <summary>Shot gauge fill speed, in % of the game's (100 = unchanged): default when the option is on (tuned in game: 75 % fills in about 0.33 s instead of 0.25 s) and limits.</summary>
 	public const int DefaultShotGaugeSpeed = 75, MinShotGaugeSpeed = 40, MaxShotGaugeSpeed = 100;
+
+	/// <summary>Cross gauge: time the circle must be held to fill the gauge, in milliseconds (tuned in game: 350 ms), and limits.</summary>
+	public const int DefaultCrossGaugeMs = 350, MinCrossGaugeMs = 150, MaxCrossGaugeMs = 1500;
 
 	/// <summary>Pressing challenge reach, in % of the game's (100 = unchanged): default (tested in game) and limits.</summary>
 	public const int DefaultTackle = 180, MinTackle = 100, MaxTackle = 180;
@@ -200,9 +203,12 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
 	/// <summary>The ball push (R1 three times, right stick) can be added (the pad reader, the stick tables and the dribble relay are found).</summary>
 	public bool BallPush { get; init; }
 
+	/// <summary>The cross gauge can be added (the cross start, its three calls and the power computation are found).</summary>
+	public bool CrossGauge { get; init; }
+
 	public bool PassPowerGauges { get; init; }
 
-	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns || ShotGauge || BallPush;
+	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns || ShotGauge || BallPush || CrossGauge;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -255,6 +261,7 @@ public static class ExePatcher
 				OffBallPace = ExeLocator.LocateOffBallPace(exe) != null,
 				ForwardRuns = ExeLocator.LocateForwardRuns(exe) != null,
 				BallPush = shot != null && ExeLocator.LocateBallPush(exe) != null,
+				CrossGauge = ExeLocator.LocateCrossGauge(exe) != null,
 				ShotGauge = ExeLocator.LocateShotGauge(exe) != null,
 			};
 		}
@@ -711,6 +718,16 @@ public static class ExePatcher
 			var mover = CodeCaves.OffBallPaceMover(0, sites, options.OffBallPace);
 			mover = CodeCaves.OffBallPaceMover(Cave(mover.CaveBytes.Length), sites, options.OffBallPace);
 			foreach (var hook in new[] { animation, mover }) { plan.Add((hook.Cave, hook.CaveBytes)); plan.Add((hook.Entry, hook.EntryBytes)); }
+		}
+
+		// cross gauge (allocated after the other caves, so they stay where they were): hooked at the three calls of the cross start, the wait phase,
+		// the power computation and the stat's cap; its state lives in the end of .rdata
+		if (options.CrossGauge)
+		{
+			var sites = ExeLocator.LocateCrossGauge(original)
+				?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.CrossGauge"), 0)]);
+			CrossGauge.Plan(sites, options.CrossGaugeMs, plan, Cave);
+			image.MakeWritable(image.SectionOf(sites.State)!);
 		}
 
 		foreach (var (va, bytes) in plan) image.Write(va, bytes);
