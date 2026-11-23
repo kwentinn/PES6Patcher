@@ -661,10 +661,10 @@
     <value>jauge de centre</value>
   </data>
   <data name="Log.CrossGauge" xml:space="preserve">
-    <value>Jauge de centre : le centre d'un joueur humain est retenu tant que le rond est tenu et sa puissance suit la durée de l'appui (plein en {0} ms) ; il part au relâchement du rond, ou tout de suite quand la jauge est pleine.</value>
+    <value>Jauge de centre : le centre d'un joueur humain est retenu tant que le rond est tenu et sa puissance suit la durée de l'appui (plein en {0} ms) ; il part au relâchement du rond, ou tout de suite quand la jauge est pleine. Le stick gauche l'oriente (direction du joueur quand aucune direction n'est tenue).</value>
   </data>
   <data name="Gameplay.CrossGauge" xml:space="preserve">
-    <value>Jauge de puissance des centres (rond tenu depuis une aile)</value>
+    <value>Jauge de centre : rond tenu pour la puissance, stick gauche pour la direction (depuis une aile)</value>
   </data>
   <data name="Gameplay.CrossGaugeMs" xml:space="preserve">
     <value>Jauge de centre : durée du plein (ms) :</value>

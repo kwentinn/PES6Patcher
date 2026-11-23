@@ -45,7 +45,7 @@ namespace PES6Patcher.Core;
 /// <param name="ForwardRuns">The forwards can be picked as the runner of the run beyond the last line (the game only picked defenders and midfielders): more runs into the box.</param>
 /// <param name="ShotGaugeSpeed">Speed at which the shot gauge fills, in % of the game's (100 = unchanged).</param>
 /// <param name="BallPush">R1 pressed three times, or the right stick pushed to the edge while a human player runs, sends his next touch further ahead (right stick: toward the stick, 20 degrees at most from his running direction).</param>
-/// <param name="CrossGauge">The cross (circle from a wing) is held while the circle stays down and its power follows how long it was held; it starts when the circle is let go, or at once when the gauge is full.</param>
+/// <param name="CrossGauge">The cross (circle from a wing) is held while the circle stays down and its power follows how long it was held; it starts when the circle is let go, or at once when the gauge is full. The left stick aims it; with no direction held it goes where the player faces.</param>
 /// <param name="CrossGaugeMs">Time the circle must be held to fill the cross gauge, in milliseconds.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself runs at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged).</param>
 /// <param name="SuperShot">Height of a human team's shot taken with L1 and R1 held (the super shot: a shot, not a lob), in the kick function's units (the game's shots: 13 to 35; 0 = off).</param>

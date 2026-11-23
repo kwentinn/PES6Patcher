@@ -785,6 +785,13 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(0x3BE0DE8, sites.Fatigue);
         Assert.Equal(0x587AD2, sites.Cap);
         Assert.NotEqual(0, sites.TickCount);
+        // the aim: in the cross start right after the receiver choice, with the game functions and the lead byte it uses
+        Assert.Equal(0x58802B, sites.Aim);
+        Assert.Equal(0x496FA0, sites.AngleBetween);
+        Assert.Equal(0x4B2F70, sites.StickAngle);
+        Assert.Equal(0x5091E0, sites.OnPitch);
+        Assert.Equal(0x3BE127C, sites.Lead);
+        Assert.Equal(0x4E3F6A, sites.PlannerWait);
 
         var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
         var built = ExePatcher.Build(original, options with { CrossGauge = true });
@@ -796,7 +803,7 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(0x80000000u, BitConverter.ToUInt32(built, RdataFlagsOffset(built)) & 0x80000000u);
 
         // every hooked place is a jump into a cave
-        (int Site, int Length)[] hooks = [(sites.Call1, 5), (sites.Call2, 5), (sites.Call3, 5), (sites.Phase, 5), (sites.Power, 6), (sites.Cap, 8)];
+        (int Site, int Length)[] hooks = [(sites.Call1, 5), (sites.Call2, 5), (sites.Call3, 5), (sites.Phase, 5), (sites.Power, 6), (sites.Cap, 8), (sites.Aim, 7), (sites.PlannerWait, 6)];
         foreach (var (site, length) in hooks)
         {
             Assert.Equal(0xE9, with.Bytes[with.Offset(site)]);
@@ -832,6 +839,24 @@ public class PatcherTests(ITestOutputHelper output)
         int cap = with.Rel32Target(sites.Cap);
         Assert.True(with.Matches(cap, [0x03, 0xC2, 0x80, 0x7E, 0x47, 0x08, 0x73, 0x0F, 0x0F, 0xB6, 0x4E, 0x4D, 0x69, 0xC9, 0x00, 0x30, 0x00, 0x00, 0xC1, 0xE9, 0x07, 0x01, 0xC8, 0x50, 0x53, 0x89, 0x44, 0x24, 0x28]));
         Assert.Equal(sites.Cap + 8, with.Rel32Target(cap + 29));
+
+        // the aim: the two instructions replayed, humans only, the direction from the stick or the facing; it ends with the jump back and the angle unit
+        int aim = with.Rel32Target(sites.Aim);
+        Assert.True(with.Matches(aim, [0x8B, 0x4C, 0x24, 0x28, 0x88, 0x46, 0x48, 0x80, 0x7E, 0x47, 0x08, 0x72, 0x05, 0xE9]));
+        Assert.Equal(sites.Aim + 7, with.Rel32Target(aim + 13));
+        Assert.True(with.Matches(aim + 18, [0x60, 0xF6, 0x86, 0xB0, 0x00, 0x00, 0x00, 0xF0, 0x74, 0x0E, 0x56, 0xE8]));
+        Assert.Equal(sites.StickAngle, with.Rel32Target(aim + 29));
+        Assert.True(with.Matches(aim + 34, [0x83, 0xC4, 0x04, 0x0F, 0xB7, 0xE8, 0xEB, 0x04, 0x0F, 0xB7, 0x6E, 0x26]));
+        byte[] turn = BitConverter.GetBytes((float)(2 * Math.PI / 65536));
+        int aimSize = Enumerable.Range(0, 600).First(n => with.Matches(aim + n, turn)) + 4;
+        Assert.Equal(0x61, with.Bytes[with.Offset(aim + aimSize - 10)]);
+        Assert.Equal(sites.Aim + 7, with.Rel32Target(aim + aimSize - 9));
+        Assert.Equal((float)(2 * Math.PI / 65536), BitConverter.ToSingle(with.Bytes, with.Offset(aim + aimSize - 4)));
+
+        // the planner's wait (a cross asked on the run): a human's counter set to 7, the load replayed, back after the hooked load (validated in game)
+        int plannerWait = with.Rel32Target(sites.PlannerWait);
+        Assert.True(with.Matches(plannerWait, [0x80, 0x7E, 0x47, 0x08, 0x73, 0x07, 0xC6, 0x86, 0x20, 0x02, 0x00, 0x00, 0x07, 0x8A, 0x96, 0x20, 0x02, 0x00, 0x00, 0xE9]));
+        Assert.Equal(sites.PlannerWait + 6, with.Rel32Target(plannerWait + 19));
 
         // the fill time has limits
         Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { CrossGauge = true, CrossGaugeMs = PatchOptions.MinCrossGaugeMs - 1 }));

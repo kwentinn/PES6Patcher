@@ -661,10 +661,10 @@
     <value>cross gauge</value>
   </data>
   <data name="Log.CrossGauge" xml:space="preserve">
-    <value>Cross gauge: a human player's cross is held while the circle stays down and its power follows how long it was held (full in {0} ms); it starts when the circle is let go, or at once when the gauge is full.</value>
+    <value>Cross gauge: a human player's cross is held while the circle stays down and its power follows how long it was held (full in {0} ms); it starts when the circle is let go, or at once when the gauge is full. The left stick aims it (where the player faces when no direction is held).</value>
   </data>
   <data name="Gameplay.CrossGauge" xml:space="preserve">
-    <value>Cross power gauge (hold the circle from a wing)</value>
+    <value>Cross gauge: hold the circle for the power, left stick for the direction (from a wing)</value>
   </data>
   <data name="Gameplay.CrossGaugeMs" xml:space="preserve">
     <value>Cross gauge: time to fill (ms):</value>

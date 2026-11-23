@@ -143,8 +143,14 @@ internal sealed record BallPushSites(int PadEntry, int PadBase, int RightStick, 
 /// word that follows the power computation (6 bytes, <see cref="Fatigue"/> its address: eax is the power asked), <see cref="Cap"/> =
 /// the add of the fatigue to the stat's cap (8 bytes: add eax,edx ; push eax ; push ebx ; mov [esp+0x28],eax) and
 /// <see cref="TickCount"/> = the import slot of GetTickCount, <see cref="State"/> = the state (<see cref="CrossGauge.StateSize"/> bytes of .rdata, zero padding).
+/// The aim: <see cref="Aim"/> = in the cross start, right after the game chose the receiver (7 bytes: mov ecx,[esp+0x28] ; mov [esi+0x48],al),
+/// <see cref="AngleBetween"/> = angle from a point to another (x1, z1, x2, z2: floats), <see cref="StickAngle"/> = (player) the stick's angle
+/// in the pitch frame, <see cref="OnPitch"/> = (player) 0 when he cannot be chosen, <see cref="Lead"/> = the byte the game multiplies a
+/// receiver's speed by to aim ahead of him. <see cref="PlannerWait"/> = the load of the planner's wait counter (6 bytes: mov dl,[esi+0x220]),
+/// which the planner counts up to 8 before its first call when the cross is asked on the run.
 /// </summary>
-internal sealed record CrossGaugeSites(int Call1, int Call2, int Call3, int StartCross, int Phase, int Power, int Fatigue, int Cap, int TickCount, int State);
+internal sealed record CrossGaugeSites(int Call1, int Call2, int Call3, int StartCross, int Phase, int Power, int Fatigue, int Cap, int TickCount, int State,
+	int Aim, int AngleBetween, int StickAngle, int OnPitch, int Lead, int PlannerWait);
 
 /// <summary>
 /// Pass lead: where the pass point (passer +0x9C / +0xA0) is placed ahead of the receiver, the lead (passer +0xA8) is
@@ -781,6 +787,18 @@ internal sealed class ExeLocator
 	/// <summary>mov edx,edi ; neg edx ; shl edx,5 ; add eax,edx ; push eax ; push ebx ; mov [esp+0x28],eax ; call min: the stat's cap.</summary>
 	private const string CrossGaugeCap = "8B D7 F7 DA C1 E2 05 03 C2 50 53 89 44 24 28 E8";
 
+	/// <summary>The function giving the stick's angle in the pitch frame (player): the facing +0x26 when the player is not a human's, else the pad's entry of the stick table.</summary>
+	private const string CrossGaugeStickAngle = "56 8B 74 24 08 8A 46 24 84 C0 57 0F 85 ?? ?? ?? ?? 8B 3D ?? ?? ?? ?? 85 FF 74 ?? 8A 16 33 C9 B8 ?? ?? ?? ?? 3A 10 74 12 83 C0 28 41 3D ?? ?? ?? ?? 7C F1 66 8B 46 26 5F 5E C3 8D 04 89 0F B6 04 C5 ?? ?? ?? ?? 3C 08 72 04 33 C9 EB 0C 0F B6 C8 66 0F B6 0C 8D ?? ?? ?? ?? F6 C1 F0 75 0C 57 E8";
+
+	/// <summary>The function telling whether a player can be chosen (player): a first test, then the state +0x16 must not be 0xFF.</summary>
+	private const string CrossGaugeOnPitch = "56 8B 74 24 08 56 E8 ?? ?? ?? ?? 83 C4 04 85 C0 74 0D 80 7E 16 FF 74 07 E9 ?? ?? ?? ?? 5E C3 33 C0 5E C3";
+
+	/// <summary>movzx edx,byte [lead] ; mov [esp+0x1C],edx ; sub esp,8 ; fild dword [esp+0x24] ; fld st0 ; fmul [esi+0xF8] ; fadd [esi+0xE8]: the lofted pass aiming ahead of a team-mate.</summary>
+	private const string CrossGaugeLead = "0F B6 15 ?? ?? ?? ?? 89 54 24 1C 83 EC 08 DB 44 24 24 D9 C0 D8 8E F8 00 00 00 D8 86 E8 00 00 00";
+
+	/// <summary>mov dl,[esi+0x220] ; mov cl,[esi+0x24] ; mov [esi+0xA4],eax ; movzx eax,di ; add esp,8 ; inc dl ; cmp cl,bl: the planner's wait counter before its call of the cross start.</summary>
+	private const string CrossGaugePlannerWait = "8A 96 20 02 00 00 8A 4E 24 89 86 A4 00 00 00 0F B7 C7 83 C4 08 FE C2 3A CB";
+
 	public static CrossGaugeSites? LocateCrossGauge(byte[] exe)
 	{
 		var image = new PeImage(exe);
@@ -804,7 +822,18 @@ internal sealed class ExeLocator
 		var rdata = image.Named(".rdata");
 		int state = rdata == null ? 0 : rdata.End - 0xA8;   // below the ball push (0x60), the shot scores (0x40) and the Kitserver state (0x30)
 		if (rdata == null || !image.Matches(state, new byte[CrossGauge.StateSize])) return null;
-		return new CrossGaugeSites(call1, call2, call3, target, phase, power, fatigue, cap + 7, tick, state);
+
+		// the aim: the cross start calls the receiver choice, stores it and reads the aimed point; further on it asks the angle from the ball to that point
+		int aim = target + 0x1B, angleCall = target + 0x64;
+		if (image.Bytes[image.Offset(target + 0x16)] != 0xE8 || !image.Matches(aim, [0x8B, 0x4C, 0x24, 0x28, 0x88, 0x46, 0x48, 0x8B, 0x86, 0x9C, 0x00, 0x00, 0x00])
+			|| !image.Matches(angleCall - 2, [0x51, 0x52, 0xE8])) return null;
+		int stick = Find(CrossGaugeStickAngle), onPitch = Find(CrossGaugeOnPitch);
+		var leads = image.Sections.Where(section => section.IsCode).SelectMany(section => new Signature(CrossGaugeLead).FindAll(image, section))
+			.Select(at => image.ReadInt32(at + 3)).Distinct().ToArray();
+		if (stick == 0 || onPitch == 0 || leads.Length != 1 || !IsData(leads[0], 1)) return null;
+		int plannerWait = Find(CrossGaugePlannerWait);
+		if (plannerWait == 0 || plannerWait > call3 || call3 - plannerWait > 0x100) return null;   // the counter is read shortly before the planner's call
+		return new CrossGaugeSites(call1, call2, call3, target, phase, power, fatigue, cap + 7, tick, state, aim, image.Rel32Target(angleCall), stick, onPitch, leads[0], plannerWait);
 	}
 
 	public static LoftedAimSites? LocateLoftedAim(byte[] exe)
