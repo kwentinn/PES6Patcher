@@ -14,7 +14,7 @@ namespace Pes6Research;
 /// </summary>
 static class HudCommand
 {
-    public const string Usage = "hud [-Text] [-Calls] [-Guide] [-Seconds N] [-Log hud-events.log] [-Every 15]\n" +
+    public const string Usage = "hud [-Text] [-Calls] [-Guide] [-GuideRun] [-GuideCross] [-GuideCrossRun] [-GuideSteer] [-Seconds N] [-Log hud-events.log] [-Every 15]\n" +
                                 "                                                 debug overlay over the game window (Insert = show/hide, Delete = clear); -Text prints the kicks in the console instead;\n" +
                                 "                                                 -Guide shows on screen, with a beep at each step, what to do with the pad (right stick, R1) and logs the raw pad changes;\n" +
                                 "                                                 -Calls attaches the debugger to the ball kick function 0x478020 and adds the Ctrl+K page: every call with its callers";
@@ -29,7 +29,10 @@ static class HudCommand
         var calls = o.Flag("Calls");
         var guideRun = o.Flag("GuideRun");
         var guideCross = o.Flag("GuideCross");
-        var guide = o.Flag("Guide") || guideRun || guideCross;
+        var guideSteer = o.Flag("GuideSteer");
+        var guideCrossRun = o.Flag("GuideCrossRun");
+        guideCross |= guideCrossRun;
+        var guide = o.Flag("Guide") || guideRun || guideCross || guideSteer;
         var log = Path.GetFullPath(o.String("Log") ?? Path.Combine(AppContext.BaseDirectory, "hud-events.log"));
         o.CheckAllUsed();
         using var game = GameProcess.Open(processName);
@@ -67,7 +70,7 @@ static class HudCommand
                 return 0;
             }
             Application.EnableVisualStyles();
-            Application.Run(new HudForm(game, tracker, clock, every, seconds, guide, guideRun, guideCross));
+            Application.Run(new HudForm(game, tracker, clock, every, seconds, guide, guideRun, guideCross, guideSteer, guideCrossRun));
             return 0;
         }
         finally { stop.Cancel(); debugger?.Join(); }   // the debugger must detach cleanly, or the game crashes on the leftover breakpoint
@@ -442,6 +445,70 @@ sealed class HudForm : Form
         ("CENTRE 7 : APPUI BREF sur rond", 12), ("CENTRE 8 : APPUI LONG sur rond (1 s, relache apres)", 12),
         ("FINI, merci", 5),
     ];
+    // -GuideSteer (issue #56): crosses aimed with the left stick (memory patch cross-steer); each started cross is logged by SampleSteer.
+    static readonly (string Label, int Seconds)[] SteerSteps =
+    [
+        ("PREPARE-TOI : balle a l'aile", 10),
+        ("CENTRE 1 : SANS stick, joueur TOURNE vers la surface, appui BREF", 20),
+        ("CENTRE 2 : SANS stick, joueur TOURNE vers la surface, appui MOYEN", 20),
+        ("CENTRE 3 : SANS stick, joueur FACE a la ligne de fond, appui BREF", 20),
+        ("CENTRE 4 : stick PREMIER poteau, appui BREF", 20),
+        ("CENTRE 5 : stick SECOND poteau, appui MOYEN", 20),
+        ("CENTRE 6 : stick EN RETRAIT, appui BREF", 20),
+        ("CENTRE 7 : stick vers une zone VIDE, appui MOYEN", 20),
+        ("FINI, merci", 5),
+    ];
+    readonly bool steerProbe;
+    readonly bool[] steerWas = new bool[23];
+    readonly List<string> steerLines = [];
+    (int Passer, int Receiver, float X, float Z, int Gauge, bool High, long Ms)? steerFlight;
+
+    /// <summary>Logs each cross that starts (a player enters state 9 with a kick phase): passer, stick, receiver, aimed point, and the angle between the stick and the aimed point.</summary>
+    void SampleSteer()
+    {
+        // the fall of the last cross: the ball back near the ground (its height grows downwards, about -23 on the ground) after having been up
+        if (steerFlight is { } f)
+        {
+            if (tracker.BallH < -300) steerFlight = f with { High = true };
+            else if (f.High && tracker.BallH > -80)
+            {
+                float dx = tracker.BallX - f.X, dz = tracker.BallZ - f.Z;
+                var miss = f.Receiver is >= 1 and <= 22 ? MathF.Sqrt(MathF.Pow(tracker.BallX - tracker.Float(f.Receiver, 0xE0), 2) + MathF.Pow(tracker.BallZ - tracker.Float(f.Receiver, 0xE8), 2)) : -1;
+                var line = $"CHUTE P{f.Passer} jauge={f.Gauge} en ({tracker.BallX:F0},{tracker.BallZ:F0}) distance={MathF.Sqrt(dx * dx + dz * dz):F0} a {miss:F0} de P{f.Receiver} apres {(clock.ElapsedMilliseconds - f.Ms) / 1000.0:F1} s";
+                tracker.Mark($"{line} | etape: {guideText}", clock.ElapsedMilliseconds);
+                steerLines.Add(line); if (steerLines.Count > 8) steerLines.RemoveAt(0);
+                steerFlight = null;
+            }
+            else if (clock.ElapsedMilliseconds - f.Ms > 6000) steerFlight = null;
+        }
+        for (var id = 1; id <= 22; id++)
+        {
+            var on = tracker.Byte(id, 0x16) == 9 && (tracker.Int(id, 0x18) & 0xFFFF) >= 0x10;
+            var was = steerWas[id]; steerWas[id] = on;
+            if (!on || was) continue;
+            int pad = tracker.Byte(id, 0x47), receiver = tracker.Byte(id, 0x48), aim = tracker.Int(id, 0x90) & 0xFFFF;
+            var stick = pad < 8 ? game.ReadOrZero((uint)(0x1016680 + pad * 4), 4) : new byte[4];
+            // the stick's angle in the pitch frame, as 0x4B2F70 gives it
+            var angle = (BitConverter.ToUInt16(stick, 0) + (BitConverter.ToUInt16(game.ReadOrZero(0x3BE091A, 2), 0) == 0 ? 0xC000 : 0)) & 0xFFFF;
+            var off = (short)(aim - angle) * 360.0 / 65536;
+            var to = receiver is >= 1 and <= 22 ? $"P{receiver} en ({tracker.Float(receiver, 0xE0):F0},{tracker.Float(receiver, 0xE8):F0})" : $"{receiver:X2}";
+            var line = $"P{id} manette={pad} de ({tracker.Float(id, 0xE0):F0},{tracker.Float(id, 0xE8):F0}) -> {to} vise=({tracker.Int(id, 0x9C)},{tracker.Int(id, 0xA0)}) " +
+                       $"stick={angle:X4} force={stick[2]} bits={stick[3]:X2} angleVise={aim:X4} ecart={off:F0} deg jauge={tracker.Byte(id, 0x4D)} phase={tracker.Int(id, 0x18) & 0xFFFF:X} boutons={tracker.Int(id, 0xB0):X}";
+            tracker.Mark($"STEER {line} | etape: {guideText}", clock.ElapsedMilliseconds);
+            steerLines.Add(line); if (steerLines.Count > 8) steerLines.RemoveAt(0);
+            steerFlight = (id, receiver, tracker.Float(id, 0xE0), tracker.Float(id, 0xE8), tracker.Byte(id, 0x4D), false, clock.ElapsedMilliseconds);
+        }
+    }
+
+    // -GuideCrossRun (issue #56): held crosses on the run and standing, to see frame by frame (SampleCross) why the hold is sometimes skipped.
+    static readonly (string Label, int Seconds)[] CrossRunSteps =
+    [
+        ("PREPARE-TOI : balle a l aile", 10),
+        ("CENTRE 1 : EN COURSE, appui COURT sur rond", 15), ("CENTRE 2 : EN COURSE, appui COURT sur rond", 15), ("CENTRE 3 : EN COURSE, appui COURT sur rond", 15),
+        ("CENTRE 4 : EN COURSE, rond TENU jusqu au depart", 15), ("CENTRE 5 : EN COURSE, rond TENU jusqu au depart", 15),
+        ("CENTRE 6 : EN SPRINT (R1), appui COURT sur rond", 15), ("CENTRE 7 : EN SPRINT (R1), appui COURT sur rond", 15), ("CENTRE 8 : EN SPRINT (R1), appui MOYEN", 15),
+        ("FINI, merci", 5),
+    ];
     const uint CrossRing = 0x3D59E00, CrossCount = 0x3D59F08;
     int crossSeen;
     readonly bool crossProbe;
@@ -455,12 +522,13 @@ sealed class HudForm : Form
     {
         var c = tracker.Carrier;
         var st = c is >= 1 and <= 22 ? tracker.Byte(c, 0x16) : 0;
-        if (st != 8 && st != 9) { lastCross = -1; return; }
+        if (st != 8 && st != 9 && (c == 0 || (tracker.Int(c, 0xB0) & 0x2000) == 0)) { lastCross = -1; return; }
         int g = tracker.Byte(c, 0x4D), e = tracker.Byte(c, 0x4E), ph = tracker.Int(c, 0x18) & 0xFFFF, sub = tracker.Int(c, 0x1A) & 0xFFFF, c220 = tracker.Byte(c, 0x220);
-        var key = HashCode.Combine(st, g, e, ph, sub, c220);
+        var bar = BitConverter.ToSingle(game.ReadOrZero(0x10104E0, 4), 0); var barFlags = BitConverter.ToInt32(game.ReadOrZero(0x10104DC, 4), 0) & 7;
+        var key = HashCode.Combine(st, g, e, ph, sub, c220, bar, barFlags);
         if (key == lastCross) return;
         lastCross = key;
-        tracker.Mark($"S9 etat={st} jauge={g} 4E={e} phase={ph:X} +1A={sub:X} +220={c220} boutons={tracker.Int(c, 0xB0):X}", clock.ElapsedMilliseconds);
+        tracker.Mark($"S9 P{c} vit={tracker.Int(c, 0x1C)} barre={bar * 128:F0}/{barFlags} etat={st} jauge={g} 4E={e} phase={ph:X} +1A={sub:X} +220={c220} boutons={tracker.Int(c, 0xB0):X}", clock.ElapsedMilliseconds);
     }
 
     /// <summary>Reads the cross probe's ring: each new entry is logged with the guide step, the last ones are shown on the overlay.</summary>
@@ -520,10 +588,10 @@ sealed class HudForm : Form
         catch (Exception) { }
     }
 
-    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds, bool guide = false, bool runSteps = false, bool crossSteps = false)
+    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds, bool guide = false, bool runSteps = false, bool crossSteps = false, bool steerSteps = false, bool crossRunSteps = false)
     {
-        this.game = game; this.tracker = tracker; this.clock = clock; this.guide = guide; crossProbe = crossSteps;
-        steps = crossSteps ? CrossSteps : runSteps ? RunSteps : StickSteps;
+        this.game = game; this.tracker = tracker; this.clock = clock; this.guide = guide; crossProbe = crossSteps; steerProbe = steerSteps;
+        steps = steerSteps ? SteerSteps : crossRunSteps ? CrossRunSteps : crossSteps ? CrossSteps : runSteps ? RunSteps : StickSteps;
         until = seconds > 0 ? seconds * 1000L : long.MaxValue;
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
         BackColor = Color.FromArgb(16, 16, 20); Opacity = 0.86; DoubleBuffered = true;
@@ -566,6 +634,7 @@ sealed class HudForm : Form
             }
         tracker.Update(game, clock.ElapsedMilliseconds);
         if (crossProbe) SampleCross();
+        if (steerProbe) SampleSteer();
         Guide();
         if (!shown) return;
         if (game.MainWindow != IntPtr.Zero && GetWindowRect(game.MainWindow, out var r) && r.Left > -10000) Location = new Point(r.Left + 8, r.Top + 70);
@@ -582,7 +651,9 @@ sealed class HudForm : Form
         {
             using var big = new Font("Consolas", 14f, FontStyle.Bold); using var lime = new SolidBrush(Color.LimeGreen);
             g.DrawString(guideText, big, lime, 4, y); y += 26;
-            if (crossProbe)
+            if (steerProbe)
+                foreach (var l in steerLines) { g.DrawString(l.Length > 95 ? l[..95] : l, font, Brushes.Gold, 4, y); y += 15; }
+            else if (crossProbe)
                 foreach (var l in CrossLines()) { g.DrawString(l, font, Brushes.Gold, 4, y); y += 15; }
             else
                 g.DrawString(HudTracker.RawText(tracker.Raw, 0) + "  |  " + HudTracker.RawText(tracker.Raw, 1), font, Brushes.White, 4, y); y += 18;
