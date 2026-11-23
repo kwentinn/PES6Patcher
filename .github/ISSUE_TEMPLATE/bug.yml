@@ -29,13 +29,35 @@ body:
       description: What should happen. If you know it, what the game without the patch does in the same situation.
     validations:
       required: true
-  - type: textarea
-    id: setup
+  - type: input
+    id: version
     attributes:
-      label: Version and options
-      description: PES6Patcher version, the options ticked (or the PES6.exe.patcher.ini file next to the exe), and the game or community patch the exe comes from.
+      label: Patcher version
+      description: The exact PES6Patcher version used, as shown in the window title or the release name (for example 1.32.0).
     validations:
       required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Patcher report or saved configuration
+      description: Paste the report (the "Copy report" button in the patcher), or the content of the PES6.exe.patcher.ini file saved next to PES6.exe.
+      render: text
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game and community patch
+      description: Where the PES6.exe comes from - original game, or the name and version of the community patch.
+    validations:
+      required: false
+  - type: input
+    id: isolate
+    attributes:
+      label: Option that causes it
+      description: If you tried - the option that makes the problem go away when you untick it and patch again.
+    validations:
+      required: false
   - type: textarea
     id: media
     attributes:
