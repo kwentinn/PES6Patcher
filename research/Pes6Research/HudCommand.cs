@@ -14,7 +14,7 @@ namespace Pes6Research;
 /// </summary>
 static class HudCommand
 {
-    public const string Usage = "hud [-Text] [-Calls] [-Guide] [-GuideRun] [-GuideCross] [-GuideCrossRun] [-GuideSteer] [-Seconds N] [-Log hud-events.log] [-Every 15]\n" +
+    public const string Usage = "hud [-Text] [-Calls] [-Guide] [-GuideRun] [-GuideCross] [-GuideCrossRun] [-GuideSteer] [-GuidePass] [-Seconds N] [-Log hud-events.log] [-Every 15]\n" +
                                 "                                                 debug overlay over the game window (Insert = show/hide, Delete = clear); -Text prints the kicks in the console instead;\n" +
                                 "                                                 -Guide shows on screen, with a beep at each step, what to do with the pad (right stick, R1) and logs the raw pad changes;\n" +
                                 "                                                 -Calls attaches the debugger to the ball kick function 0x478020 and adds the Ctrl+K page: every call with its callers";
@@ -32,7 +32,8 @@ static class HudCommand
         var guideSteer = o.Flag("GuideSteer");
         var guideCrossRun = o.Flag("GuideCrossRun");
         guideCross |= guideCrossRun;
-        var guide = o.Flag("Guide") || guideRun || guideCross || guideSteer;
+        var guidePass = o.Flag("GuidePass");
+        var guide = o.Flag("Guide") || guideRun || guideCross || guideSteer || guidePass;
         var log = Path.GetFullPath(o.String("Log") ?? Path.Combine(AppContext.BaseDirectory, "hud-events.log"));
         o.CheckAllUsed();
         using var game = GameProcess.Open(processName);
@@ -48,6 +49,8 @@ static class HudCommand
         tracker.PadLogged += line => Record("pad " + line);
         tracker.RunLogged += line => Record("run " + line);
         tracker.RunLog = guideRun;
+        tracker.PassLogged += line => Record("pass " + line);
+        tracker.PassLog = guidePass;
         if (calls)
         {
             debugger = new Thread(() =>
@@ -70,7 +73,7 @@ static class HudCommand
                 return 0;
             }
             Application.EnableVisualStyles();
-            Application.Run(new HudForm(game, tracker, clock, every, seconds, guide, guideRun, guideCross, guideSteer, guideCrossRun));
+            Application.Run(new HudForm(game, tracker, clock, every, seconds, guide, guideRun, guideCross, guideSteer, guideCrossRun, guidePass));
             return 0;
         }
         finally { stop.Cancel(); debugger?.Join(); }   // the debugger must detach cleanly, or the game crashes on the leftover breakpoint
@@ -164,6 +167,42 @@ sealed class HudTracker
         }
     }
 
+    /// <summary>
+    /// -GuidePass: while a button other than the d-pad, L1 and R1 is down (and 700 ms after), every byte that changes in the passer's record (the
+    /// carrier when the window opened) and in pad 0's raw structure, one line per frame, to see what counts the time the pass button is held.
+    /// </summary>
+    public bool PassLog;
+    public event Action<string>? PassLogged;
+    readonly byte[] prevCar = new byte[PlayerSize], prevPad = new byte[RawSize];
+    int passer;
+    long passUntil = -1;
+
+    void LogPass()
+    {
+        if (!PassLog) return;
+        var held = (ushort)~BitConverter.ToUInt16(Raw, 0);
+        if ((held & 0xF3FF & ~0xF0) != 0) passUntil = Ms + 700;
+        if (Ms > passUntil) { passer = 0; return; }
+        var c = passer != 0 ? passer : Carrier is >= 1 and <= 22 ? Carrier : 0;
+        if (c == 0) return;
+        var car = new byte[PlayerSize];
+        Array.Copy(Data, (c - 1) * PlayerSize, car, 0, PlayerSize);
+        var changes = new List<string>();
+        if (passer == 0)
+        {
+            passer = c;
+            changes.Add($"start boutons={held:X4}");
+        }
+        else
+        {
+            for (var i = 0; i < PlayerSize; i++) if (car[i] != prevCar[i]) changes.Add($"+{i:X3}={prevCar[i]:X2}>{car[i]:X2}");
+            for (var i = 0; i < RawSize; i++) if (Raw[i] != prevPad[i]) changes.Add($"pad+{i:X2}={prevPad[i]:X2}>{Raw[i]:X2}");
+        }
+        Array.Copy(car, prevCar, PlayerSize);
+        Array.Copy(Raw, prevPad, RawSize);
+        if (changes.Count > 0) PassLogged?.Invoke($"{TimeSpan.FromMilliseconds(Ms):mm\\:ss\\.fff} [{Label}] P{c} {string.Join(' ', changes)}");
+    }
+
     /// <summary>-GuideRun: one line every 45 ms about the carrier (state, speed, position), the ball, the left stick and the F1 toggle byte of the patcher's debug build (0xBC3FF0).</summary>
     public bool RunLog;
     public event Action<string>? RunLogged;
@@ -235,7 +274,7 @@ sealed class HudTracker
         if (game.TryRead(RestartState, one)) Restart = one[0];
         game.TryRead(PadMemory, Pad);
         game.TryRead(0x1016680, LeftTable); game.TryRead(0x10165A0, RightTable);
-        if (game.TryRead(RawPad, Raw)) LogRaw();
+        if (game.TryRead(RawPad, Raw)) { LogRaw(); LogPass(); }
         game.TryRead(PlacementWords, Words);
         game.TryRead(OffsideLines, Offside);
         game.TryRead(AttackLevels, Attack);
@@ -428,11 +467,20 @@ sealed class HudForm : Form
     [
         ("PREPARE-TOI : balle au pied, immobile", 8),
         ("COURS : stick GAUCHE a fond, une direction", 5), ("RELACHE le stick, ne touche plus a rien", 4),
+        ("COURS : CROIX a fond, une direction", 5), ("RELACHE la croix, ne touche plus a rien", 4),
         ("COURS : stick GAUCHE a fond, une direction", 5), ("RELACHE le stick, ne touche plus a rien", 4),
+        ("COURS : CROIX a fond, une direction", 5), ("RELACHE la croix, ne touche plus a rien", 4),
         ("COURS : stick GAUCHE a fond, une direction", 5), ("RELACHE le stick, ne touche plus a rien", 4),
-        ("SPRINT : R1 + stick GAUCHE", 5), ("RELACHE TOUT (stick ET R1)", 4),
-        ("SPRINT : R1 + stick GAUCHE", 5), ("RELACHE TOUT (stick ET R1)", 4),
-        ("SPRINT : R1 + stick GAUCHE", 5), ("RELACHE TOUT (stick ET R1)", 4),
+        ("COURS : CROIX a fond, une direction", 5), ("RELACHE la croix, ne touche plus a rien", 4),
+        ("FINI, merci", 5),
+    ];
+    // -GuidePass (issue #49): ground passes held for set times, to find what the game counts while the pass button is down.
+    static readonly (string Label, int Seconds)[] PassSteps =
+    [
+        ("PREPARE-TOI : balle au pied, immobile", 8),
+        ("PASSE COURTE : appui BREF (tap)", 6), ("PASSE COURTE : appui BREF (tap)", 6), ("PASSE COURTE : appui BREF (tap)", 6),
+        ("PASSE COURTE : appui MOYEN, 0,5 s", 6), ("PASSE COURTE : appui MOYEN, 0,5 s", 6), ("PASSE COURTE : appui MOYEN, 0,5 s", 6),
+        ("PASSE COURTE : appui LONG, 1 s", 7), ("PASSE COURTE : appui LONG, 1 s", 7), ("PASSE COURTE : appui LONG, 1 s", 7),
         ("FINI, merci", 5),
     ];
     // -GuideCross (issue #56): crosses from the wings at set distances, to read the cross probe's log (ring at 0x3D59E00, count at 0x3D59F08).
@@ -588,10 +636,10 @@ sealed class HudForm : Form
         catch (Exception) { }
     }
 
-    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds, bool guide = false, bool runSteps = false, bool crossSteps = false, bool steerSteps = false, bool crossRunSteps = false)
+    public HudForm(GameProcess game, HudTracker tracker, System.Diagnostics.Stopwatch clock, int every, int seconds, bool guide = false, bool runSteps = false, bool crossSteps = false, bool steerSteps = false, bool crossRunSteps = false, bool passSteps = false)
     {
         this.game = game; this.tracker = tracker; this.clock = clock; this.guide = guide; crossProbe = crossSteps; steerProbe = steerSteps;
-        steps = steerSteps ? SteerSteps : crossRunSteps ? CrossRunSteps : crossSteps ? CrossSteps : runSteps ? RunSteps : StickSteps;
+        steps = passSteps ? PassSteps : steerSteps ? SteerSteps : crossRunSteps ? CrossRunSteps : crossSteps ? CrossSteps : runSteps ? RunSteps : StickSteps;
         until = seconds > 0 ? seconds * 1000L : long.MaxValue;
         FormBorderStyle = FormBorderStyle.None; ShowInTaskbar = false; TopMost = true; StartPosition = FormStartPosition.Manual;
         BackColor = Color.FromArgb(16, 16, 20); Opacity = 0.86; DoubleBuffered = true;
