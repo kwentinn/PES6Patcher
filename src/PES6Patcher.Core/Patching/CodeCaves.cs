@@ -12,7 +12,7 @@ internal static class CodeCaves
 	public const int ClipSize = 60, CursorSize = 19, FreeDirectionSize = 156, ForwardRunsSize = 25;
 
 	/// <summary>Kick relay cave: dribble direction part, close dribbling part, replayed bytes and jump back.</summary>
-	public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 184, RelayStrengthKeySize = 13, RelayTailSize = 11, RelayStickScanSize = 23;
+	public const int RelayDirectionSize = 79, RelayCloseDribbleSize = 184, RelayStrengthKeySize = 13, RelayTailSize = 11, RelayStickScanSize = 48;
 
 	/// <summary>Key that switches close dribbling on and off in game.</summary>
 	public const byte CloseDribbleSwitchKey = 0x70;   // VK_F1
@@ -353,13 +353,23 @@ internal static class CodeCaves
 				.Mark("switched")
 				.Bytes(StateByte(0x3D, 0, 0))                      // cmp byte [off],0
 				.Jump(0x75, "original");                            // jne original          ; switched off
-			if (sites.StickTable != 0)
-				// no stick pushed on any pad (a released stick: the dribble winds down by itself, and the game ends it with a final touch
-				// only when the ball and the player are in line): the touches are left as the game's, shortened ones kept the player drifting
+			if (sites.StickTable != 0 && sites.PadBase != 0)
+				// no stick or d-pad pushed on any pad (a released stick: the dribble winds down by itself, and the game ends it with a final touch
+				// only when the ball and the player are in line): the touches are left as the game's, shortened ones kept the player drifting.
+				// The d-pad is not in the stick table: it is read from the pad's button word (0 = pressed, +0 of 0x58 bytes a pad; masks
+				// 0x10 to 0x80; a pad that is not plugged in reads 0)
 				code.Bytes(0x33, 0xC9)                              // xor ecx,ecx          ; pad index
 					.Mark("stickScan")
 					.Bytes([0x80, 0x3C, 0x8D], sites.StickTable + 2).Bytes(0)   // cmp byte [ecx*4+magnitude],0
 					.Jump(0x75, "stickHeld")                        // jne stickHeld
+					.Bytes(0x6B, 0xD1, 0x58)                        // imul edx,ecx,0x58
+					.Bytes([0x8B, 0x82], sites.PadBase)             // mov eax,[edx+pad]    ; buttons, 0 = pressed
+					.Bytes(0x85, 0xC0)                              // test eax,eax
+					.Jump(0x74, "nextButtons")                          // jz nextButtons           ; not plugged in
+					.Bytes([0x25], 0xF0)                            // and eax,0xF0         ; the d-pad
+					.Bytes([0x3D], 0xF0)                            // cmp eax,0xF0
+					.Jump(0x75, "stickHeld")                        // jne stickHeld        ; a direction is pressed
+					.Mark("nextButtons")
 					.Bytes(0x41, 0x83, 0xF9, 0x08)                  // inc ecx ; cmp ecx,8
 					.Jump(0x7C, "stickScan")                        // jl stickScan
 					.JumpTo("original")                             // jmp original          ; nobody pushes a stick

@@ -1229,6 +1229,11 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(SwitchState, BitConverter.ToInt32(built, cave + 44));             // cmp byte [off],0
         Assert.Equal(0x80000000u, BitConverter.ToUInt32(built, RdataFlagsOffset(built)) & 0x80000000u);
 
+        // the stick scan also reads the pads' button word (the d-pad is not in the stick table): imul edx,ecx,0x58 ; mov eax,[edx+pad]
+        Assert.Equal([0x33, 0xC9, 0x80, 0x3C, 0x8D], built.AsSpan(cave + 51, 5).ToArray());
+        Assert.Equal([0x6B, 0xD1, 0x58, 0x8B, 0x82], built.AsSpan(cave + 63, 5).ToArray());
+        Assert.Equal(0x3A5C390, BitConverter.ToInt32(built, cave + 68));
+
         // the set-up cave asks kload.dll for HookFunction and KDrawText, and holds both messages
         var text = System.Text.Encoding.ASCII.GetString(built, image.Offset(setUp), 400);
         Assert.Contains("kload.dll\0KDrawText\0HookFunction\0", text);

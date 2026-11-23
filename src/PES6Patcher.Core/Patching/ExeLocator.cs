@@ -40,6 +40,9 @@ internal sealed record DribbleSites(int Relay, int[] RunTouches, int[] SprintTou
 	/// in game on 2026-11-15, after kanzi123 noticed close dribbling followed the technique).
 	/// </summary>
 	public int DribbleAccuracy { get; init; }
+
+	/// <summary>The pads' raw structures (0x58 bytes a pad; the button word at +0, 0 = pressed): the d-pad is not in the stick table, so close dribbling reads it there (0 = not found).</summary>
+	public int PadBase { get; init; }
 }
 
 /// <summary>
@@ -1033,6 +1036,7 @@ internal sealed class ExeLocator
 				TickCountImport = tickCount,
 				SwitchState = state,
 				StickTable = StickTableOf(),
+				PadBase = PadBaseOf(),
 				DribbleAccuracy = accuracy,
 			}
 			: null;
@@ -1045,6 +1049,9 @@ internal sealed class ExeLocator
 
 	/// <summary>The left stick table, from the stick tables' writer (see <see cref="BallPushLeftStick"/>): 0 when it is not found exactly once.</summary>
 	private int StickTableOf() => Hits(BallPushLeftStick) is [var at] ? _image.ReadInt32(at + 8) - 2 : 0;
+
+	/// <summary>The pad structures' base, from the pad reader (see <see cref="BallPushPadReader"/>): 0 when it is not found exactly once.</summary>
+	private int PadBaseOf() => Hits(BallPushPadReader) is [var at] && _image.ReadInt32(at + 18) == _image.ReadInt32(at + 12) + 0x14 ? _image.ReadInt32(at + 12) - 0x1C : 0;
 
 	private int Unique(string pattern, string whatKey)
 	{
