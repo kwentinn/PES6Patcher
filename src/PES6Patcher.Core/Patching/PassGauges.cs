@@ -93,8 +93,13 @@ internal static class PassGauges
 		code.Bytes(0x81, 0xE1, 0x00, 0x50, 0x00, 0x00); // and ecx, x_button | triangle_button
 		code.Bytes(0x85, 0xCF); // test edi, ecx
 		code.Jump(0x74, "dispatch.release"); // jz .release
+		// The short pass (X) is left to the game, which counts the press itself (a longer press picks a farther team-mate and
+		// kicks harder, for about the first 0.25 s): its gauge is only drawn, the press is not hidden.
+		code.Bytes(0xF7, 0x43, 0x04, 0x00, 0x10, 0x00, 0x00); // test dword [ebx+4], triangle_button
+		code.Jump(0x74, "dispatch.draw_only"); // jz .draw_only
 		code.Bytes(0x81, 0xA6, 0xB0, 0x00, 0x00, 0x00, 0xFF, 0xAF, 0x5A, 0xF3); // and dword [esi+held], ~pass_bits
 		code.Bytes(0x81, 0xA6, 0xB4, 0x00, 0x00, 0x00, 0xFF, 0xAF, 0x5A, 0xF3); // and dword [esi+pressed], ~pass_bits
+		code.Mark("dispatch.draw_only");
 		code.Bytes(0x81, 0x7B, 0x08, 0x80, 0x00, 0x00, 0x00); // cmp dword [ebx+8], 128
 		code.JumpNear(0x83, "dispatch.done"); // jae .done
 		code.Bytes(0xFF, 0x43, 0x10); // inc dword [ebx+16]
@@ -113,6 +118,11 @@ internal static class PassGauges
 		code.Bytes(0x89, 0x43, 0x08); // mov [ebx+8], eax
 		code.JumpTo("dispatch.done"); // jmp .done
 		code.Mark("dispatch.release");
+		code.Bytes(0xF7, 0x43, 0x04, 0x00, 0x10, 0x00, 0x00); // test dword [ebx+4], triangle_button
+		code.Jump(0x75, "dispatch.send_gauge"); // jnz .send_gauge
+		code.Bytes(0xC6, 0x43, 0x14, 0x00); // mov byte [ebx+20], 0 ; X: nothing to send, the game did it
+		code.JumpTo("dispatch.done");
+		code.Mark("dispatch.send_gauge");
 		// Keep a visible minimum for taps, with stock kick speed at this charge.
 		code.Bytes(0x83, 0x7B, 0x08, 0x08); // cmp dword [ebx+8], 8
 		code.Jump(0x73, "dispatch.send_release"); // jae .send_release
@@ -226,6 +236,11 @@ internal static class PassGauges
 		code.AddressOf([0x05], "slots"); // add eax, slots
 		code.Bytes(0x39, 0x30); // cmp [eax], esi
 		code.Jump(0x75, "kick.done"); // jne .done
+		code.Bytes(0x80, 0x78, 0x14, 0x01); // cmp byte [eax+20], 1
+		code.Jump(0x75, "kick.committed"); // jne .committed
+		code.Bytes(0xC6, 0x40, 0x14, 0x00); // mov byte [eax+20], 0 ; a gauge that is only drawn ends at the kick
+		code.Jump(0xEB, "kick.done"); // jmp .done
+		code.Mark("kick.committed");
 		code.Bytes(0x80, 0x78, 0x14, 0x03); // cmp byte [eax+20], 3
 		code.Jump(0x75, "kick.done"); // jne .done
 		code.Bytes(0x8B, 0x48, 0x08); // mov ecx, [eax+8]
