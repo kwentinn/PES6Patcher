@@ -63,7 +63,7 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	/// <summary>
 	/// Carrier turn rate, in degrees per frame (the game's: 1.4): default (22, about 16 times the game's: tested in game) and limits.
 	/// </summary>
-	public const int DefaultCarrierTurn = 22, MinCarrierTurn = 3, MaxCarrierTurn = 45;
+	public const int DefaultCarrierTurn = 22, MinCarrierTurn = 3, MaxCarrierTurn = 50;
 
 	/// <summary>
 	/// Analog stick dead zone of each axis, in % of the axis (the game's: 29 %, 37 of 127): default (tested in game) and limits.

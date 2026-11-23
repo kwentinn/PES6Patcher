@@ -695,7 +695,7 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.All(sites, va => Assert.Equal(0xFA5, image.ReadInt32(va)));
         var changed = Enumerable.Range(0, with.Length).Where(i => with[i] != without[i]).ToList();
         Assert.All(changed, i => Assert.True(sites.Any(va => i - image.Offset(va) is >= 0 and < 4)));
-        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { CarrierTurn = 46 }));
+        Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, options with { CarrierTurn = 51 }));
     }
 
     [Fact]
