@@ -1,0 +1,32 @@
+name: Improvement
+description: Ask for a change in how the game behaves, or for a new option
+labels: [enhancement]
+body:
+  - type: textarea
+    id: request
+    attributes:
+      label: What is asked
+      description: The change wanted, in a few sentences. One request per issue.
+    validations:
+      required: true
+  - type: textarea
+    id: original
+    attributes:
+      label: Original behaviour (game without the patch)
+      description: What the unpatched game does today in that situation - which buttons, where on the pitch, what happens.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behaviour (game with the patch)
+      description: What the game should do instead, case by case (for example - button held, stick at rest, CPU players). Say what must stay as it is.
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or video
+      description: If possible, a screenshot or a short video of the original behaviour, or of the behaviour wanted (another game, a real match). Drag the files here.
+    validations:
+      required: false

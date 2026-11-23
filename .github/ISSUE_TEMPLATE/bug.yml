@@ -1,0 +1,45 @@
+name: Bug
+description: Something the patch breaks or does wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What goes wrong
+      description: The problem, in a few sentences. One problem per issue.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      description: The steps - game mode, where on the pitch, which buttons, in which order. Say whether it happens every time.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Behaviour seen (game with the patch)
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Behaviour expected
+      description: What should happen. If you know it, what the game without the patch does in the same situation.
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Version and options
+      description: PES6Patcher version, the options ticked (or the PES6.exe.patcher.ini file next to the exe), and the game or community patch the exe comes from.
+    validations:
+      required: true
+  - type: textarea
+    id: media
+    attributes:
+      label: Screenshots or video
+      description: If possible, a screenshot or a short video showing the problem. Drag the files here.
+    validations:
+      required: false
