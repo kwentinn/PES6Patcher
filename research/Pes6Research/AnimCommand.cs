@@ -47,38 +47,45 @@ static class AnimCommand
         if (table == 0) throw new ToolException("no animation table: start a match first");
         var pointers = m.Read(table + Descriptors, TableSize * 4);
         var frames = m.Read(table + FrameCounts, TableSize * 4);
-        var index = new StringBuilder("id,descriptor,frames,keys,type,flags,loop,bvh,heights\n");
+        var index = new StringBuilder("id,descriptor,frames,keys,duration,key_spacing,anim_offset,flags,loop,bvh,heights\n");
         int written = 0, bvhs = 0;
         for (var id = first; id <= last; id++)
         {
             var at = BitConverter.ToUInt32(pointers, id * 4);
             if (at == 0) continue;
-            var head = m.ReadOrZero(at, AnimFormat.HeaderSize);
-            var size = BitConverter.ToInt32(head, 0x2C);
-            if (size <= 0 || size > 1 << 20) { log.WriteLine($"id {id}: size {size} at 0x{at:X}, skipped"); continue; }
-            var bytes = m.ReadOrZero(at, AnimFormat.HeaderSize + size);
+            var length = AnimFormat.Length(m, at);
+            if (length <= 0) { log.WriteLine($"id {id}: no animation block at 0x{at:X}, skipped"); continue; }
+            var bytes = m.ReadOrZero(at, length);
             var name = Path.Combine(outDir, $"anim_{id:D4}");
             File.WriteAllBytes(name + ".bin", bytes);
             written++;
             var clip = AnimFormat.Decode(bytes, out var why);
             if (clip != null) { File.WriteAllText(name + ".bvh", AnimFormat.ToBvh(clip)); bvhs++; }
-            var flags = BitConverter.ToUInt32(bytes, 0x20);
+            var animAt = BitConverter.ToInt32(bytes, AnimFormat.AnimOffset);
             index.Append(CultureInfo.InvariantCulture,
-                $"{id},0x{at:X8},{BitConverter.ToInt32(frames, id * 4)},{clip?.Keys.ToString() ?? ""},{flags >> 28},0x{flags:X8},{bytes[0] & 1},{(clip != null ? "yes" : why)},{(clip != null ? AnimFormat.Heights(clip) : "")}\n");
+                $"{id},0x{at:X8},{BitConverter.ToInt32(frames, id * 4)},{clip?.Keys.ToString() ?? ""},{clip?.Duration.ToString("F4", CultureInfo.InvariantCulture) ?? ""},{(clip != null ? AnimFormat.Spacing(clip) : "")}," +
+                $"0x{animAt:X},0x{BitConverter.ToUInt32(bytes, animAt + 4):X8},{bytes[0] & 1},{(clip != null ? "yes" : why)},{(clip != null ? AnimFormat.Heights(clip) : "")}\n");
         }
         File.WriteAllText(Path.Combine(outDir, "index.csv"), index.ToString());
         return (written, bvhs);
     }
 }
 
-/// <summary>A decoded animation: per key, the root position and one rotation per bone (x, y, z, w).</summary>
-sealed record AnimClip(int Keys, Vector3[] Root, Quaternion[][] Rotations);
+/// <summary>A decoded animation: per key, its time (seconds, from 0), the root position and one rotation per bone (x, y, z, w).</summary>
+sealed record AnimClip(int Keys, float[] Times, Vector3[] Root, Quaternion[][] Rotations)
+{
+    public float Duration => Times[^1];
+}
 
-/// <summary>The descriptor format, the 19-bone skeleton and the BVH writer.</summary>
+/// <summary>
+/// The descriptor format, the 19-bone skeleton and the BVH writer. A descriptor starts with 0x1C bytes whose word at 0x18 is the offset
+/// of the animation block (0x1C, or more when an event section sits in between); the block: +4 flags, +8 duration (seconds),
+/// +0x10 offset of the key table, the keys from +0x1C; the key table: count, then (time, offset) per key, where entry j holds the time
+/// of key j + 1 (key 0 is at 0, the last entry goes back to 0). The spacing may change inside one animation (2 frames, then 4).
+/// </summary>
 static class AnimFormat
 {
-    public const int HeaderSize = 0x38, KeySize = 164, Bones = 19;
-    const int Anim = 0x1C; // the block the game works on: anim+4 flags, +8 duration, +0x10 offset of the key table
+    public const int AnimOffset = 0x18, FirstKey = 0x1C, KeySize = 164, Bones = 19, Fps = 30;
 
     // Parent and rest offset of each bone, in key order (read in a match on 2026-11-24; one player, heights may vary).
     public static readonly int[] Parent = [-1, 0, 1, 1, 2, 3, 0, 6, 6, 7, 8, 6, 4, 5, 9, 10, 11, 14, 15];
@@ -97,28 +104,69 @@ static class AnimFormat
         "neck", "ankle_r", "ankle_l", "elbow_r", "elbow_l", "head", "wrist_r", "wrist_l",
     ];
 
+    /// <summary>The whole descriptor's length (up to the end of its key table), read from the game; 0 when it does not look like one.</summary>
+    public static int Length(IGameMemory m, uint at)
+    {
+        var anim = BitConverter.ToInt32(m.ReadOrZero(at + AnimOffset, 4));
+        if (anim < FirstKey || anim > 1 << 16) return 0;
+        var size = BitConverter.ToInt32(m.ReadOrZero(at + (uint)anim + 0x10, 4));
+        if (size < FirstKey || size > 1 << 20) return 0;
+        var keys = BitConverter.ToInt32(m.ReadOrZero(at + (uint)(anim + size), 4));
+        return keys is < 1 or > 1 << 12 ? 0 : anim + size + 4 + 8 * keys;
+    }
+
     /// <summary>The keys of a type-2 descriptor, or null with the reason when the format is another one.</summary>
     public static AnimClip? Decode(byte[] d, out string why)
     {
         why = "";
-        if (d.Length < HeaderSize + 4) { why = "too short"; return null; }
-        var flags = BitConverter.ToUInt32(d, Anim + 4);
-        var table = Anim + BitConverter.ToInt32(d, Anim + 0x10);
+        if (d.Length < FirstKey + 4) { why = "too short"; return null; }
+        var anim = BitConverter.ToInt32(d, AnimOffset);
+        if (anim < FirstKey || anim + 0x14 > d.Length) { why = $"animation block at 0x{anim:X}"; return null; }
+        var flags = BitConverter.ToUInt32(d, anim + 4);
+        var table = anim + BitConverter.ToInt32(d, anim + 0x10);
         if (flags >> 28 != 2 || (flags & 2) == 0 || (flags & 8) != 0) { why = $"type {flags >> 28} flags 0x{flags:X}"; return null; }
-        if (table < HeaderSize || table + 4 > d.Length) { why = "key table outside"; return null; }
+        if (table < anim + FirstKey || table + 4 > d.Length) { why = "key table outside"; return null; }
         var keys = BitConverter.ToInt32(d, table);
-        if (keys < 1 || HeaderSize + keys * KeySize != table) { why = $"{keys} keys do not fill {table - HeaderSize} bytes"; return null; }
+        if (keys < 1 || anim + FirstKey + keys * KeySize != table) { why = $"{keys} keys do not fill {table - anim - FirstKey} bytes"; return null; }
+        var times = new float[keys];
+        for (var k = 1; k < keys; k++)
+        {
+            times[k] = BitConverter.ToSingle(d, table + 4 + 8 * (k - 1));
+            if (!(times[k] > times[k - 1])) { why = $"key {k} at {times[k]} s is not after key {k - 1}"; return null; }
+        }
 
         var root = new Vector3[keys]; var rot = new Quaternion[keys][];
         for (var k = 0; k < keys; k++)
         {
-            var at = HeaderSize + k * KeySize;
+            var at = anim + FirstKey + k * KeySize;
             rot[k] = new Quaternion[Bones];
             rot[k][0] = Quat(d, at);
             root[k] = new(BitConverter.ToSingle(d, at + 8), BitConverter.ToSingle(d, at + 12), BitConverter.ToSingle(d, at + 16));
             for (var b = 1; b < Bones; b++) rot[k][b] = Quat(d, at + 20 + (b - 1) * 8);
         }
-        return new AnimClip(keys, root, rot);
+        return new AnimClip(keys, times, root, rot);
+    }
+
+    /// <summary>The key spacing in frames at 60 per second: "2" when even, "2-4" when it changes.</summary>
+    public static string Spacing(AnimClip c)
+    {
+        if (c.Keys < 2) return "";
+        var gaps = Enumerable.Range(1, c.Keys - 1).Select(k => (int)MathF.Round((c.Times[k] - c.Times[k - 1]) * 60)).ToList();
+        return gaps.Min() == gaps.Max() ? $"{gaps.Min()}" : $"{gaps.Min()}-{gaps.Max()}";
+    }
+
+    /// <summary>The root and the rotations at time t: linear between the two keys around it, spherical for the rotations.</summary>
+    public static (Vector3 Root, Quaternion[] Rotations) Sample(AnimClip c, float t)
+    {
+        var k = 0;
+        while (k + 2 < c.Keys && c.Times[k + 1] < t) k++;
+        if (c.Keys == 1 || t <= c.Times[0]) return (c.Root[0], c.Rotations[0]);
+        if (t >= c.Times[^1]) return (c.Root[^1], c.Rotations[^1]);
+        var f = (t - c.Times[k]) / (c.Times[k + 1] - c.Times[k]);
+        var rot = new Quaternion[Bones];
+        for (var b = 0; b < Bones; b++)
+            rot[b] = Quaternion.Slerp(Quaternion.Normalize(c.Rotations[k][b]), Quaternion.Normalize(c.Rotations[k + 1][b]), f);
+        return (Vector3.Lerp(c.Root[k], c.Root[k + 1], f), rot);
     }
 
     static Quaternion Quat(byte[] d, int at)
@@ -156,7 +204,7 @@ static class AnimFormat
     }
 
     /// <summary>
-    /// BVH at 30 keys per second, right-handed with Y up: the game's world is left-handed with y down, so it is mirrored in y
+    /// BVH at 30 frames per second (the keys resampled: their spacing varies), right-handed with Y up: the game's world is left-handed with y down, so it is mirrored in y
     /// (positions and offsets (x, −y, z), rotations (−x, y, −z, w)); the player looks as on screen, his right leg on his right.
     /// </summary>
     public static string ToBvh(AnimClip c)
@@ -177,14 +225,16 @@ static class AnimFormat
         }
         Joint(0, 0);
 
-        s.Append(CultureInfo.InvariantCulture, $"MOTION\nFrames: {c.Keys}\nFrame Time: {1 / 30.0:F6}\n");
-        for (var k = 0; k < c.Keys; k++)
+        var count = (int)MathF.Round(c.Duration * Fps) + 1;
+        s.Append(CultureInfo.InvariantCulture, $"MOTION\nFrames: {count}\nFrame Time: {1.0 / Fps:F6}\n");
+        for (var i = 0; i < count; i++)
         {
+            var (root, rotations) = Sample(c, i / (float)Fps);
             var line = new List<string>();
             foreach (var b in order)
             {
-                var q = Mirror(Quaternion.Normalize(c.Rotations[k][b]));
-                if (b == 0) line.Add(V(Mirror(c.Root[k])));
+                var q = Mirror(Quaternion.Normalize(rotations[b]));
+                if (b == 0) line.Add(V(Mirror(root)));
                 var (z, x, y) = EulerZxy(q);
                 line.Add(F(z) + " " + F(x) + " " + F(y));
             }

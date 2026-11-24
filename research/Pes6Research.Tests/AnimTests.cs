@@ -5,17 +5,28 @@ namespace Pes6Research.Tests;
 
 public class AnimTests
 {
-    // A type-2 descriptor as the game keeps it: 56-byte header, keys of 164 bytes, then the key table (count first).
-    static byte[] Descriptor(int keys, uint flags = 0x20000002)
+    // A type-2 descriptor as the game keeps it: 0x1C bytes (word 0x18 = offset of the animation block), maybe an event section,
+    // the block (flags, duration, offset of the key table), keys of 164 bytes, then the key table: count, then per key (time, offset)
+    // where entry j holds the time of key j + 1 and the last one 0. Keys 1/30 s apart unless times are given (key 0 at 0 first).
+    static byte[] Descriptor(int keys, uint flags = 0x20000002, int anim = 0x1C, float[]? times = null)
     {
-        var size = keys * AnimFormat.KeySize + 28; // from anim (descriptor + 0x1C) to the table, plus the table
-        var d = new byte[AnimFormat.HeaderSize + size];
-        BitConverter.GetBytes(flags).CopyTo(d, 0x20);
-        BitConverter.GetBytes(AnimFormat.KeySize * keys + 0x1C).CopyTo(d, 0x2C);
-        BitConverter.GetBytes(keys).CopyTo(d, AnimFormat.HeaderSize + keys * AnimFormat.KeySize);
+        times ??= Enumerable.Range(0, keys).Select(k => k / 30f).ToArray();
+        var table = AnimFormat.FirstKey + keys * AnimFormat.KeySize; // from the block
+        var d = new byte[anim + table + 4 + 8 * keys];
+        BitConverter.GetBytes(anim).CopyTo(d, AnimFormat.AnimOffset);
+        BitConverter.GetBytes(0x20011119).CopyTo(d, anim);
+        BitConverter.GetBytes(flags).CopyTo(d, anim + 4);
+        BitConverter.GetBytes(times[^1]).CopyTo(d, anim + 8);
+        BitConverter.GetBytes(table).CopyTo(d, anim + 0x10);
+        BitConverter.GetBytes(keys).CopyTo(d, anim + table);
+        for (var j = 0; j < keys; j++)
+        {
+            BitConverter.GetBytes(j + 1 < keys ? times[j + 1] : 0f).CopyTo(d, anim + table + 4 + 8 * j);
+            BitConverter.GetBytes(AnimFormat.FirstKey + ((j + 1) % keys) * AnimFormat.KeySize).CopyTo(d, anim + table + 8 + 8 * j);
+        }
         for (var k = 0; k < keys; k++)
         {
-            var at = AnimFormat.HeaderSize + k * AnimFormat.KeySize;
+            var at = anim + AnimFormat.FirstKey + k * AnimFormat.KeySize;
             BitConverter.GetBytes((short)32767).CopyTo(d, at + 6); // root rotation w = 1
             BitConverter.GetBytes(10f * k).CopyTo(d, at + 8);
             BitConverter.GetBytes(-450f).CopyTo(d, at + 12);
@@ -28,7 +39,7 @@ public class AnimTests
     public void Decodes_the_keys_of_a_type_2_descriptor()
     {
         var d = Descriptor(3);
-        BitConverter.GetBytes((short)-16384).CopyTo(d, AnimFormat.HeaderSize + AnimFormat.KeySize + 20 + 4 * 8 + 2); // key 1, bone 5, y
+        BitConverter.GetBytes((short)-16384).CopyTo(d, 0x1C + AnimFormat.FirstKey + AnimFormat.KeySize + 20 + 4 * 8 + 2); // key 1, bone 5, y
 
         var clip = AnimFormat.Decode(d, out _)!;
 
@@ -36,6 +47,32 @@ public class AnimTests
         Assert.Equal(new Vector3(20, -450, 0), clip.Root[2]);
         Assert.Equal(1f, clip.Rotations[0][0].W);
         Assert.Equal(-16384 / 32767f, clip.Rotations[1][5].Y);
+    }
+
+    [Fact]
+    public void Finds_the_block_after_an_event_section_and_the_key_times()
+    {
+        var times = Enumerable.Range(0, 18).Select(k => k / 15f).ToArray(); // as animation 1117: 18 keys at 15 Hz, 68 frames
+        var clip = AnimFormat.Decode(Descriptor(18, anim: 0xD4, times: times), out var why);
+
+        Assert.True(clip != null, why);
+        Assert.Equal(18, clip.Keys);
+        Assert.Equal(68 / 60f, clip.Duration, 5);
+        Assert.Equal(new Vector3(170, -450, 0), clip.Root[17]);
+        Assert.Equal("4", AnimFormat.Spacing(clip));
+    }
+
+    [Fact]
+    public void The_bvh_is_resampled_at_30_frames_per_second_when_the_spacing_changes()
+    {
+        var clip = AnimFormat.Decode(Descriptor(3, times: [0, 2 / 30f, 3 / 30f]), out _)!; // as animation 48: 4 frames, then 2
+
+        var lines = AnimFormat.ToBvh(clip).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+        Assert.Equal("2-4", AnimFormat.Spacing(clip));
+        Assert.Contains("Frames: 4", lines);
+        Assert.Contains("Frame Time: 0.033333", lines);
+        Assert.Equal(["0.0000", "5.0000", "10.0000", "20.0000"], lines[^4..].Select(l => l.Split(' ')[0])); // root x, keys at 0, 10, 20
     }
 
     [Theory]
