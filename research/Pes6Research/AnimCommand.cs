@@ -10,8 +10,8 @@ namespace Pes6Research;
 /// </summary>
 static class AnimCommand
 {
-    public const string Usage = "anims -Out dir [-First 0] [-Last 1554]          every animation of the running game: .bin, .bvh, index.csv\n" +
-                                "anims -File anim_0003.bin [-Out dir]             a saved .bin to .bvh (the game need not run)";
+    public const string Usage = "anims -Out dir [-First 0] [-Last 1554]          every animation of the running game: .bin, .bvh, .events.csv, index.csv\n" +
+                                "anims -File anim_0003.bin [-Out dir]             a saved .bin to .bvh (+ .events.csv) without the game";
 
     const uint TablePointer = 0xBD7A50, Descriptors = 0x178C, FrameCounts = 0x2FD8;
     const int TableSize = (int)((FrameCounts - Descriptors) / 4); // 1555 ids
@@ -30,6 +30,8 @@ static class AnimCommand
             if (clip == null) throw new ToolException($"{file}: {why}");
             var bvh = Path.Combine(outDir, Path.GetFileNameWithoutExtension(file) + ".bvh");
             File.WriteAllText(bvh, AnimFormat.ToBvh(clip));
+            var events = AnimFormat.Events(File.ReadAllBytes(file));
+            if (events.Count > 0) File.WriteAllText(Path.ChangeExtension(bvh, ".events.csv"), AnimFormat.EventsCsv(events, clip.Duration));
             Console.WriteLine($"{clip.Keys} keys, {AnimFormat.Heights(clip)} -> {bvh}");
             return 0;
         }
@@ -47,7 +49,7 @@ static class AnimCommand
         if (table == 0) throw new ToolException("no animation table: start a match first");
         var pointers = m.Read(table + Descriptors, TableSize * 4);
         var frames = m.Read(table + FrameCounts, TableSize * 4);
-        var index = new StringBuilder("id,descriptor,frames,keys,duration,key_spacing,anim_offset,flags,loop,bvh,heights\n");
+        var index = new StringBuilder("id,descriptor,frames,keys,duration,key_spacing,anim_offset,event_tracks,flags,loop,bvh,heights\n");
         int written = 0, bvhs = 0;
         for (var id = first; id <= last; id++)
         {
@@ -61,10 +63,12 @@ static class AnimCommand
             written++;
             var clip = AnimFormat.Decode(bytes, out var why);
             if (clip != null) { File.WriteAllText(name + ".bvh", AnimFormat.ToBvh(clip)); bvhs++; }
+            var events = AnimFormat.Events(bytes);
+            if (clip != null && events.Count > 0) File.WriteAllText(name + ".events.csv", AnimFormat.EventsCsv(events, clip.Duration));
             var animAt = BitConverter.ToInt32(bytes, AnimFormat.AnimOffset);
             index.Append(CultureInfo.InvariantCulture,
                 $"{id},0x{at:X8},{BitConverter.ToInt32(frames, id * 4)},{clip?.Keys.ToString() ?? ""},{clip?.Duration.ToString("F4", CultureInfo.InvariantCulture) ?? ""},{(clip != null ? AnimFormat.Spacing(clip) : "")}," +
-                $"0x{animAt:X},0x{BitConverter.ToUInt32(bytes, animAt + 4):X8},{bytes[0] & 1},{(clip != null ? "yes" : why)},{(clip != null ? AnimFormat.Heights(clip) : "")}\n");
+                $"0x{animAt:X},{events.Count},0x{BitConverter.ToUInt32(bytes, animAt + 4):X8},{bytes[0] & 1},{(clip != null ? "yes" : why)},{(clip != null ? AnimFormat.Heights(clip) : "")}\n");
         }
         File.WriteAllText(Path.Combine(outDir, "index.csv"), index.ToString());
         return (written, bvhs);
@@ -145,6 +149,71 @@ static class AnimFormat
             for (var b = 1; b < Bones; b++) rot[k][b] = Quat(d, at + 20 + (b - 1) * 8);
         }
         return new AnimClip(keys, times, root, rot);
+    }
+
+    // The event tracks (2026-11-24): the u16 at 0x16 is the offset of the section (0 when none): track count, 8, then the offset of each
+    // track from the section. A track: 0x29843918, kind 4 (curves, table 0xD3CF44), channel count, length in frames, then per channel the
+    // offset of its curve from the track. A curve: point count, then u16 points: frame (bits 0-10, 60 per second), value (bits 11-15).
+    // The game (0x8B5740) plays tracks 0, 1, 2 into the morph weights (value / 32) of model parts 0x10, 0x11, 0x12: face (15 channels;
+    // channel 8 blinks), right hand, left hand (9 channels each; channel 4 opens the hand of a raised arm). Tracks 3 and 4 are not played.
+    public static readonly string[] TrackNames = ["face", "hand_r", "hand_l", "track3", "track4"];
+
+    /// <summary>The curves of the event section, per track then per channel: (frame, value 0..31) points; empty when there is none.</summary>
+    public static List<(int Frame, int Value)[][]> Events(byte[] d)
+    {
+        var tracks = new List<(int Frame, int Value)[][]>();
+        int at = d.Length > 0x18 ? BitConverter.ToUInt16(d, 0x16) : 0;
+        if (at == 0 || at + 8 > d.Length) return tracks;
+        var count = BitConverter.ToInt32(d, at);
+        for (var t = 0; t < count && t < TrackNames.Length; t++)
+        {
+            var ts = at + BitConverter.ToInt32(d, at + 8 + 4 * t);
+            if (d[ts + 4] != 4) break; // the only curve kind the game knows
+            var channels = new (int, int)[d[ts + 5]][];
+            for (var c = 0; c < channels.Length; c++)
+            {
+                var curve = ts + BitConverter.ToUInt16(d, ts + 8 + 2 * c);
+                channels[c] = Enumerable.Range(0, BitConverter.ToUInt16(d, curve))
+                    .Select(i => BitConverter.ToUInt16(d, curve + 2 + 2 * i)).Select(w => (w & 0x7FF, w >> 11)).ToArray();
+            }
+            tracks.Add(channels);
+        }
+        return tracks;
+    }
+
+    /// <summary>
+    /// The weights frame by frame as the game computes them (0x8D1CD0, one step per frame at 60 per second, from 0): toward the first point,
+    /// linear between points, then the last value. CSV at 30 frames per second, like the BVH: frame, then one column per channel.
+    /// </summary>
+    public static string EventsCsv(List<(int Frame, int Value)[][]> tracks, float duration)
+    {
+        var s = new StringBuilder("frame");
+        for (var t = 0; t < tracks.Count; t++) for (var c = 0; c < tracks[t].Length; c++) s.Append(CultureInfo.InvariantCulture, $",{TrackNames[t]}_{c}");
+        s.Append('\n');
+        var weights = tracks.Select(tr => new float[tr.Length]).ToArray();
+        var last = (int)MathF.Round(duration * 60);
+        for (var f = 0; f <= last; f++)
+        {
+            for (var t = 0; t < tracks.Count; t++)
+                for (var c = 0; c < tracks[t].Length; c++) weights[t][c] = CurveAt(tracks[t][c], f, weights[t][c]);
+            if (f % 2 != 0) continue;
+            s.Append(f.ToString(CultureInfo.InvariantCulture));
+            foreach (var w in weights.SelectMany(x => x)) s.Append(',').Append(w.ToString("F3", CultureInfo.InvariantCulture));
+            s.Append('\n');
+        }
+        return s.ToString();
+    }
+
+    /// <summary>0x8D1CD0: the weight of a curve at a frame, given the weight of the previous frame.</summary>
+    public static float CurveAt((int Frame, int Value)[] p, int frame, float previous)
+    {
+        if (p.Length == 0) return 0;
+        if (frame < p[0].Frame) return (p[0].Value / 32f - previous) / (p[0].Frame - frame) + previous;
+        if (frame >= p[^1].Frame) return p[^1].Value / 32f;
+        var i = 0;
+        while (p[i + 1].Frame < frame) i++;
+        var f = (frame - p[i].Frame) / (float)(p[i + 1].Frame - p[i].Frame);
+        return (p[i + 1].Value * f + (1 - f) * p[i].Value) / 32f;
     }
 
     /// <summary>The key spacing in frames at 60 per second: "2" when even, "2-4" when it changes.</summary>

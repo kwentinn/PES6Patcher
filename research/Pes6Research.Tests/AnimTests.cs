@@ -75,6 +75,34 @@ public class AnimTests
         Assert.Equal(["0.0000", "5.0000", "10.0000", "20.0000"], lines[^4..].Select(l => l.Split(' ')[0])); // root x, keys at 0, 10, 20
     }
 
+    [Fact]
+    public void Reads_the_event_curves_and_weighs_them_as_the_game()
+    {
+        // Event section at 0x1C: 1 track, offset table at 8, track at +0x0C; the track: id, kind 4, 2 channels, 20 frames, curve offsets.
+        var d = Descriptor(2, anim: 0x60);
+        BitConverter.GetBytes((ushort)0x1C).CopyTo(d, 0x16);
+        BitConverter.GetBytes(1).CopyTo(d, 0x1C); BitConverter.GetBytes(8).CopyTo(d, 0x20); BitConverter.GetBytes(0x0C).CopyTo(d, 0x24);
+        var track = 0x28;
+        BitConverter.GetBytes(0x29843918).CopyTo(d, track); d[track + 4] = 4; d[track + 5] = 2; BitConverter.GetBytes((ushort)20).CopyTo(d, track + 6);
+        BitConverter.GetBytes((ushort)0x0C).CopyTo(d, track + 8); BitConverter.GetBytes((ushort)0x14).CopyTo(d, track + 10);
+        ushort Point(int frame, int value) => (ushort)(frame | value << 11);
+        foreach (var (o, w) in new[] { (0x0C, 3), (0x0E, Point(0, 0)), (0x10, Point(10, 16)), (0x12, Point(20, 0)), (0x14, 1), (0x16, Point(0, 31)) })
+            BitConverter.GetBytes((ushort)w).CopyTo(d, track + o);
+
+        var events = AnimFormat.Events(d);
+
+        Assert.Single(events);
+        Assert.Equal([(0, 0), (10, 16), (20, 0)], events[0][0]);
+        Assert.Equal(0.25f, AnimFormat.CurveAt(events[0][0], 5, 0));
+        Assert.Equal(0.5f, AnimFormat.CurveAt(events[0][0], 10, 0));
+        Assert.Equal(0f, AnimFormat.CurveAt(events[0][0], 25, 0.7f));
+        Assert.Equal(0.25f, AnimFormat.CurveAt([(4, 16)], 2, 0)); // toward the first point (0.5): half of the way when two frames are left
+        var csv = AnimFormat.EventsCsv(events, 20 / 60f).Split('\n', StringSplitOptions.RemoveEmptyEntries);
+        Assert.Equal("frame,face_0,face_1", csv[0]);
+        Assert.Equal("10,0.500,0.969", csv[6]); // frame 10 at 30 per second: the 6th row
+        Assert.Empty(AnimFormat.Events(Descriptor(2)));
+    }
+
     [Theory]
     [InlineData(0x10000002u)] // another type
     [InlineData(0x20000000u)] // float quaternions
