@@ -33,6 +33,7 @@ var commands = new Dictionary<string, (Func<Options, string, int> Run, string[] 
     ["pace"] = (PaceCommand.Run, PaceCommand.Switches, PaceCommand.Usage),
     ["ab"] = (AbCommand.Run, [], AbCommand.Usage),
     ["scoreprobe"] = (ScoreProbeCommand.Run, [], ScoreProbeCommand.Usage),
+    ["anims"] = (AnimCommand.Run, [], AnimCommand.Usage),
     // windows
     ["window"] = (WindowCommands.Window, [], WindowCommands.WindowUsage),
     ["capture"] = (WindowCommands.Capture, [], WindowCommands.CaptureUsage),
