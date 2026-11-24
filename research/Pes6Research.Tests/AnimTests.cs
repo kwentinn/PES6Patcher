@@ -71,6 +71,22 @@ public class AnimTests
     }
 
     [Fact]
+    public void The_mirrored_rotation_moves_the_mirrored_point_to_the_mirrored_place()
+    {
+        var random = new Random(7);
+        for (var i = 0; i < 100; i++)
+        {
+            var q = Quaternion.Normalize(new Quaternion(random.NextSingle() - .5f, random.NextSingle() - .5f, random.NextSingle() - .5f, random.NextSingle() - .5f));
+            var v = new Vector3(random.NextSingle() * 100, random.NextSingle() * 100, random.NextSingle() * 100);
+
+            var expected = AnimFormat.Mirror(Vector3.Transform(v, q));
+            var actual = Vector3.Transform(AnimFormat.Mirror(v), AnimFormat.Mirror(q));
+
+            Assert.True(Vector3.Distance(expected, actual) < 1e-3f, $"{q} {v}: {expected} != {actual}");
+        }
+    }
+
+    [Fact]
     public void The_bvh_has_every_bone_and_one_line_per_key_with_y_up()
     {
         var bvh = AnimFormat.ToBvh(AnimFormat.Decode(Descriptor(2), out _)!);

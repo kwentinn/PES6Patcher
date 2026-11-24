@@ -89,10 +89,12 @@ static class AnimFormat
         new(177.76f, 14.72f, 0), new(177.76f, 14.72f, 0), new(124.96f, 0, 0), new(124.96f, 0, 0), new(29.76f, 0.32f, 0),
         new(91.52f, 0, 0), new(91.52f, 0, 0),
     ];
+    // Right and left measured on 2026-11-24: in the game's world (x to the screen's right, y down, z toward the camera: left-handed),
+    // the knees bend forward, and the bones with the +z hip are on the player's right in 1008 animations out of 1059.
     public static readonly string[] Names =
     [
-        "root", "pelvis", "hip_a", "hip_b", "knee_a", "knee_b", "spine", "clavicle_a", "clavicle_b", "shoulder_a", "shoulder_b",
-        "neck", "ankle_a", "ankle_b", "elbow_a", "elbow_b", "head", "wrist_a", "wrist_b",
+        "root", "pelvis", "hip_r", "hip_l", "knee_r", "knee_l", "spine", "clavicle_r", "clavicle_l", "shoulder_r", "shoulder_l",
+        "neck", "ankle_r", "ankle_l", "elbow_r", "elbow_l", "head", "wrist_r", "wrist_l",
     ];
 
     /// <summary>The keys of a type-2 descriptor, or null with the reason when the format is another one.</summary>
@@ -153,7 +155,10 @@ static class AnimFormat
         return string.Create(CultureInfo.InvariantCulture, $"ankles {lo:F0}..{hi:F0} head {headLo:F0}..{headHi:F0}");
     }
 
-    /// <summary>BVH at 30 keys per second, Y up (the game's y grows downward: the root is turned 180° about X).</summary>
+    /// <summary>
+    /// BVH at 30 keys per second, right-handed with Y up: the game's world is left-handed with y down, so it is mirrored in y
+    /// (positions and offsets (x, −y, z), rotations (−x, y, −z, w)); the player looks as on screen, his right leg on his right.
+    /// </summary>
     public static string ToBvh(AnimClip c)
     {
         var s = new StringBuilder("HIERARCHY\n");
@@ -163,7 +168,7 @@ static class AnimFormat
             var pad = new string('\t', depth);
             order.Add(b);
             s.Append(pad).Append(b == 0 ? "ROOT " : "JOINT ").Append(Names[b]).Append('\n').Append(pad).Append("{\n");
-            s.Append(pad).Append('\t').Append("OFFSET ").Append(V(Offset[b])).Append('\n');
+            s.Append(pad).Append('\t').Append("OFFSET ").Append(V(Mirror(Offset[b]))).Append('\n');
             s.Append(pad).Append('\t').Append(b == 0 ? "CHANNELS 6 Xposition Yposition Zposition Zrotation Xrotation Yrotation\n" : "CHANNELS 3 Zrotation Xrotation Yrotation\n");
             var children = Enumerable.Range(0, Bones).Where(x => Parent[x] == b).ToList();
             foreach (var child in children) Joint(child, depth + 1);
@@ -172,15 +177,14 @@ static class AnimFormat
         }
         Joint(0, 0);
 
-        var flip = Quaternion.CreateFromAxisAngle(Vector3.UnitX, MathF.PI);
         s.Append(CultureInfo.InvariantCulture, $"MOTION\nFrames: {c.Keys}\nFrame Time: {1 / 30.0:F6}\n");
         for (var k = 0; k < c.Keys; k++)
         {
             var line = new List<string>();
             foreach (var b in order)
             {
-                var q = Quaternion.Normalize(c.Rotations[k][b]);
-                if (b == 0) { line.Add(V(Vector3.Transform(c.Root[k], flip))); q = flip * q; }
+                var q = Mirror(Quaternion.Normalize(c.Rotations[k][b]));
+                if (b == 0) line.Add(V(Mirror(c.Root[k])));
                 var (z, x, y) = EulerZxy(q);
                 line.Add(F(z) + " " + F(x) + " " + F(y));
             }
@@ -204,6 +208,8 @@ static class AnimFormat
         return (z * deg, x * deg, y * deg);
     }
 
+    public static Vector3 Mirror(Vector3 v) => new(v.X, -v.Y, v.Z);
+    public static Quaternion Mirror(Quaternion q) => new(-q.X, q.Y, -q.Z, q.W); // the same rotation seen in the y mirror
     static string F(float v) => v.ToString("F4", CultureInfo.InvariantCulture);
     static string V(Vector3 v) => F(v.X) + " " + F(v.Y) + " " + F(v.Z);
 }
