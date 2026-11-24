@@ -1533,6 +1533,12 @@ internal static class CodeCaves
 	/// <summary>The player modes left alone: the full-backs' overlaps (9 and 0x0A) and the run beyond the last line (0x0F).</summary>
 	private const byte PaceRunModeFirst = 9;
 
+	/// <summary>The first forward role (+0x10): the forwards are not capped while their side has the ball deep in the other half.</summary>
+	private const byte PaceFreeRoleFirst = 0x18;
+
+	/// <summary>How far into the half a side attacks the ball must be for its forwards to run freely, in pitch units (the goal line is at about 12000: some 30 m from it).</summary>
+	private const int PaceFreeBallDepth = 0x1400;
+
 	/// <summary>
 	/// Leaves ECX = the cap on the speed of the player at [<paramref name="player"/>] (a ModRM r/m: 6 = esi, 0 = eax), or jumps to
 	/// <paramref name="skip"/> when the game is not in open play (restart state not 0), he is not placing himself (state 7) or is on one of the runs: ECX = 0x600 + (|dx| + |dz|) x
@@ -1540,6 +1546,22 @@ internal static class CodeCaves
 	/// stack and 4 bytes below ESP.
 	/// </summary>
 	private static CodeBuilder OffBallPaceCap(CodeBuilder code, OffBallPaceSites sites, byte player, int percent, string skip) => code
+		// a forward whose side has the ball deep in the half he attacks is left alone: capped, he jogged behind his place, which
+		// moves away with the retreating last line, and nobody was in the box for a cross from a wing (issue #64)
+		.Bytes(0x80, (byte)(0x78 | player), 0x10, PaceFreeRoleFirst)       // cmp byte [player+0x10],0x18 ; the role
+		.Jump(0x72, "capped")                                               // jb capped
+		.Bytes(0x0F, 0xB6, (byte)(0x48 | player), 0x12)                    // movzx ecx,byte [player+0x12] ; the team
+		.Bytes([0x80, 0xB9], sites.OtherSideHasBall).Bytes(0x00)           // cmp byte [ecx+other side has the ball],0
+		.Jump(0x75, "capped")                                               // jne capped
+		.Bytes([0x8B, 0x0D], sites.Ball)                                    // mov ecx,[ball]
+		.Bytes(0x85, 0xC9)                                                  // test ecx,ecx
+		.Jump(0x74, "capped")                                               // jz capped
+		.Bytes(0xD9, 0x41, 0x10)                                            // fld dword [ecx+0x10] ; the ball's x
+		.Bytes(0xDE, (byte)(0x48 | player), 0x14)                           // fimul word [player+0x14] ; x the way he attacks (1 or -1)
+		.Bytes(0x83, 0xEC, 0x04, 0xDB, 0x1C, 0x24, 0x59)                    // sub esp,4 ; fistp dword [esp] ; pop ecx
+		.Bytes([0x81, 0xF9], PaceFreeBallDepth)                             // cmp ecx,0x1400
+		.JumpNear(0x8F, skip)                                               // jg skip
+		.Mark("capped")
 		// open play only: a corner, a free kick, a throw-in, a goal, half-time (restart state not 0) are left to the game (a free
 		// kick taker was reported missing the ball with the cap on all the time)
 		.Bytes([0x80, 0x3D], sites.RestartState).Bytes(0x00)               // cmp byte [restart],0
@@ -1592,9 +1614,9 @@ internal static class CodeCaves
 			.Bytes(0x50, 0x51)                                              // push eax ; push ecx
 			.Bytes(0x8B, 0x44, 0x24, arguments)                             // mov eax,[esp+0xC]    ; the player
 			.Bytes([0x3D], sites.Players)                                   // cmp eax,players
-			.Jump(0x72, "done")                                             // jb done
+			.JumpNear(0x82, "done")                                         // jb done
 			.Bytes([0x3D], sites.Players + 23 * 0x240)                      // cmp eax,players + 23 * 0x240
-			.Jump(0x73, "done");                                            // jae done
+			.JumpNear(0x83, "done");                                        // jae done
 		var bytes = OffBallPaceCap(code, sites, player, percent, "done")
 			.Bytes(0x3B, 0x4C, 0x24, aimed)                                 // cmp ecx,[esp+0x10]   ; the speed aimed at
 			.Jump(0x7D, "done")                                             // jge done

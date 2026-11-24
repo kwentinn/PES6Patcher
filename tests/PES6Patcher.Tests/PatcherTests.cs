@@ -439,13 +439,17 @@ public class PatcherTests(ITestOutputHelper output)
 
         // the two caves, byte for byte (the encodings are those that ran in matches, pace12 in research/patches.json, with the
         // distance scaled by imul ecx,ecx,256 ; shr ecx,8 for 100 %): state 7 only, the runs (modes 9, 0x0A, 0x0F) left alone,
-        // 0x600 + 100 % of the distance; the first replays the 5 bytes, the second the jmp [pointer]
+        // 0x600 + 100 % of the distance; in front, the forwards (role 0x18 and over) whose side has the ball more than 0x1400 into the
+        // half they attack are left alone (issue #64, pace-box-forwards in research/patches.json); the first replays the 5 bytes, the second the jmp [pointer]
         const string animationCode =
+            "80 7E 10 18 72 30 0F B6 4E 12 80 B9 E7 09 BE 03 00 75 23 8B 0D 94 CE BC 00 85 C9 74 19 D9 41 10 DE 4E 14 83 EC 04 DB 1C 24 59 81 F9 00 14 00 00 0F 8F 56 00 00 00 " +
             "80 3D A4 0A BE 03 00 75 4D 80 7E 16 07 75 47 8A 8E DD 01 00 00 80 E9 09 80 F9 01 76 39 80 F9 06 74 34 D9 46 6C D8 A6 E0 00 00 00 D9 E1 " +
             "D9 46 70 D8 A6 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 69 C9 00 01 00 00 C1 E9 08 81 C1 00 06 00 00 " +
             "3B F9 7E 02 8B F9 8B 4E 04 33 D2 E9";
         const string moverCode =
-            "50 51 8B 44 24 0C 3D 80 C9 BD 03 72 61 3D 40 FD BD 03 73 5A 80 3D A4 0A BE 03 00 75 51 80 78 16 07 75 4B 8A 88 DD 01 00 00 80 E9 09 80 F9 01 " +
+            "50 51 8B 44 24 0C 3D 80 C9 BD 03 0F 82 9B 00 00 00 3D 40 FD BD 03 0F 83 90 00 00 00 " +
+            "80 78 10 18 72 30 0F B6 48 12 80 B9 E7 09 BE 03 00 75 23 8B 0D 94 CE BC 00 85 C9 74 19 D9 41 10 DE 48 14 83 EC 04 DB 1C 24 59 81 F9 00 14 00 00 0F 8F 5A 00 00 00 " +
+            "80 3D A4 0A BE 03 00 75 51 80 78 16 07 75 4B 8A 88 DD 01 00 00 80 E9 09 80 F9 01 " +
             "76 3D 80 F9 06 74 38 D9 40 6C D8 A0 E0 00 00 00 D9 E1 D9 40 70 D8 A0 E8 00 00 00 D9 E1 DE C1 83 EC 04 DB 1C 24 59 " +
             "69 C9 00 01 00 00 C1 E9 08 81 C1 00 06 00 00 3B 4C 24 10 7D 04 89 4C 24 10 59 58 FF 25 DC 03 46 04";
         var firstExpected = Convert.FromHexString(animationCode.Replace(" ", ""));
@@ -458,7 +462,7 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(128, CodeCaves.OffBallPaceScale(50));
         Assert.Equal(512, CodeCaves.OffBallPaceScale(200));
         var half = ExePatcher.Build(original, options with { OffBallPace = 50 });
-        Assert.Equal(0x80, half[image.Offset(animationCave) + 58 + 9]);   // imul ecx,ecx,128: the scale's low byte (after the restart state test)
+        Assert.Equal(0x80, half[image.Offset(animationCave) + 54 + 58 + 9]);   // imul ecx,ecx,128: the scale's low byte (after the forwards and restart state tests)
 
         // nothing else changes: the two entries and the two caves
         int firstSize = firstExpected.Length + 4, secondSize = secondExpected.Length;

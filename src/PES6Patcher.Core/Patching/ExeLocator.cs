@@ -216,7 +216,7 @@ internal sealed record DefenceLineSites(int OwnHalf, int OtherHalf);
 /// them); <see cref="Players"/> = the player array (see <see cref="SpreadSites"/>); <see cref="RestartState"/> = the byte of the
 /// restart state (0 in play; a corner, a free kick, a throw-in, a goal, half-time: not 0), read by the positioning dispatcher.
 /// </summary>
-internal sealed record OffBallPaceSites(int Animation, int Mover, int MoverPointer, int Players, int RestartState);
+internal sealed record OffBallPaceSites(int Animation, int Mover, int MoverPointer, int Players, int RestartState, int OtherSideHasBall, int Ball);
 
 /// <summary>Acceleration stat (<see cref="Stat"/>) and the shift count of each "sar edx,2" dividing its part of an acceleration time by 10.</summary>
 internal sealed record AccelerationSites(int Stat, int[] Shifts);
@@ -632,15 +632,24 @@ internal sealed class ExeLocator
 	/// <summary>movzx eax,byte [restart state] ; sub eax,2 ; jz ... ; sub eax,5 ; jz ... (start of the positioning dispatcher's switch on it).</summary>
 	private const string OffBallPaceRestart = "0F B6 05 ?? ?? ?? ?? 83 E8 02 74 ?? 83 E8 05 74 ??";
 
+	/// <summary>movzx eax,byte [esi+0x12] ; cmp byte [eax+other side has the ball],1 ; push edi ; jnz ... ; movzx ecx,byte [esi+0x13] ; mov dl,[esi] (start of the mode 8 routine, 0x619C85).</summary>
+	private const string OffBallPacePossession = "0F B6 46 12 80 B8 ?? ?? ?? ?? 01 57 75 ?? 0F B6 4E 13 8A 16";
+
+	/// <summary>mov eax,[ball] ; fld [direction] ; fmul dword [eax+0x10] ; fld [direction] ; fmul dword [esi+0xE0] ; fcompp ; fnstsw ax ; test ah,0x41 ; jz ... ; mov byte [esi+0x1DE],2 (end of the forward run routine, 0x61A644).</summary>
+	private const string OffBallPaceBall = "A1 ?? ?? ?? ?? D9 05 ?? ?? ?? ?? D8 48 10 D9 05 ?? ?? ?? ?? D8 8E E0 00 00 00 DE D9 DF E0 F6 C4 41 74 ?? C6 86 DE 01 00 00 02";
+
 	public static OffBallPaceSites? LocateOffBallPace(byte[] exe)
 	{
 		var locator = new ExeLocator(new PeImage(exe));
 		var animation = locator.Hits(OffBallPaceAnimation);
 		var mover = locator.Hits(OffBallPaceMover);
 		var restart = locator.Hits(OffBallPaceRestart);
+		var possession = locator.Hits(OffBallPacePossession);
+		var ball = locator.Hits(OffBallPaceBall);
 		var spread = LocateSpread(exe);
-		return animation.Count == 1 && mover.Count == 1 && restart.Count == 1 && spread != null
-			? new OffBallPaceSites(animation[0], mover[0], locator._image.ReadInt32(mover[0] + 2), spread.Players, locator._image.ReadInt32(restart[0] + 3))
+		return animation.Count == 1 && mover.Count == 1 && restart.Count == 1 && possession.Count == 1 && ball.Count == 1 && spread != null
+			? new OffBallPaceSites(animation[0], mover[0], locator._image.ReadInt32(mover[0] + 2), spread.Players, locator._image.ReadInt32(restart[0] + 3),
+				locator._image.ReadInt32(possession[0] + 6), locator._image.ReadInt32(ball[0] + 1))
 			: null;
 	}
 

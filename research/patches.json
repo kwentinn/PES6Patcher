@@ -177,6 +177,22 @@
       { "address": "0x403BD0", "original": "83 F8 40 73 05 E9 C3 A8 21 00 E9 A3 A8 21 00 CC CC CC CC CC CC CC CC CC CC", "patched": "83 F8 16 76 0F 83 F8 40 73 05 E9 BE A8 21 00 E9 9E A8 21 00 E9 C8 A4 21 00" }
     ]
   },
+  "line-or-ball": {
+    "about": "NO CLEAR EFFECT (A/B 2026-11-24 with pace-box-forwards on, 4 x 50 s each: forwards in the box 36 % -> 40 % in the last third, 43 % -> 28 % on the wings, 92 and 98 samples: noise). Issue #64 (2026-11-24), in-memory test: wing attacks, the forwards stop at the edge of the box. base_target_attacking 0x642540 holds every attacking target behind the other side's last line (0x3BE0A10, pushed on by the defenders' predicted places) minus a margin, even when the ball is already beyond that line (carrier near the byline), where the offside line is the ball. Hook at 0x6426CE (after the defenders loop, before the call of 0x48CCB0): the held line [esp+0xC] becomes the ball's x when the ball is further on (dir * ball x > dir * line). Cave in the 0xCC run at 0x5E2920 (55 bytes; the pace, take-ball and push prototypes use it too: do not apply together).",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "A1 94 CE BC 00 D9 40 10 D8 0D C4 DC BC 03 D9 44 24 0C D8 0D C4 DC BC 03 DE D9 DF E0 F6 C4 01 74 0C A1 94 CE BC 00 8B 40 10 89 44 24 0C 33 C0 8A 06 50 E9 7C FD 05 00 CC CC CC CC" },
+      { "address": "0x6426CE", "original": "33 C0 8A 06 50", "patched": "E9 4D 02 FA FF" }
+    ]
+  },
+  "pace-box-forwards": {
+    "about": "WORKS (A/B 2026-11-24, France-England x2, 4 x 50 s each: placing forwards above 5000 of speed 10 % -> 55 %, forwards in the box 11 % -> 21 % in the last third and 8 % -> 28 % on the wings; 213 and 78 samples, no crash). Issue #64 (2026-11-24), in-memory test: on wing attacks the forwards jog 4 to 7 m behind their place (measured: their speed is exactly the off-ball pace cap 0x600 + distance, while the place moves away with the retreating last line). The two installed off-ball pace caves (0x4084D0 animation, 0x408550 mover, exe of 2026-11-24: read the jumps at 0x4D34F5 / 0x48FEF0 again after a rebuild) get a test in front of their restart-state test: a forward (role +0x10 >= 0x18) whose side has the ball (byte 0x3BE09E7 + team +0x12 = 0) while the ball is more than 0x1400 into the half he attacks (direction +0x14 x ball x) is not capped. Caves 0x5E2960 and 0x5E29B0 (70 bytes each). In ab: A = installed cap, B = forwards free in the last third.",
+    "bytes": [
+      { "address": "0x5E2960", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "0F B6 4E 10 83 F9 18 72 31 0F B6 4E 12 80 B9 E7 09 BE 03 00 75 24 8B 0D 94 CE BC 00 85 C9 74 1A D9 41 10 DE 4E 14 83 EC 04 DB 1C 24 59 81 F9 00 14 00 00 7E 05 E9 8C 5B E2 FF 80 3D A4 0A BE 03 00 E9 31 5B E2 FF" },
+      { "address": "0x5E29B0", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "0F B6 48 10 83 F9 18 72 31 0F B6 48 12 80 B9 E7 09 BE 03 00 75 24 8B 0D 94 CE BC 00 85 C9 74 1A D9 41 10 DE 48 14 83 EC 04 DB 1C 24 59 81 F9 00 14 00 00 7E 05 E9 D4 5B E2 FF 80 3D A4 0A BE 03 00 E9 75 5B E2 FF" },
+      { "address": "0x4084D0", "original": "80 3D A4 0A BE 03 00", "patched": "E9 8B A4 1D 00 90 90" },
+      { "address": "0x408564", "original": "80 3D A4 0A BE 03 00", "patched": "E9 47 A4 1D 00 90 90" }
+    ]
+  },
   "cross-probe": {
     "about": "2026-11-22, #56. Read-only probe of the cross (state 9): the hook at 0x587A51 jumps to a cave at 0x5513B00 (.passbar) that logs the output of 0x5854b0 (EAX) at 0x3D59F00 (.data1, writable), [esp+0x50] at 0x3D59F04, [esp+0x54] at 0x3D59F0C and a count at 0x3D59F08. First version stored in .pch (not writable) and crashed the game. Does not change the cross. Undo: restore the original bytes and clear the cave (0x5513B00, 42 bytes).",
     "bytes": [
