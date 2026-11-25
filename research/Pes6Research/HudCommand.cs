@@ -55,8 +55,14 @@ static class HudCommand
         {
             debugger = new Thread(() =>
             {
-                try { HardwareBreakpoints.Run(game, game.Id, [KickFunction], HardwareBreakpoints.ExecuteDr7(1), execute: true, seconds > 0 ? seconds : 1e9,
-                          hit => { if (hit.Eip == KickFunction) tracker.AddCall(game, hit.Esp, clock.ElapsedMilliseconds); }, () => stop.IsCancellationRequested); }
+                // #67: after the ground pass direction draw (0x5A4C44 in 0x5A2A50: EAX = the signed error, [esp] = its range, [esp+0x48] = the clean angle)
+                // and after the lofted pass one (0x56A303 in 0x5697B0). Never put a breakpoint next to the protected code (0x56A272, 0x587A97):
+                // the game froze twice with one there (2026-11-25).
+                try { HardwareBreakpoints.Run(game, game.Id, [KickFunction, 0x5A4C44, 0x56A303], HardwareBreakpoints.ExecuteDr7(3), execute: true, seconds > 0 ? seconds : 1e9,
+                          hit => { if (hit.Eip == KickFunction) tracker.AddCall(game, hit.Esp, clock.ElapsedMilliseconds);
+                                   else if (hit.Eip == 0x5A4C44) tracker.PassDraw = $"tirage=M propre={hit.Stack(0x48) & 0xFFFF} erreur={(int)hit.Eax} marge={hit.Stack(0)}";
+                                   else tracker.PassDraw = $"tirage=H propre={hit.Stack(0x38) & 0xFFFF} erreur={(int)hit.Eax} marge={hit.Stack(0)}"; },
+                          () => stop.IsCancellationRequested); }
                 catch (ToolException e) { Console.Error.WriteLine(e.Message); }
             }) { IsBackground = true };
             debugger.Start();
@@ -237,6 +243,8 @@ sealed class HudTracker
 
     /// <summary>The last calls of the ball kick function 0x478020 (filled by the debugger thread, shown on the Ctrl+K page).</summary>
     public readonly List<string> Calls = [];
+    /// <summary>#67: the last ground pass direction draw seen by the debugger, added to the next pass kick line.</summary>
+    public volatile string? PassDraw;
     public event Action<string>? CallLogged;
 
     /// <summary>A marker line in the call list and log (Ctrl+1 to Ctrl+4), to tell which gesture the next calls belong to.</summary>
@@ -260,8 +268,82 @@ sealed class HudTracker
         var pad = game.ReadOrZero(PadMemory, 16);   // pad 1: pressed at +0, held at +8
         var line = $"{TimeSpan.FromMilliseconds(ms):mm\\:ss\\.f} P{((long)p - 0x3BDC980) / PlayerSize} etat={pl[State]} ret={ret:X} par={string.Join(",", callers)} " +
                    $"dir={Arg(0)} vit={Arg(1)} haut={Arg(2)} drap={Arg(3)} boutons={buttons:X8} manette={BitConverter.ToUInt32(pad, 8):X8}/{BitConverter.ToUInt32(pad, 0):X8}";
+        if (ret != 0x478230 && ret != 0x5BBC9F) { line += " " + PassAim(game, p) + (PassDraw is { } d ? " " + d : ""); PassDraw = null; }   // #67: a pass, keep what it aimed at and who kicked it
+        var passKind = game.ReadOrZero(p + 0x4C, 1)[0];
+        var loftedThrough = (ret & 0xFFFF) == 0x2D7E && passKind is 3 or 7;   // L1 + triangle: the ground pass code 0x5A2A50 (via the physics mod's call), kind 3 or 7
+        if (ret is 0x56A585 or 0x587C90 || loftedThrough)   // #67: a lofted pass, a lofted through ball or a cross (or a set piece): follow the ball to where it comes down
+        {
+            int ix = BitConverter.ToInt32(game.ReadOrZero(p + 0x9C, 4)), iz = BitConverter.ToInt32(game.ReadOrZero(p + 0xA0, 4));
+            var who = game.ReadOrZero(p + 0x11, 2);
+            var stats = game.ReadOrZero(0x3BCF5A8 + (uint)((who[1] * 32 + who[0]) * 0x348), 0x14);
+            var b = GameLayout.Ball(game);
+            var rb = game.ReadOrZero(p + 0x48, 1)[0];
+            var held = BitConverter.ToUInt32(game.ReadOrZero(p + 0xB0, 4));
+            lock (flights) flights.Add(new Flight(ms, (int)(((long)p - 0x3BDC980) / PlayerSize), pl[State], ret == 0x587C90 ? "centre" : loftedThrough ? "profondeur_lobee" : "hauteur",
+                stats[0xE] & 0x7F, stats[0x13] & 0x7F, b.X, b.Z, ix, iz) { Receiver = rb is >= 1 and <= 22 ? rb : 0, L1 = (held & 0x400) != 0 });
+        }
         lock (Calls) { Calls.Add(line); if (Calls.Count > 14) Calls.RemoveAt(0); }
         CallLogged?.Invoke(line);
+    }
+
+    /// <summary>Issue #67: at a pass kick, the passer, the ball, the receiver (+0x48) and the aimed point (+0x9C/+0xA0), with the passer's
+    /// pass stats (short accuracy +0xC, short speed +0xD, long accuracy +0xE, long speed +0xF) and the angles (16-bit) to the receiver and the point.</summary>
+    static string PassAim(IGameMemory game, uint p)
+    {
+        var pl = game.ReadOrZero(p, PlayerSize);
+        float F(byte[] b, int o) => BitConverter.ToSingle(b, o);
+        float px = F(pl, X), pz = F(pl, Z), tx = F(pl, 0x9C), tz = F(pl, 0xA0);
+        var ball = GameLayout.Ball(game);
+        var stats = game.ReadOrZero(0x3BCF5A8 + (uint)((pl[Team] * 32 + pl[Slot]) * 0x348), 0x10);
+        int Ang(float dx, float dz) => (int)Math.Round(Math.Atan2(dz, dx) * 32768 / Math.PI) & 0xFFFF;
+        int r = pl[0x48];
+        var s = $"| aim t{pl[Team]}s{pl[Slot]} cp={stats[0xC] & 0x7F}/{stats[0xD] & 0x7F} lp={stats[0xE] & 0x7F}/{stats[0xF] & 0x7F} " +
+                $"joueur=({px:F0},{pz:F0}) balle=({ball.X:F0},{ball.Z:F0}) point=({tx:F0},{tz:F0}) a_point={Ang(tx - ball.X, tz - ball.Z)} " +
+                $"face={BitConverter.ToUInt16(pl, Facing)} genre={pl[0x4C]} jauge={pl[0x4D]} rec={r}";
+        // the aimed point is two integers (read with FILD by the lofted pass and the cross): the angle to it in the kick's own convention, atan2(-dz, dx)
+        int ix = BitConverter.ToInt32(pl, 0x9C), iz = BitConverter.ToInt32(pl, 0xA0);
+        s += $" pointi=({ix},{iz}) a_pointi={(int)Math.Round(Math.Atan2(-(iz - ball.Z), ix - ball.X) * 32768 / Math.PI) & 0xFFFF}";
+        if (r is >= 1 and <= 22)
+        {
+            var q = game.ReadOrZero(GameLayout.Player(r), PlayerSize);
+            float qx = F(q, X), qz = F(q, Z);
+            s += $" recpos=({qx:F0},{qz:F0}) a_rec={Ang(qx - ball.X, qz - ball.Z)} recmove={BitConverter.ToUInt16(q, Move)} recvit={BitConverter.ToInt32(q, Speed)}";
+        }
+        return s;
+    }
+
+    /// <summary>#67: a lofted pass or a cross on its way: kicker, state, his long pass (+0xE) and free kick (+0x13) accuracy, ball start, aimed point.</summary>
+    sealed record Flight(long Ms, int Player, int State, string Kind, int LongPass, int FreeKick, float X0, float Z0, int Ax, int Az) { public bool Up, L1; public int Receiver; }
+    readonly List<Flight> flights = [];
+
+    /// <summary>Each tick: a flight ends at the first bounce (the ball back near the ground after it went up) or at the first touch by a player, at most 5 s after the kick.
+    /// The line gives the landing point, its distance to the aimed point, and that miss split along the kick (long +) and across it (left +).</summary>
+    /// <summary>At the landing: the receiver the game chose and his distance to the ball, and the nearest keeper (slot 0 of either team) with his distance.</summary>
+    string Around(Flight f)
+    {
+        float D(int id) { float dx = Float(id, X) - BallX, dz = Float(id, Z) - BallZ; return MathF.Sqrt(dx * dx + dz * dz); }
+        var s = f.Receiver != 0 ? $" receveur=P{f.Receiver} d_receveur={D(f.Receiver):F0}" : " receveur=aucun";
+        var keeper = Enumerable.Range(1, PlayerCount).Where(id => Byte(id, Slot) == 0 && Byte(id, Team) != Byte(f.Player, Team)).Select(id => (id, d: D(id))).OrderBy(k => k.d).FirstOrDefault();
+        return keeper.id != 0 ? s + $" gardien=P{keeper.id} d_gardien={keeper.d:F0}" : s;
+    }
+
+    void TrackFlights()
+    {
+        Flight[] now; lock (flights) now = [.. flights];
+        foreach (var f in now)
+        {
+            var y = BitConverter.ToSingle(Ball, 0x14);   // height grows downwards: about -23 on the ground
+            if (y < -300) f.Up = true;
+            var touched = Ms - f.Ms > 250 && Carrier is >= 1 and <= 22;
+            var landed = f.Up && y > -80;
+            if (!touched && !landed && Ms - f.Ms < 5000) continue;
+            lock (flights) flights.Remove(f);
+            float ux = f.Ax - f.X0, uz = f.Az - f.Z0, len = MathF.Max(1, MathF.Sqrt(ux * ux + uz * uz)); ux /= len; uz /= len;
+            float ex = BallX - f.Ax, ez = BallZ - f.Az;
+            KickLogged?.Invoke($"chute {TimeSpan.FromMilliseconds(f.Ms):mm\\:ss\\.f} P{f.Player} {f.Kind} etat={f.State} lp={f.LongPass} cf={f.FreeKick} vise=({f.Ax},{f.Az}) " +
+                $"dist={len:F0} chute=({BallX:F0},{BallZ:F0}) par={(touched ? $"touche P{Carrier}" : landed ? "rebond" : "temps")} apres={Ms - f.Ms} ms " +
+                $"rate={MathF.Sqrt(ex * ex + ez * ez):F0} long={ex * ux + ez * uz:F0} lateral={ex * -uz + ez * ux:F0}{(f.L1 ? " L1" : "")}{Around(f)}");
+        }
     }
 
     public void Update(IGameMemory game, long ms)
@@ -288,7 +370,7 @@ sealed class HudTracker
             if (len > 30 && len < 5000) { DirX = dx / len; DirZ = dz / len; }
             prevBallX = BallX; prevBallZ = BallZ;
         }
-        Track();
+        Track(); TrackFlights();
         if (RunLog) { gameForRun = game; LogRun(); }
     }
 

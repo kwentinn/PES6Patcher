@@ -65,7 +65,9 @@ internal static class PassGauges
 		code.Bytes(0x21, 0xFD); // and ebp, edi
 		code.Bytes(0x0B, 0xAE, 0xB4, 0x00, 0x00, 0x00); // or ebp, [esi+pressed]
 		code.Bytes(0x8B, 0x96, 0xB0, 0x00, 0x00, 0x00); // mov edx, [esi+held]
-		code.Bytes(0xF7, 0xC2, 0x00, 0xA8, 0x00, 0x00); // test edx, 0xA800
+		// Shot or circle held: no gauge. R1 (0x800, sprint) is allowed: with it, an L1 + triangle made while sprinting was the game's own
+		// press, without gauge, and a slightly long press sent the ball far behind the receiver (#67, 2026-11-25).
+		code.Bytes(0xF7, 0xC2, 0x00, 0xA0, 0x00, 0x00); // test edx, 0xA000
 		code.JumpNear(0x85, "dispatch.clear"); // jnz .clear
 		code.Bytes(0x0F, 0xB6, 0x43, 0x14); // movzx eax, byte [ebx+20]
 		code.Bytes(0x83, 0xF8, 0x03); // cmp eax, 3
@@ -116,6 +118,11 @@ internal static class PassGauges
 		code.Bytes(0x31, 0xD2); // xor edx, edx
 		code.Bytes(0xF7, 0xF1); // div ecx
 		code.Bytes(0x89, 0x43, 0x08); // mov [ebx+8], eax
+		// A full gauge sends the through pass at once, triangle still held: before, the pass waited for the release for ever.
+		code.Bytes(0x3D, 0x80, 0x00, 0x00, 0x00); // cmp eax, 128
+		code.JumpNear(0x82, "dispatch.done"); // jb .done
+		code.Bytes(0xF7, 0x43, 0x04, 0x00, 0x10, 0x00, 0x00); // test dword [ebx+4], triangle_button
+		code.JumpNear(0x85, "dispatch.send_release"); // jnz .send_release
 		code.JumpTo("dispatch.done"); // jmp .done
 		code.Mark("dispatch.release");
 		code.Bytes(0xF7, 0x43, 0x04, 0x00, 0x10, 0x00, 0x00); // test dword [ebx+4], triangle_button

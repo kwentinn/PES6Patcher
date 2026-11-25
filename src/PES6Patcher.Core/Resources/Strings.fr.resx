@@ -672,6 +672,33 @@
   <data name="Error.CrossGaugeUnavailable" xml:space="preserve">
     <value>Cet exécutable n'a pas la place pour la jauge de centre.</value>
   </data>
+  <data name="Hook.PassStats" xml:space="preserve">
+    <value>passes selon les stats (code des passes au sol)</value>
+  </data>
+  <data name="Log.PassAccuracy" xml:space="preserve">
+    <value>Passes selon les stats : l'erreur de direction d'une passe au sol suit la précision de passe courte du passeur (passe longue pour L1 + triangle) : celle du jeu à {0}, plus petite au-dessus, plus grande en dessous. L1 + triangle rate aussi sa distance selon la même stat.</value>
+  </data>
+  <data name="Log.LoftedThrough" xml:space="preserve">
+    <value>Passe en profondeur lobée (L1 + triangle) : son point visé reste à environ 12 m de la ligne de but et 6 m à l'intérieur de la ligne de touche ; elle part à {0} % de la vitesse du jeu et {1} % de sa hauteur, avec un effet rétro de {2} % de sa vitesse (le jeu : environ 17 %).</value>
+  </data>
+  <data name="Gameplay.PassAccuracy" xml:space="preserve">
+    <value>Passes selon les stats : les bons passeurs précis, les faibles ratent plus</value>
+  </data>
+  <data name="Gameplay.LoftedThrough" xml:space="preserve">
+    <value>Passe en profondeur lobée (L1 + triangle) : plus courte, un peu plus haute, reste en jeu</value>
+  </data>
+  <data name="Gameplay.LoftedSpin" xml:space="preserve">
+    <value>Effet rétro (% de la vitesse)</value>
+  </data>
+  <data name="Gameplay.LoftedHeight" xml:space="preserve">
+    <value>Hauteur (%)</value>
+  </data>
+  <data name="Gameplay.LoftedSpeed" xml:space="preserve">
+    <value>Force (% du jeu)</value>
+  </data>
+  <data name="Gameplay.PassAccuracyNeutral" xml:space="preserve">
+    <value>Précision qui rate comme le jeu</value>
+  </data>
   <data name="Hook.ShotGauge" xml:space="preserve">
     <value>vitesse de la jauge de tir</value>
   </data>

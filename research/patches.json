@@ -1,4 +1,91 @@
 {
+  "lofted-through-backspin": {
+    "about": "#67 test (2026-11-25, user: the L1 + triangle ball should slow down when it comes down, a kind of backspin): the ball's spin is +0x74 (int; a rolling ball has spin = speed +0x50; a kick gives it a negative value, -3514 for an L1 + triangle at speed 20334, memlog 2026-11-25). At a bounce the flight code 0x475810 pulls the speed towards spin: the more negative the spin, the more the bounce brakes (and below about -speed the ball comes back). After the ground pass kick, kinds 3 and 7 have their own branch (0x5A64B0, call 0x474F10) that joins the others at 0x5A64DA: those 9 bytes (push 3 / mov byte [0x3BE0A9A],0; the target of 3 jumps, none inside) jump to a cave at 0x5E2B30 (47 bytes) that replays them and, for kinds 3 and 7, writes spin = speed * -30 / 128 (V1 at -51 made the ball too high and too long: the spin also lifts the ball in flight, the Magnus term of 0x475810, and it braked too much at the bounce), then goes back to 0x5A64E3.",
+    "bytes": [
+      { "address": "0x5E2B30", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "6A 03 C6 05 9A 0A BE 03 00 80 7E 4C 03 74 06 80 7E 4C 07 75 15 50 51 A1 94 CE BC 00 8B 48 50 6B C9 E2 C1 F9 07 89 48 74 59 58 E9 84 39 FC FF" },
+      { "address": "0x5A64DA", "original": "6A 03 C6 05 9A 0A BE 03 00", "patched": "E9 51 C6 03 00 90 90 90 90" }
+    ]
+  },
+  "pass-dir-stat4": {
+    "about": "#67 test (2026-11-25): pass-dir-stat3 (direction draw range of the ground pass code times (d / 19)^3, d = 99 - accuracy clamped to 0..45, capped at 0x1800; calls 0x5A4C3F and 0x5A2FD7) where d comes from the LONG pass accuracy (+0xE) for pass kinds +0x4C 3 and 7 (L1 + triangle: kind & 0xFB == 3) and from the short pass accuracy (+0xC) otherwise (user: take the passing technique into account, = long pass accuracy). Cave at 0x5E2920 (in the free run 0x5E2916-0x5E29FF of the installed exe). Revert the other pass-dir-stat tests first.",
+    "bytes": [
+      { "address": "0x5E2920", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 8A 4E 4C 80 E1 FB 80 F9 03 75 03 83 C0 02 0F B6 88 B4 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 2D 7E 05 B8 2D 00 00 00 89 C1 0F AF C0 0F AF C1 0F AF 44 24 04 B9 CB 1A 00 00 99 F7 F9 3D 00 18 00 00 7E 05 B8 00 18 00 00 89 44 24 04 E9 06 16 EA FF" },
+      { "address": "0x5A4C3F", "original": "E8 4C F3 ED FF", "patched": "E8 DC DC 03 00" },
+      { "address": "0x5A2FD7", "original": "E8 B4 0F EE FF", "patched": "E8 44 F9 03 00" }
+    ]
+  },
+  "lofted-through-speed3": {
+    "about": "#67 test 3 (2026-11-25): lofted-through-speed2 (hook 0x5A5D3C after the final speed EDI and height EBP of 0x5A2A50; kinds 3 and 7: speed x 90/128, height x 147/128) plus a distance error from the LONG pass accuracy: speed x (1000 + r) / 1000, r = 0x483F90(A), A = 60 d^2 / 361 per mille capped at 250, d = 99 - long pass accuracy clamped to 0..45 (95: +-0.4 %, 90: +-1.3 %, 80: +-6 %, 70: +-14 %, 60 and less: +-25 %). Cave at 0x5E2990. Revert lofted-through-speed2 first.",
+    "bytes": [
+      { "address": "0x5E2990", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "80 7E 4C 03 74 0A 80 7E 4C 07 0F 85 81 00 00 00 69 FF 5A 00 00 00 C1 FF 07 69 ED 93 00 00 00 C1 FD 07 50 51 52 0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 0F B6 88 B6 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 2D 7E 05 B8 2D 00 00 00 0F AF C0 6B C0 3C B9 69 01 00 00 99 F7 F9 3D FA 00 00 00 7E 05 B8 FA 00 00 00 50 E8 89 15 EA FF 83 C4 04 05 E8 03 00 00 89 C1 89 F8 F7 E9 B9 E8 03 00 00 F7 F9 89 C7 5A 59 58 51 E8 C9 92 EE FF E9 16 33 FC FF" },
+      { "address": "0x5A5D3C", "original": "51 E8 AE 5F F2 FF", "patched": "E9 4F CC 03 00 90" }
+    ]
+  },
+  "lofted-through-speed2": {
+    "about": "#67 test 2 (2026-11-25, user after lofted-through-speed at 90/128: 'pas mal', wants the ball a little higher): one hook after both the final speed EDI (0x5A5CEE) and the final height EBP (0x5A5D37) of the ground pass code 0x5A2A50 are set: the 6 bytes push ecx / call 0x4CBCF0 at 0x5A5D3C (no jump lands inside) jump to a cave at 0x5E2B30 (41 bytes, where lofted-through-speed was) that, for pass kinds +0x4C 3 and 7 (L1 + triangle), multiplies the speed by 90/128 and the height by 147/128, replays the push and the call and goes back to 0x5A5D42. Revert lofted-through-speed first (same cave place).",
+    "bytes": [
+      { "address": "0x5E2B30", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "80 7E 4C 03 74 06 80 7E 4C 07 75 12 69 FF 5A 00 00 00 C1 FF 07 69 ED 93 00 00 00 C1 FD 07 51 E8 9C 91 EE FF E9 E9 31 FC FF" },
+      { "address": "0x5A5D3C", "original": "51 E8 AE 5F F2 FF", "patched": "E9 EF CD 03 00 90" }
+    ]
+  },
+  "lofted-through-speed": {
+    "about": "#67 test (2026-11-25): L1 + triangle (pass kinds +0x4C 3 and 7, in the ground pass code 0x5A2A50) lands 1.2 to 2.3 times as far as its aimed point (user's training session, gauge working: ball 9-18 m beyond the point). The final speed EDI is set at 0x5A5CE7 (mov edi,edx / shr edi,0x1F / add edi,edx; no jump lands inside); those 7 bytes jump to a cave at 0x5E2B30 (33 bytes, free run 0x5E2B30-0x5E2B66) that replays them and, for kinds 3 and 7, multiplies EDI by 90/128, then goes back to 0x5A5CEE. The animation caps at 0x5A5E55 and the physics mod's power hook (0x5A637B) come after.",
+    "bytes": [
+      { "address": "0x5E2B30", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "8B FA C1 EF 1F 03 FA 80 7E 4C 03 74 06 80 7E 4C 07 75 09 69 FF 5A 00 00 00 C1 FF 07 E9 9D 31 FC FF" },
+      { "address": "0x5A5CE7", "original": "8B FA C1 EF 1F 03 FA", "patched": "E9 44 CE 03 00 90 90" }
+    ]
+  },
+  "gauge-with-sprint": {
+    "about": "#67 (2026-11-25), installed exe only (.passbar of the exe patched on 2026-11-24/25; the address moves with each rebuild): the pass gauges (PassGauges.cs, dispatch: test edx, 0xA800 / jnz .clear on the held buttons +0xB0) drop the gauge when shoot (0x8000), circle (0x2000) or R1 (0x800, sprint) is held, so an L1 + triangle made while sprinting is the game's own press: no gauge, a long press read by the game as a strong pass (user: 'when I had the bug there was no gauge'; his log: the L1 + R1 through ball at 35:32 went out for a goal kick). Test: 0xA000 instead, the gauge also works while sprinting.",
+    "bytes": [
+      { "address": "0x55170D4", "original": "F7 C2 00 A8 00 00", "patched": "F7 C2 00 A0 00 00" }
+    ]
+  },
+  "lofted-through-goal": {
+    "about": "#67 lofted through ball (L1 + triangle, pass kind +0x4C = 3 or 7) bound before the goal (2026-11-25, user: the ball goes too far and the keeper takes it; measured: aimed point on the goal line, x = +51 m, at 02:10 of his match). The through ball's aimed point is written in 0x4D0A70 (x at 0x4D0B13 = start x EBP + lead, z at 0x4D0B35). The 14 bytes 0x4D0B2D-0x4D0B3A (mov al,[edi+0x4C] / add esp,0x10 / cmp al,3 / mov [edi+0xA0],edx; no jump lands inside; the installed exe's PassLead/PassGauges hooks are at 0x4D0AF8 and 0x4D0B05, untouched) jump to a cave at 0x5E2A60 (90 bytes; the dropped pass-speed-stat used it) that replays them and, for kinds 3 and 7, brings |x| of the point back to 9600 (about 12 m before the goal line 12400), or to the start's |x| when the start is already past it on that side, never beyond the game's point. V2 (2026-11-25, an L1 + triangle by a centre back aimed at z = 8403, outside the touchline at about 8000, and went out; the game's own guard at 0x4D0B83, |z| > 5657 = [0xB8BC3C], only moves the point in on a stat draw): also brings |z| of the point back to 6600, about 6 m inside the line. Cave 127 bytes. Then back to the je at 0x4D0B3B with the flags of cmp al,3.",
+    "bytes": [
+      { "address": "0x5E2A60", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "83 C4 10 89 97 A0 00 00 00 50 51 52 0F B6 47 4C 3C 03 74 08 3C 07 0F 85 56 00 00 00 8B 87 9C 00 00 00 99 31 D0 29 D0 3D 80 25 00 00 7E 23 89 E9 31 D1 29 D1 81 F9 80 25 00 00 7D 05 B9 80 25 00 00 39 C1 7E 02 89 C1 31 D1 29 D1 89 8F 9C 00 00 00 8B 87 A0 00 00 00 99 31 D0 29 D0 3D C8 19 00 00 7E 0F B8 C8 19 00 00 31 D0 29 D0 89 87 A0 00 00 00 5A 59 58 8A 47 4C 3C 03 E9 5C E0 EE FF" },
+      { "address": "0x4D0B2D", "original": "8A 47 4C 83 C4 10 3C 03 89 97 A0 00 00 00", "patched": "E9 2E 1F 11 00 90 90 90 90 90 90 90 90 90" }
+    ]
+  },
+  "lofted-dir-stat": {
+    "about": "#67 lofted passes (2026-11-25): their direction error is one signed draw 0x483F90(20 * (99 - R)) at 0x56A2FE in decide_lofted_pass 0x5697B0 (all kinds +0x4C), R = 0x483E10(stat +0x13 = free kick accuracy, 50): 10.9 deg at 50 or less, 4.3 deg at 80 of that stat. The call goes to a cave at 0x5E2AC0 (where the dropped pass-dir-stat2 was, 103 bytes) that leaves set pieces (state 48: goal kicks, free kicks; a keeper with long pass 59 sent a goal kick 30 deg off in V1, 2026-11-25) to the game's own draw, and otherwise replaces the range by 780 * (d / 19)^3, d = 99 - LONG pass accuracy (+0xE) clamped to 0..45, capped at 0x1800: 95 0.04 deg, 90 0.5, 85 1.7, 80 4.3 (about the game), 75 8.6, 70 15, 65 24.5, 60 and less 33.8. Goes with pass-dir-stat3; do not apply with pass-dir-stat2 (same cave place).",
+    "bytes": [
+      { "address": "0x5E2AC0", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "80 7E 16 30 0F 84 C6 14 EA FF 0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 0F B6 88 B6 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 2D 7E 05 B8 2D 00 00 00 89 C1 0F AF C0 0F AF C1 69 C0 0C 03 00 00 B9 CB 1A 00 00 99 F7 F9 3D 00 18 00 00 7E 05 B8 00 18 00 00 89 44 24 04 E9 69 14 EA FF" },
+      { "address": "0x56A2FE", "original": "E8 8D 9C F1 FF", "patched": "E8 BD 87 07 00" }
+    ]
+  },
+  "pass-dir-stat3": {
+    "about": "#67 test 3 (2026-11-25, user after pass-dir-stat2: weak passers still not missing enough; pass-dir-stat2 gave 3-5 deg median under 70): same two calls (0x5A4C3F, 0x5A2FD7) to a cave at 0x5E2A00 (where pass-dir-stat was, 92 bytes) that multiplies the direction draw range A by (d / 19)^3, d = 99 - short pass accuracy clamped to 0..45, capped at 0x1800 (33.75 deg): 95 x0.01, 90 x0.11, 87 x0.25, 84 x0.49, 80 x1 (the game), 77 x1.55, 75 x2, 72 x2.9, 70 x3.6, 65 x5.7, 60 x8.7, 55 x12.4. Revert the other pass-dir-stat tests first.",
+    "bytes": [
+      { "address": "0x5E2A00", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 0F B6 88 B4 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 2D 7E 05 B8 2D 00 00 00 89 C1 0F AF C0 0F AF C1 0F AF 44 24 04 B9 CB 1A 00 00 99 F7 F9 3D 00 18 00 00 7E 05 B8 00 18 00 00 89 44 24 04 E9 34 15 EA FF" },
+      { "address": "0x5A4C3F", "original": "E8 4C F3 ED FF", "patched": "E8 BC DD 03 00" },
+      { "address": "0x5A2FD7", "original": "E8 B4 0F EE FF", "patched": "E8 24 FA 03 00" }
+    ]
+  },
+  "pass-dir-stat2": {
+    "about": "#67 test 2 (2026-11-25, after the user felt little with pass-dir-stat: weak passers must miss more, not only good ones less): same two calls (0x5A4C3F, 0x5A2FD7) to a new cave at 0x5E2AC0 that multiplies the direction draw range A by ((99 - short pass accuracy) / 24)^2, capped at 0x1000 (22.5 deg): 95 x0.03, 87 x0.25, 81 x0.56, 75 x1 (the game), 70 x1.5, 65 x2, 55 x3.4. Revert pass-dir-stat first (its calls have other bytes).",
+    "bytes": [
+      { "address": "0x5E2AC0", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 0F B6 88 B4 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 0F AF C0 8B 4C 24 04 0F AF C1 B9 40 02 00 00 99 F7 F9 3D 00 10 00 00 7E 05 B8 00 10 00 00 89 44 24 04 E9 81 14 EA FF" },
+      { "address": "0x5A4C3F", "original": "E8 4C F3 ED FF", "patched": "E8 7C DE 03 00" },
+      { "address": "0x5A2FD7", "original": "E8 B4 0F EE FF", "patched": "E8 E4 FA 03 00" }
+    ]
+  },
+  "pass-speed-stat": {
+    "about": "NOT APPLIED, LITTLE TO GAIN; its cave place 0x5E2A60 is now used by lofted-through-goal (2026-11-25, CPU France-England, 56 ground passes, native: the final speed draw moves a pass by 0.5-1.5 % (median), range median 20-48 per mille, never near the 500 cap). #67 test (2026-11-25), with pass-dir-stat: the final speed of a ground pass is P * (1000 -/+ r) / 1000, r drawn in a range EBP (per mille, capped at 500 at 0x5A5C4C) that barely follows the passer's stats; the same range halved drives the height draw 0x5A5CF9. The 13 bytes of the cap at 0x5A5C4C jump to a cave at 0x5E2A60 that keeps the cap, then scales EBP by min(99 - short pass accuracy, 40) / 40 and goes back to 0x5A5C59 (ECX kept: 0x5A5C86 reads [ECX+0x2D]).",
+    "bytes": [
+      { "address": "0x5E2A60", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "81 FD F4 01 00 00 7E 05 BD F4 01 00 00 51 0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 0F B6 88 B4 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 28 7E 05 B8 28 00 00 00 0F AF C5 B9 28 00 00 00 99 F7 F9 89 C5 59 E9 A6 31 FC FF" },
+      { "address": "0x5A5C4C", "original": "81 FD F4 01 00 00 7E 05 BD F4 01 00 00", "patched": "E9 0F CE 03 00 90 90 90 90 90 90 90 90" }
+    ]
+  },
+  "pass-dir-stat": {
+    "about": "WORKS (2026-11-24, CPU France-England, 147 ground passes read at 0x5A4C44: draw range median 3.1-4.8 deg whatever the stat -> 0.3 deg at 90+, 1.2 at 84-89, 2.0 at 76-83, 3.9 under 76; hook reached 13 times a minute). #67 test (2026-11-24): the direction error of a ground pass is one signed draw 0x483F90(A) at 0x5A4C3F (and 0x5A2FD7 in the other pass variant), A = 10*(99-R) + 16*[+0x90] + flag constants, so the passer's short pass accuracy (stat +0xC) barely counts. Both calls go to a cave at 0x5E2A00 that scales A by min(99 - accuracy, 40) / 40 (95: 10 %, 85: 35 %, 75: 60 %, <= 59: 100 %), then jumps to 0x483F90.",
+    "bytes": [
+      { "address": "0x5E2A00", "original": "CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC CC", "patched": "0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 0F B6 88 B4 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 28 7E 05 B8 28 00 00 00 8B 4C 24 04 0F AF C1 B9 28 00 00 00 99 F7 F9 89 44 24 04 E9 46 15 EA FF" },
+      { "address": "0x5A4C3F", "original": "E8 4C F3 ED FF", "patched": "E8 BC DD 03 00" },
+      { "address": "0x5A2FD7", "original": "E8 B4 0F EE FF", "patched": "E8 24 FA 03 00" }
+    ]
+  },
   "support-pull25": {
     "about": "Attack support test (REJECTED 2026-11-15, CPU A/B: team-mates within 15 m 1.39 -> 1.66 but releases kept 85 % -> 69 % and balls lost to a challenge 1.2 -> 5.1 per minute: the whole game tightens): a player in mode 0x08 (the attacking base placement, 44 % of the carrier's team-mates, about 35 m from him) has his target pulled 25 % towards the ball before set_target (hook at 0x619D77 in mode08_positioning 0x619C80). Cave in 0xCC padding at 0x5E2920, share float at 0x5E2970.",
     "bytes": [

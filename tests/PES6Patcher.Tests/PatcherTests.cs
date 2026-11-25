@@ -52,6 +52,14 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(27, image.ReadInt32(payload.FrameSettings + 4));
         Assert.Equal(39, image.ReadInt32(payload.FrameSettings + 8));
         Assert.Equal(60, image.ReadInt32(payload.FrameSettings + 12));
+        static byte[] Hex(string text) => Convert.FromHexString(text.Replace(" ", ""));
+        // a full gauge sends the through pass with triangle still held: store, cmp eax,128 / jb done / test button,triangle / jnz send
+        int full = payload.Bytes.AsSpan().IndexOf(Hex("89 43 08 3D 80 00 00 00 0F 82"));
+        Assert.True(full > 0);
+        Assert.Equal(Hex("F7 43 04 00 10 00 00 0F 85"), payload.Bytes.AsSpan(full + 14, 9).ToArray());
+        // the jnz lands on the release code: mov [ebx],esi / mov dword [ebx+12],60
+        int send = full + 27 + BitConverter.ToInt32(payload.Bytes, full + 23);
+        Assert.Equal(Hex("89 33 C7 43 0C 3C 00 00 00"), payload.Bytes.AsSpan(send, 9).ToArray());
     }
 
     [Theory]
@@ -1374,6 +1382,112 @@ public class PatcherTests(ITestOutputHelper output)
         Assert.Equal(new PeImage(crowded).Sections.Count + 1, image.Sections.Count);
         Assert.True(ExePatcher.Analyze(built)!.AlreadyPatched);
     }
+
+    [Fact]
+    public void Passes_by_the_stats_and_the_lofted_through_ball_hook_the_ground_pass_code()
+    {
+        var original = Load("PES6.orig.exe");
+        if (original == null) return;
+
+        Assert.True(ExePatcher.Analyze(original).PassStats);
+        var sites = ExeLocator.LocatePassStats(original)!;
+        // the two calls of the signed draw that adds a ground pass's direction error, the through ball's point, the final speed and height,
+        // the meeting point after the kick, the ball pointer and the stats records
+        Assert.Equal(0x5A4C3F, sites.DirectionMain);
+        Assert.Equal(0x5A2FD7, sites.DirectionVariant);
+        Assert.Equal(0x483F90, sites.Random);
+        Assert.Equal(0x4D0B2D, sites.Point);
+        Assert.Equal(0x5A5D3C, sites.Speed);
+        Assert.Equal(0x4CBCF0, sites.SpeedCall);
+        Assert.Equal(0x5A64DA, sites.Spin);
+        Assert.Equal(0xBCCE94, sites.Ball);
+        Assert.Equal(0x3BCF5A8, sites.Stats);
+
+        var options = new PatchOptions(398, FreeDirection: true, CloseDribble: true, SkipIntro: true);
+        var with = new PeImage(ExePatcher.Build(original, options with { PassAccuracy = true, LoftedThrough = true }));
+
+        // the caves validated in game on 2026-11-25 (research/patches.json: pass-dir-stat4, lofted-through-speed3, lofted-through-backspin),
+        // but for their last jump, which depends on where the cave is
+        static byte[] Hex(string text) => Convert.FromHexString(text.Replace(" ", ""));
+        void Cave(int target, string validated, int back)
+        {
+            var expected = Hex(validated);
+            var cave = with.Bytes.AsSpan(with.Offset(target), expected.Length + 5).ToArray();
+            Assert.Equal(expected, cave[..expected.Length]);
+            Assert.Equal(0xE9, cave[expected.Length]);
+            Assert.Equal(back, with.Rel32Target(target + expected.Length));
+        }
+
+        int direction = with.Rel32Target(sites.DirectionMain);
+        Assert.Equal(0xE8, with.Bytes[with.Offset(sites.DirectionMain)]);
+        Assert.Equal(direction, with.Rel32Target(sites.DirectionVariant));
+        Cave(direction, "0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 8A 4E 4C 80 E1 FB 80 F9 03 75 03 83 C0 02 0F B6 88 B4 F5 BC 03 " +
+            "83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 2D 7E 05 B8 2D 00 00 00 89 C1 0F AF C0 0F AF C1 0F AF 44 24 04 B9 CB 1A 00 00 99 F7 F9 " +
+            "3D 00 18 00 00 7E 05 B8 00 18 00 00 89 44 24 04", sites.Random);
+
+        Assert.Equal(0xE9, with.Bytes[with.Offset(sites.Speed)]);
+        Assert.Equal(0x90, with.Bytes[with.Offset(sites.Speed + 5)]);
+        int speed = with.Rel32Target(sites.Speed);
+        var speedCave = Hex("80 7E 4C 03 74 0A 80 7E 4C 07 0F 85 81 00 00 00 69 FF 5A 00 00 00 C1 FF 07 69 ED 93 00 00 00 C1 FD 07 50 51 52 " +
+            "0F B6 46 12 0F B6 4E 11 C1 E0 05 01 C8 69 C0 48 03 00 00 0F B6 88 B6 F5 BC 03 83 E1 7F B8 63 00 00 00 29 C8 79 02 31 C0 83 F8 2D 7E 05 " +
+            "B8 2D 00 00 00 0F AF C0 6B C0 3C B9 69 01 00 00 99 F7 F9 3D FA 00 00 00 7E 05 B8 FA 00 00 00 50");
+        Assert.Equal(speedCave, with.Bytes.AsSpan(with.Offset(speed), speedCave.Length).ToArray());
+        Assert.Equal(sites.Random, with.Rel32Target(speed + speedCave.Length));                 // the distance error's draw
+        Assert.Equal(sites.SpeedCall, with.Rel32Target(speed + speedCave.Length + 0x20));       // the game's call, replayed
+        Assert.Equal(sites.Speed + 6, with.Rel32Target(speed + speedCave.Length + 0x25));
+
+        Assert.Equal(0x90, with.Bytes[with.Offset(sites.Spin + 8)]);
+        // the backspin: 23 % by default is -29/128 (the game validated -30/128, 23.4 %)
+        Cave(with.Rel32Target(sites.Spin), "6A 03 C6 05 9A 0A BE 03 00 80 7E 4C 03 74 06 80 7E 4C 07 75 15 50 51 A1 94 CE BC 00 8B 48 50 6B C9 E3 C1 F9 07 89 48 74 59 58",
+            sites.Spin + 9);
+
+        // the point: the game's bytes replayed (cmp al,3 last, for its je), the goal and touchline bounds, back to the je
+        int point = with.Rel32Target(sites.Point);
+        Assert.Equal(Hex("83 C4 10 3C 03 89 97 A0 00 00 00"), with.Bytes.AsSpan(with.Offset(point), 11).ToArray());
+        var pointCave = with.Bytes.AsSpan(with.Offset(point), 160).ToArray();
+        Assert.True(pointCave.AsSpan().IndexOf(Hex("3D 80 25 00 00")) > 0);    // |x| against 9600
+        Assert.True(pointCave.AsSpan().IndexOf(Hex("3D C8 19 00 00")) > 0);    // |z| against 6600
+        int end = pointCave.AsSpan().IndexOf(Hex("5A 59 58 8A 47 4C 3C 03 E9"));
+        Assert.Equal(sites.Point + 14, with.Rel32Target(point + end + 8));
+
+        // the pass gauges keep working while sprinting (R1): only shoot and circle cancel a charge
+        var gauges = new PeImage(ExePatcher.Build(original, options with { PassPowerGauges = true }));
+        var passbar = gauges.Named(".passbar")!;
+        var code = gauges.Bytes.AsSpan(gauges.Offset(passbar.Va), passbar.VirtualSize);
+        Assert.True(code.IndexOf(Hex("8B 96 B0 00 00 00 F7 C2 00 A0 00 00")) > 0);
+        Assert.True(code.IndexOf(Hex("F7 C2 00 A8 00 00")) < 0);
+
+        // the settings: another neutral accuracy changes the divisors (n = 99 - neutral: n^3 for the direction, n^2 for the distance),
+        // the lofted through ball's speed, height and backspin are in 1/128
+        var tuned = new PeImage(ExePatcher.Build(original, options with
+        {
+            PassAccuracy = true, LoftedThrough = true, PassAccuracyNeutral = 90, LoftedSpeed = 50, LoftedHeight = 150, LoftedSpin = 40,
+        }));
+        int tunedDirection = tuned.Rel32Target(sites.DirectionMain);
+        Assert.True(tuned.Bytes.AsSpan(tuned.Offset(tunedDirection), 120).IndexOf(Hex("B9 D9 02 00 00")) > 0);      // 9^3 = 729
+        var tunedSpeed = tuned.Bytes.AsSpan(tuned.Offset(tuned.Rel32Target(sites.Speed)), 160).ToArray();
+        Assert.True(tunedSpeed.AsSpan().IndexOf(Hex("69 FF 40 00 00 00")) > 0);                                     // speed x 64/128
+        Assert.True(tunedSpeed.AsSpan().IndexOf(Hex("69 ED C0 00 00 00")) > 0);                                     // height x 192/128
+        Assert.True(tunedSpeed.AsSpan().IndexOf(Hex("B9 51 00 00 00")) > 0);                                        // 9^2 = 81
+        Assert.True(tuned.Bytes.AsSpan(tuned.Offset(tuned.Rel32Target(sites.Spin)), 60).IndexOf(Hex("6B C9 CD")) > 0); // spin x -51/128
+        foreach (var wrong in new[]
+        {
+            options with { PassAccuracy = true, PassAccuracyNeutral = PatchOptions.MinPassAccuracyNeutral - 1 },
+            options with { PassAccuracy = true, PassAccuracyNeutral = PatchOptions.MaxPassAccuracyNeutral + 1 },
+            options with { LoftedThrough = true, LoftedSpeed = PatchOptions.MinLoftedSpeed - 1 },
+            options with { LoftedThrough = true, LoftedHeight = PatchOptions.MaxLoftedHeight + 1 },
+            options with { LoftedThrough = true, LoftedSpin = PatchOptions.MaxLoftedSpin + 1 },
+        })
+            Assert.Throws<ArgumentOutOfRangeException>(() => ExePatcher.Build(original, wrong));
+
+        // with the options that hook the same pass code nearby (the pass lead and the gauges at the point's lead reads, the cross gauge)
+        var all = options with { PassAccuracy = true, LoftedThrough = true, PassPowerGauges = true, PassLead = PatchOptions.DefaultPassLead, CrossGauge = true, OffBallPace = PatchOptions.DefaultOffBallPace };
+        var combined = new PeImage(ExePatcher.Build(original, all));
+        Assert.Equal(0xE8, combined.Bytes[combined.Offset(sites.DirectionMain)]);
+        Assert.Equal(0xE9, combined.Bytes[combined.Offset(sites.Point)]);
+        Assert.Equal(0xE9, combined.Bytes[combined.Offset(sites.Speed)]);
+        Assert.Equal(0xE9, combined.Bytes[combined.Offset(sites.Spin)]);
+    }
 }
 
 public class EveryPresetBuildsTests(ITestOutputHelper output)
@@ -1419,4 +1533,5 @@ public class EveryPresetBuildsTests(ITestOutputHelper output)
         }
         return null;
     }
+
 }

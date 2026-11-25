@@ -20,6 +20,9 @@ sealed class HardwareBreakpoints
         public uint Edi => BitConverter.ToUInt32(context, OffEdi);
         public uint Ecx => BitConverter.ToUInt32(context, OffEcx);
         public uint Eax => BitConverter.ToUInt32(context, OffEax);
+        public uint Ebx => BitConverter.ToUInt32(context, 164);
+        public uint Ebp => BitConverter.ToUInt32(context, 180);
+        public uint Esi => BitConverter.ToUInt32(context, 160);
         public GameProcess Game => game;
 
         /// <summary>The 32-bit value at esp + offset (0: the return address of a call, 4: the first argument).</summary>

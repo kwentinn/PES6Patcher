@@ -672,6 +672,33 @@
   <data name="Error.CrossGaugeUnavailable" xml:space="preserve">
     <value>This executable has no room for the cross gauge.</value>
   </data>
+  <data name="Hook.PassStats" xml:space="preserve">
+    <value>passes by the stats (ground pass code)</value>
+  </data>
+  <data name="Log.PassAccuracy" xml:space="preserve">
+    <value>Passes by the stats: the direction error of a ground pass follows the passer's short pass accuracy (long pass accuracy for L1 + triangle): the game's at {0}, smaller above, larger below. L1 + triangle also misses its distance by the same stat.</value>
+  </data>
+  <data name="Log.LoftedThrough" xml:space="preserve">
+    <value>Lofted through ball (L1 + triangle): its point stays about 12 m before the goal line and 6 m inside the touchline; it leaves at {0} % of the game's speed and {1} % of its height, with a backspin of {2} % of its speed (the game's: about 17 %).</value>
+  </data>
+  <data name="Gameplay.PassAccuracy" xml:space="preserve">
+    <value>Passes by the stats: good passers accurate, weak passers miss more</value>
+  </data>
+  <data name="Gameplay.LoftedThrough" xml:space="preserve">
+    <value>Lofted through ball (L1 + triangle): shorter, a little higher, stays in play</value>
+  </data>
+  <data name="Gameplay.LoftedSpin" xml:space="preserve">
+    <value>Backspin (% of speed)</value>
+  </data>
+  <data name="Gameplay.LoftedHeight" xml:space="preserve">
+    <value>Height (%)</value>
+  </data>
+  <data name="Gameplay.LoftedSpeed" xml:space="preserve">
+    <value>Speed (% of the game's)</value>
+  </data>
+  <data name="Gameplay.PassAccuracyNeutral" xml:space="preserve">
+    <value>Accuracy that misses as in the game</value>
+  </data>
   <data name="Hook.ShotGauge" xml:space="preserve">
     <value>shot gauge speed</value>
   </data>

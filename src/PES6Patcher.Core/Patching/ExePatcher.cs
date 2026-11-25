@@ -43,6 +43,12 @@ namespace PES6Patcher.Core.Patching;
 /// <param name="ForwardRuns">The forwards (roles 24 and over) can be picked as the runner of the run beyond the last line (mode 0x0F, one runner a side), which the game never gave them: more runs into the box for crosses.</param>
 /// <param name="BallPush">R1 pressed three times, or the right stick pushed to the edge while a human team's player runs, sends his next touch further ahead (right stick: toward the stick, 20 degrees at most from his running direction).</param>
 /// <param name="ShotGaugeSpeed">Speed at which the shot gauge (the game's own, 0 to 0x80 in about 0.25 s) fills, in % of the game's (100 = unchanged): a slower gauge leaves more time to dose a shot.</param>
+/// <param name="PassAccuracy">The direction error of a ground pass follows the passer's short pass accuracy (long pass for L1 + triangle): neutral at 80, much smaller above, much larger below; L1 + triangle also gets a distance error from the long pass accuracy.</param>
+/// <param name="LoftedThrough">L1 + triangle: its point stays before the goal area and inside the touchline, it leaves slower and a little higher, with a little more backspin.</param>
+/// <param name="PassAccuracyNeutral">With <paramref name="PassAccuracy"/>, the accuracy at which the error is the game's: below, the passer misses more; above, less.</param>
+/// <param name="LoftedSpeed">With <paramref name="LoftedThrough"/>, the speed L1 + triangle leaves at, in % of the game's.</param>
+/// <param name="LoftedHeight">With <paramref name="LoftedThrough"/>, its height, in % of the game's.</param>
+/// <param name="LoftedSpin">With <paramref name="LoftedThrough"/>, its backspin, in % of the ball's speed (the game gives about 17): it brakes the ball at the bounce, and also lifts it in flight.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself may run at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged; 100 = the Pro setting, tested in matches): he trots instead of sprinting to a near place, the runs (overlaps, runs behind the last line) stay free.</param>
 public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = true, bool CloseDribble = false, bool SkipIntro = false, bool FreeKick = false,
 	int FreeKickWeight = PatchOptions.DefaultFreeKickWeight, bool FreeKickDebug = false, int ShotPower = 100, bool ShotPowerDebug = false,
@@ -52,7 +58,8 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 	int CloseDribbleStrength = 100, bool CloseDribbleStrengthDebug = false, bool AccelerationGap = false, int Headers = 100, bool HeadersDebug = false, int DefenceLine = 0,
 	int SuperShot = 0, bool SuperShotDebug = false, int SuperShotSpeed = PatchOptions.DefaultSuperShotSpeed,
 	int SuperShotWeight = PatchOptions.DefaultSuperShotWeight, int SuperShotStar = PatchOptions.DefaultSuperShotStar, int OffBallPace = 0,
-	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false, int ShotGaugeSpeed = 100, bool BallPush = false, bool CrossGauge = false, int CrossGaugeMs = PatchOptions.DefaultCrossGaugeMs)
+	bool PassPowerGauges = false, int ShortPassFrames = 25, int ThroughPassFrames = 25, int LoftedThroughFrames = 25, bool ForwardRuns = false, int ShotGaugeSpeed = 100, bool BallPush = false, bool CrossGauge = false, int CrossGaugeMs = PatchOptions.DefaultCrossGaugeMs, bool PassAccuracy = false, bool LoftedThrough = false,
+	int PassAccuracyNeutral = PatchOptions.DefaultPassAccuracyNeutral, int LoftedSpeed = PatchOptions.DefaultLoftedSpeed, int LoftedHeight = PatchOptions.DefaultLoftedHeight, int LoftedSpin = PatchOptions.DefaultLoftedSpin)
 {
 	/// <summary>
 	/// Close dribbling strength: how much of the touch reduction (x 14/16 running, x 13/16 sprinting from 95 in dribble
@@ -82,6 +89,14 @@ public sealed record PatchOptions(int Half, bool FreeDirection, bool Display = t
 
 	/// <summary>Shot gauge fill speed, in % of the game's (100 = unchanged): default when the option is on (tuned in game: 75 % fills in about 0.33 s instead of 0.25 s) and limits.</summary>
 	public const int DefaultShotGaugeSpeed = 75, MinShotGaugeSpeed = 40, MaxShotGaugeSpeed = 100;
+
+	/// <summary>Passes by the stats: the accuracy at which a pass misses as in the game (tuned in game and matches: 80), and limits.</summary>
+	public const int DefaultPassAccuracyNeutral = 80, MinPassAccuracyNeutral = 60, MaxPassAccuracyNeutral = 95;
+
+	/// <summary>Lofted through ball (L1 + triangle): speed and height in % of the game's, backspin in % of the ball's speed: defaults (tuned in training and a match) and limits.</summary>
+	public const int DefaultLoftedSpeed = 70, MinLoftedSpeed = 50, MaxLoftedSpeed = 100;
+	public const int DefaultLoftedHeight = 115, MinLoftedHeight = 100, MaxLoftedHeight = 150;
+	public const int DefaultLoftedSpin = 23, MinLoftedSpin = 0, MaxLoftedSpin = 40;
 
 	/// <summary>Cross gauge: time the circle must be held to fill the gauge, in milliseconds (tuned in game: 350 ms), and limits.</summary>
 	public const int DefaultCrossGaugeMs = 350, MinCrossGaugeMs = 150, MaxCrossGaugeMs = 1500;
@@ -206,9 +221,12 @@ public sealed record ExeReport(string Sha256, bool Validated, bool AlreadyPatche
 	/// <summary>The cross gauge can be added (the cross start, its three calls and the power computation are found).</summary>
 	public bool CrossGauge { get; init; }
 
+	/// <summary>The passes by the stats and the lofted through ball can be added (the ground pass code's direction draws, speed, point and spin are found).</summary>
+	public bool PassStats { get; init; }
+
 	public bool PassPowerGauges { get; init; }
 
-	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns || ShotGauge || BallPush || CrossGauge;
+	public bool AnyFix => PassPowerGauges || Display || FreeDirection || CloseDribble || SkipIntro || FreeKick || ShotPower || Spread || SpeedGap || SprintTurn || Tackle || LoftedAim || PassLead || StickDeadZone || CarrierTurn || AccelerationGap || DefenceLine || OffBallPace || ForwardRuns || ShotGauge || BallPush || CrossGauge || PassStats;
 }
 
 public sealed class PatchException(IReadOnlyList<string> problems)
@@ -262,6 +280,7 @@ public static class ExePatcher
 				ForwardRuns = ExeLocator.LocateForwardRuns(exe) != null,
 				BallPush = shot != null && ExeLocator.LocateBallPush(exe) != null,
 				CrossGauge = ExeLocator.LocateCrossGauge(exe) != null,
+				PassStats = ExeLocator.LocatePassStats(exe) != null,
 				ShotGauge = ExeLocator.LocateShotGauge(exe) != null,
 			};
 		}
@@ -728,6 +747,15 @@ public static class ExePatcher
 				?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.CrossGauge"), 0)]);
 			CrossGauge.Plan(sites, options.CrossGaugeMs, plan, Cave);
 			image.MakeWritable(image.SectionOf(sites.State)!);
+		}
+
+		// passes by the stats and the lofted through ball (allocated after the other caves, so they stay where they were): hooked at the two
+		// direction draws of the ground pass code, its final speed, the through ball's point and the meeting point after the kick
+		if (options.PassAccuracy || options.LoftedThrough)
+		{
+			var sites = ExeLocator.LocatePassStats(original)
+				?? throw new PatchException([Loc.T("Check.Location", Loc.T("Hook.PassStats"), 0)]);
+			PassStats.Plan(image, sites, options, plan, Cave);
 		}
 
 		foreach (var (va, bytes) in plan) image.Write(va, bytes);

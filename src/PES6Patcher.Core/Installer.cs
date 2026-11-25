@@ -47,6 +47,12 @@ namespace PES6Patcher.Core;
 /// <param name="BallPush">R1 pressed three times, or the right stick pushed to the edge while a human player runs, sends his next touch further ahead (right stick: toward the stick, 20 degrees at most from his running direction).</param>
 /// <param name="CrossGauge">The cross (circle from a wing) is held while the circle stays down and its power follows how long it was held; it starts when the circle is let go, or at once when the gauge is full. The left stick aims it; with no direction held it goes where the player faces.</param>
 /// <param name="CrossGaugeMs">Time the circle must be held to fill the cross gauge, in milliseconds.</param>
+/// <param name="PassAccuracy">The direction error of a ground pass follows the passer's pass accuracy (short pass; long pass for L1 + triangle), and L1 + triangle misses its distance by the long pass accuracy.</param>
+/// <param name="LoftedThrough">L1 + triangle stays in play and before the goal area, leaves slower and a little higher, with a little more backspin.</param>
+/// <param name="PassAccuracyNeutral">The accuracy at which a pass misses as in the game.</param>
+/// <param name="LoftedSpeed">L1 + triangle's speed, in % of the game's.</param>
+/// <param name="LoftedHeight">L1 + triangle's height, in % of the game's.</param>
+/// <param name="LoftedSpin">L1 + triangle's backspin, in % of the ball's speed.</param>
 /// <param name="OffBallPace">Off-ball pace: a player placing himself runs at most at 1.4 m/s plus this share of the distance to his place, in % (0 = unchanged).</param>
 /// <param name="SuperShot">Height of a human team's shot taken with L1 and R1 held (the super shot: a shot, not a lob), in the kick function's units (the game's shots: 13 to 35; 0 = off).</param>
 /// <param name="SuperShotDebug">Test key: F12 in game changes <paramref name="SuperShot"/> by 2 and shows it (through Kitserver).</param>
@@ -106,7 +112,13 @@ public sealed record InstallSettings(
     int ShotGaugeSpeed = 100,
     bool BallPush = false,
     bool CrossGauge = false,
-    int CrossGaugeMs = PatchOptions.DefaultCrossGaugeMs
+    int CrossGaugeMs = PatchOptions.DefaultCrossGaugeMs,
+    bool PassAccuracy = false,
+    bool LoftedThrough = false,
+    int PassAccuracyNeutral = PatchOptions.DefaultPassAccuracyNeutral,
+    int LoftedSpeed = PatchOptions.DefaultLoftedSpeed,
+    int LoftedHeight = PatchOptions.DefaultLoftedHeight,
+    int LoftedSpin = PatchOptions.DefaultLoftedSpin
 )
 {
     /// <summary>Half-width of the 2D layer: the original 448-unit height times the aspect ratio, halved.</summary>
@@ -155,6 +167,8 @@ public static class Installer
         int shotGauge = settings.Gameplay ? settings.ShotGaugeSpeed : 100;
         bool ballPush = settings.Gameplay && settings.BallPush;
         bool crossGauge = settings.Gameplay && settings.CrossGauge;
+        bool passAccuracy = settings.Gameplay && settings.PassAccuracy;
+        bool loftedThrough = settings.Gameplay && settings.LoftedThrough;
         // without any exe fix, the exe goes back to the original
         byte[] patched =
             passPowerGauges
@@ -181,6 +195,8 @@ public static class Installer
             || shotGauge < 100
             || ballPush
             || crossGauge
+            || passAccuracy
+            || loftedThrough
             || settings.SkipIntro
                 ? ExePatcher.Build(
                     original,
@@ -231,7 +247,13 @@ public static class Installer
                         shotGauge,
                         ballPush,
                         crossGauge,
-                        settings.CrossGaugeMs
+                        settings.CrossGaugeMs,
+                        passAccuracy,
+                        loftedThrough,
+                        settings.PassAccuracyNeutral,
+                        settings.LoftedSpeed,
+                        settings.LoftedHeight,
+                        settings.LoftedSpin
                     )
                 )
                 : original;
@@ -283,6 +305,10 @@ public static class Installer
             log(Loc.T("Log.ForwardRuns"));
         if (crossGauge)
             log(Loc.T("Log.CrossGauge", settings.CrossGaugeMs));
+        if (passAccuracy)
+            log(Loc.T("Log.PassAccuracy", settings.PassAccuracyNeutral));
+        if (loftedThrough)
+            log(Loc.T("Log.LoftedThrough", settings.LoftedSpeed, settings.LoftedHeight, settings.LoftedSpin));
         if (ballPush)
             log(Loc.T("Log.BallPush"));
         if (shotGauge < 100)

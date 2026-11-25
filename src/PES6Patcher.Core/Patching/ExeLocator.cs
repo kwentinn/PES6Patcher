@@ -156,6 +156,16 @@ internal sealed record CrossGaugeSites(int Call1, int Call2, int Call3, int Star
 	int Aim, int AngleBetween, int StickAngle, int OnPitch, int Lead, int PlannerWait);
 
 /// <summary>
+/// Passes by the stats and the lofted through ball (#67), all in the game's pass code. <see cref="DirectionMain"/> and <see cref="DirectionVariant"/>
+/// = the two calls of the signed draw (<see cref="Random"/>) that adds the direction error of a ground pass (main path, and the variant of pass
+/// kinds 1, 3, 4 and 7: the through balls, L1 + triangle among them); <see cref="Point"/> = the 14 bytes after the through ball's aimed point is
+/// written (mov al,[edi+0x4C] ; add esp,0x10 ; cmp al,3 ; mov [edi+0xA0],edx); <see cref="Speed"/> = push ecx ; call <see cref="SpeedCall"/>, once
+/// the pass's final speed (edi) and height (ebp) are set; <see cref="Spin"/> = the 9 bytes where the pass kinds meet again after the kick
+/// (push 3 ; mov byte [..],0); <see cref="Ball"/> = the ball pointer; <see cref="Stats"/> = the players' stats records (0x348 bytes each).
+/// </summary>
+internal sealed record PassStatsSites(int DirectionMain, int DirectionVariant, int Random, int Point, int Speed, int SpeedCall, int Spin, int Ball, int Stats);
+
+/// <summary>
 /// Pass lead: where the pass point (passer +0x9C / +0xA0) is placed ahead of the receiver, the lead (passer +0xA8) is
 /// read twice: <see cref="First"/> = mov eax,[edi+0xA8] (6 bytes, for the cosine), <see cref="Second"/> = mov ecx,[edi+0xA8]
 /// (6 bytes, for the sine).
@@ -846,6 +856,44 @@ internal sealed class ExeLocator
 		int plannerWait = Find(CrossGaugePlannerWait);
 		if (plannerWait == 0 || plannerWait > call3 || call3 - plannerWait > 0x100) return null;   // the counter is read shortly before the planner's call
 		return new CrossGaugeSites(call1, call2, call3, target, phase, power, fatigue, cap + 7, tick, state, aim, image.Rel32Target(angleCall), stick, onPitch, leads[0], plannerWait);
+	}
+
+	/// <summary>Ground pass, main path: sub edi,eax ; movzx edx,bp ; push edx (the error's range) ; call (at +6) the signed draw ; mov ecx,[esp+0x48] ; add ecx,eax.</summary>
+	private const string PassDirectionMain = "2B F8 0F B7 D5 52 E8 ?? ?? ?? ?? 8B 4C 24 48 03 C8 51 56 E8";
+
+	/// <summary>Ground pass, variant of the through balls: movzx ecx,ax ; push ecx (the range) ; call (at +4) the signed draw ; mov ecx,[esp+0x48] ; add ecx,eax.</summary>
+	private const string PassDirectionVariant = "0F B7 C8 51 E8 ?? ?? ?? ?? 8B 4C 24 48 03 C8 51 56 E8";
+
+	/// <summary>Through ball's aimed point, after its z is computed: mov al,[edi+0x4C] ; add esp,0x10 ; cmp al,3 ; mov [edi+0xA0],edx ; je ; cmp al,7 ; jne.</summary>
+	private const string PassPoint = "8A 47 4C 83 C4 10 3C 03 89 97 A0 00 00 00 74 ?? 3C 07 0F 85";
+
+	/// <summary>Ground pass, final height: mov ebp,edx ; fstp [esp+4] ; shr ebp,31 ; fild [..] ; add ebp,edx ; fstp [esp] ; push ecx (at +20) ; call.</summary>
+	private const string PassSpeed = "8B EA D9 5C 24 04 C1 ED 1F DB 05 ?? ?? ?? ?? 03 EA D9 1C 24 51 E8";
+
+	/// <summary>After the kick: call ; push 3 (at +5) ; mov byte [..],0 ; call ; mov edx,[esp+0x1C] ; mov byte [esi+0x66],3 ; mov eax,[ball pointer] (address at +28).</summary>
+	private const string PassSpin = "E8 ?? ?? ?? ?? 6A 03 C6 05 ?? ?? ?? ?? 00 E8 ?? ?? ?? ?? 8B 54 24 1C C6 46 66 03 A1";
+
+	public static PassStatsSites? LocatePassStats(byte[] exe)
+	{
+		var image = new PeImage(exe);
+		int Find(string pattern)
+		{
+			var signature = new Signature(pattern);
+			var hits = image.Sections.Where(section => section.IsCode).SelectMany(section => signature.FindAll(image, section)).Take(2).ToArray();
+			return hits.Length == 1 ? hits[0] : 0;
+		}
+
+		int main = Find(PassDirectionMain), variant = Find(PassDirectionVariant), point = Find(PassPoint), speed = Find(PassSpeed), spin = Find(PassSpin);
+		int reader = Find(DribbleAccuracyReader);
+		if (main == 0 || variant == 0 || point == 0 || speed == 0 || spin == 0 || reader == 0) return null;
+		int random = image.Rel32Target(main + 6);
+		if (image.Rel32Target(variant + 4) != random) return null;
+		int ball = image.ReadInt32(spin + 28);
+		// the game's dribble noise reads the technique, +0x18 of the stats record (see DribbleAccuracyReader)
+		int stats = image.ReadInt32(reader + 23) - TechniqueStat;
+		bool IsData(int address) => image.Sections.Any(section => !section.IsCode && address >= section.Va && (long)address + 4 <= (long)section.Va + section.VirtualSize);
+		if (!IsData(ball)) return null;
+		return new PassStatsSites(main + 6, variant + 4, random, point, speed + 20, image.Rel32Target(speed + 21), spin + 5, ball, stats);
 	}
 
 	public static LoftedAimSites? LocateLoftedAim(byte[] exe)
