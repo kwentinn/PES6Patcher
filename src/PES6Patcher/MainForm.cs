@@ -33,7 +33,7 @@ internal sealed class MainForm : Form
     private Panel[] GameplayPages = [];
     private string _presetBadge = "";
     // the description popups of the (i) icons
-    private readonly ToolTip _tip = new() { OwnerDraw = true, AutoPopDelay = 30000, InitialDelay = 250 };
+    private readonly ToolTip _tip = new() { OwnerDraw = true, AutoPopDelay = 10000, InitialDelay = 250 };
     private const TextFormatFlags TipFlags = TextFormatFlags.WordBreak | TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPrefix;
     private static readonly Font InfoFont = new("Georgia", 8.5f, FontStyle.Bold | FontStyle.Italic);
     // the log is folded away: the panel holds it, the button opens it
@@ -454,6 +454,7 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
             TextRenderer.DrawText(e.Graphics, e.ToolTipText, Font, new Rectangle(9, 7, e.Bounds.Width - 18, e.Bounds.Height - 14),
                 Txt, TipFlags);
         };
+        Deactivate += (_, _) => _tip.Hide(this);
         _theme.Items.AddRange([Loc.T("Theme.System"), Loc.T("Theme.Light"), Loc.T("Theme.Dark")]);
         _theme.SelectedIndex = Math.Max(0, Array.IndexOf(new[] { "", "light", "dark" }, ThemePreference.Load()));
         _theme.SelectionChangeCommitted += (_, _) => ChangeTheme();
@@ -1043,7 +1044,9 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         button.FlatAppearance.CheckedBackColor = Selected;
         button.CheckedChanged += (_, _) =>
         {
-            if (button.Checked) foreach (var p in _pages) p.Visible = p == page;
+            if (!button.Checked) return;
+            _tip.Hide(this);
+            foreach (var p in _pages) p.Visible = p == page;
         };
         button.Paint += (_, e) => TextRenderer.DrawText(e.Graphics, badge(), Font,
             new Rectangle(0, 0, button.Width - 8, button.Height), Accent, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
@@ -1074,7 +1077,9 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
                 TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
         };
         _tip.SetToolTip(icon, text);
-        icon.Click += (_, _) => _tip.Show(text, icon, 0, icon.Height + 2, 15000);
+        icon.Click += (_, _) => _tip.Show(text, icon, 0, icon.Height + 2, 8000);
+        // a popup shown by a click is not hidden by the tooltip itself when the mouse leaves
+        icon.MouseLeave += (_, _) => _tip.Hide(icon);
         return icon;
     }
 
