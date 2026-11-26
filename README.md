@@ -60,10 +60,9 @@ The rest of the gameplay is unchanged.
 3. Check the game folder (detected automatically), the executable and the resolution (the screen's by default).
 4. Choose the options (see below), then click **Apply**. Each group (**Display**, **Gameplay**) and **Skip the intro** can be unchecked: for example, to change only the gameplay, uncheck **Display** and `kload.cfg`, `lodmixer.dat` and `settings.dat` are left as they are.
 
-The gameplay options have two modes, kept from one opening to the next:
+The options are grouped in pages, listed in the left column: **General** (display, intro, game speed), then, under **Gameplay**, **Profile**, **Dribbling**, **Shooting**, **Passing**, **Team & defence** and **Physics & speed**. Each page shows how many of its options are on. The **i** next to an option explains what it does; the popup closes by itself. The **Log** button at the bottom right unfolds the log of the operations (it shows a dot when there is something new), and the language and theme (system, light or dark) are chosen at the top right.
 
-- **Simple**: three presets set every option at once. **Pro** (selected at first) is the patcher's defaults, tested in matches; **Normal** gives more help, **Hardcore** less. When the options match no preset (changed in the detailed mode), the window says they are custom.
-- **Detailed**: every option and its value, with the **Test** boxes. Choosing a preset first, then adjusting a few values here, is the quickest way to tune the game.
+The **Profile** page has three presets that set every gameplay option at once: **Pro** (selected at first) is the patcher's defaults, tested in matches; **Normal** gives more help, **Hardcore** less. When the options match no preset (changed in the other pages), the page says they are custom. **Show the details** lists the values of the preset. Choosing a preset first, then adjusting a few values in the pages (and the **Test** boxes), is the quickest way to tune the game.
 
 | Preset | Close dribbling | Sprint turns | Turn with the ball | Free kicks | Shot power | Aim error kept | Pass lead | Headers | Super shot (speed / height / dip / star) | Off-ball pace |
 |---|---|---|---|---|---|---|---|---|---|---|

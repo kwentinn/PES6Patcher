@@ -60,10 +60,9 @@ Le reste du gameplay est inchangé.
 3. Vérifier le dossier du jeu (détecté automatiquement), l'exécutable et la résolution (celle de l'écran par défaut).
 4. Choisir les options (voir ci-dessous), puis cliquer sur **Appliquer**. Chaque groupe (**Affichage**, **Gameplay**) et **Passer l'intro** peuvent être décochés : par exemple, pour ne modifier que le gameplay, décocher **Affichage**, et `kload.cfg`, `lodmixer.dat` et `settings.dat` restent tels quels.
 
-Les options de gameplay ont deux modes, retenus d'une ouverture à l'autre :
+Les options sont rangées en pages, listées dans la colonne de gauche : **Général** (affichage, intro, vitesse du jeu), puis, sous **Gameplay**, **Profil**, **Dribble**, **Tirs**, **Passes**, **Équipe & défense** et **Physique & vitesse**. Chaque page indique combien de ses options sont activées. Le **i** à côté d'une option explique ce qu'elle fait ; la bulle se ferme toute seule. Le bouton **Journal**, en bas à droite, déplie le journal des opérations (un point signale du nouveau), et la langue et le thème (système, clair ou sombre) se choisissent en haut à droite.
 
-- **Simple** : trois profils règlent toutes les options d'un coup. **Pro** (choisi au départ) correspond aux valeurs par défaut du patcher, testées en match ; **Normal** aide davantage, **Hardcore** moins. Quand les options ne correspondent à aucun profil (modifiées en mode détaillé), la fenêtre indique qu'elles sont personnalisées.
-- **Détaillé** : chaque option et sa valeur, avec les cases **Test**. Choisir d'abord un profil, puis ajuster quelques valeurs ici, est le moyen le plus rapide de régler le jeu.
+La page **Profil** propose trois profils qui règlent toutes les options de gameplay d'un coup : **Pro** (choisi au départ) correspond aux valeurs par défaut du patcher, testées en match ; **Normal** aide davantage, **Hardcore** moins. Quand les options ne correspondent à aucun profil (modifiées dans les autres pages), la page indique qu'elles sont personnalisées. **Voir le détail** liste les valeurs du profil. Choisir d'abord un profil, puis ajuster quelques valeurs dans les pages (et les cases **Test**), est le moyen le plus rapide de régler le jeu.
 
 | Profil | Dribble resserré | Virages en sprint | Rotation balle au pied | Coups francs | Puissance des tirs | Écart de visée gardé | Avance des passes | Têtes | Super frappe (vitesse / hauteur / plongeon / star) | Allure sans ballon |
 |---|---|---|---|---|---|---|---|---|---|---|
