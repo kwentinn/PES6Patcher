@@ -37,7 +37,7 @@ internal sealed class MainForm : Form
     private const TextFormatFlags TipFlags = TextFormatFlags.WordBreak | TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPrefix;
     private static readonly Font InfoFont = new("Georgia", 8.5f, FontStyle.Bold | FontStyle.Italic);
     // the log is folded away: the panel holds it, the button opens it
-    private readonly Panel _logPanel = new() { Dock = DockStyle.Bottom, Height = 150, Visible = false };
+    private readonly Panel _logPanel = new() { Dock = DockStyle.Bottom, Height = 150, Visible = false, BackColor = Card };
     private readonly Button _logButton = new() { AutoSize = true };
     private bool _logUnread;
     private readonly Dictionary<GameplayPreset, RadioButton> _presets = GameplayPresets.All.ToDictionary(p => p, PresetButton);
@@ -221,6 +221,8 @@ private readonly CheckBox _offBallPace = new() { Text = Loc.T("Gameplay.OffBallP
         StartPosition = FormStartPosition.CenterScreen;
         ClientSize = new Size(1060, 720);
         MinimumSize = new Size(760, 520);
+        BackColor = Bg;
+        ForeColor = Txt;
 
         var browse = new Button { Text = Loc.T("Folder.Browse"), AutoSize = true };
         browse.Click += (_, _) => BrowseFolder();
@@ -305,7 +307,8 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         var folderRow = Row(_folder, browse);
         folderRow.ColumnStyles[0] = new ColumnStyle(SizeType.Percent, 100);
         var exeRow = Flow(LabelText(Loc.T("Folder.Exe")), _exe, _report);
-        var top = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(10, 10, 10, 4) };
+        var top = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(16, 12, 16, 10), BackColor = Card };
+        top.Paint += (_, e) => { using var pen = new Pen(Line); e.Graphics.DrawLine(pen, 0, top.Height - 1, top.Width, top.Height - 1); };
         top.Controls.Add(header);
         top.Controls.Add(folderRow);
         top.Controls.Add(exeRow);
@@ -319,10 +322,10 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         var general = Page("Section.General", display, Flow(_skipIntro, Info("SkipIntro")));
         var presetCards = Flow([.. _presets.Select(p => Stack(p.Value, new Label
         {
-            Text = Loc.T("Preset.Info." + p.Key), AutoSize = true, MaximumSize = new Size(200, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(3, 2, 3, 3),
+            Text = Loc.T("Preset.Info." + p.Key), AutoSize = true, MaximumSize = new Size(200, 0), ForeColor = Mut, Margin = new Padding(3, 2, 3, 3),
         }))]);
         var profile = Page("Section.Profile",
-            new Label { Text = Loc.T("Preset.Hint"), AutoSize = true, MaximumSize = new Size(620, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(3, 0, 3, 8) },
+            new Label { Text = Loc.T("Preset.Hint"), AutoSize = true, MaximumSize = new Size(620, 0), ForeColor = Mut, Margin = new Padding(3, 0, 3, 8) },
             presetCards, _presetInfo, _showDetails, _checkAll);
         var dribble = Page("Gameplay.Theme.Dribble",
             Flow(_freeDirection, Info("FreeDirection")),
@@ -387,12 +390,12 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         var navGeneral = NavButton(Loc.T("Section.General"), general, () => "");
         var navProfile = NavButton(Loc.T("Section.Profile"), profile, () => _presetBadge);
         var navDribble = NavButton(Loc.T("Gameplay.Theme.Dribble"), dribble, () => Badge(_freeDirection, _stickDeadZone, _closeDribble, _sprintTurn, _carrierTurn));
-        var sidebar = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 234, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(8, 10, 4, 8) };
+        var sidebar = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 240, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(12, 12, 8, 8), BackColor = Card };
         _gameplay.Font = new Font(Font, FontStyle.Bold);
         _gameplay.Margin = new Padding(3, 4, 3, 4);
         sidebar.Controls.AddRange([
             navGeneral,
-            new Panel { Size = new Size(204, 1), BackColor = SystemColors.ControlDark, Margin = new Padding(0, 8, 0, 6) },
+            new Panel { Size = new Size(204, 1), BackColor = Line, Margin = new Padding(0, 8, 0, 6) },
             _gameplay,
             navProfile,
             navDribble,
@@ -402,7 +405,7 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
             NavButton(Loc.T("Section.Physics"), physics, () => Badge(_ballPush, _speedGap, _accelerationGap, _physicsMod)),
         ]);
         foreach (var button in sidebar.Controls.OfType<RadioButton>()) button.Width = button == navGeneral ? 204 : 192;
-        sidebar.Paint += (_, e) => e.Graphics.DrawLine(SystemPens.ControlDark, sidebar.Width - 1, 0, sidebar.Width - 1, sidebar.Height);
+        sidebar.Paint += (_, e) => { using var pen = new Pen(Line); e.Graphics.DrawLine(pen, sidebar.Width - 1, 0, sidebar.Width - 1, sidebar.Height); };
         var pages = new Panel { Dock = DockStyle.Fill };
         foreach (var page in _pages) pages.Controls.Add(page);
         _gameplay.CheckedChanged += (_, _) =>
@@ -417,7 +420,7 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         copyLog.Click += (_, _) => { if (_log.TextLength > 0) Clipboard.SetText(_log.Text); };
         var closeLog = new Button { Text = Loc.T("Action.Close"), AutoSize = true };
         closeLog.Click += (_, _) => ShowLog(false);
-        var logHeader = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, Padding = new Padding(10, 4, 10, 4) };
+        var logHeader = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, Padding = new Padding(16, 4, 16, 4) };
         logHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         logHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         logHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
@@ -426,7 +429,8 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         logHeader.Controls.Add(closeLog);
         _logPanel.Controls.Add(_log);
         _logPanel.Controls.Add(logHeader);
-        var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 2, Padding = new Padding(10, 6, 10, 10) };
+        var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 2, Padding = new Padding(16, 10, 16, 12), BackColor = Card };
+        footer.Paint += (_, e) => { using var pen = new Pen(Line); e.Graphics.DrawLine(pen, 0, 0, footer.Width, 0); };
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         footer.Controls.Add(Flow(_apply, _restore));
@@ -443,13 +447,12 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
             e.ToolTipSize = TextRenderer.MeasureText(_tip.GetToolTip(e.AssociatedControl!), Font, new Size(300, 0), TipFlags) + new Size(18, 14);
         _tip.Draw += (_, e) =>
         {
-            bool dark = Application.IsDarkModeEnabled;
-            using var back = new SolidBrush(dark ? Color.FromArgb(45, 45, 48) : Color.White);
-            using var border = new Pen(dark ? Color.FromArgb(100, 100, 105) : Color.FromArgb(160, 160, 160));
+            using var back = new SolidBrush(Card);
+            using var border = new Pen(Line);
             e.Graphics.FillRectangle(back, e.Bounds);
             e.Graphics.DrawRectangle(border, 0, 0, e.Bounds.Width - 1, e.Bounds.Height - 1);
             TextRenderer.DrawText(e.Graphics, e.ToolTipText, Font, new Rectangle(9, 7, e.Bounds.Width - 18, e.Bounds.Height - 14),
-                dark ? Color.WhiteSmoke : Color.Black, TipFlags);
+                Txt, TipFlags);
         };
         _theme.Items.AddRange([Loc.T("Theme.System"), Loc.T("Theme.Light"), Loc.T("Theme.Dark")]);
         _theme.SelectedIndex = Math.Max(0, Array.IndexOf(new[] { "", "light", "dark" }, ThemePreference.Load()));
@@ -665,7 +668,8 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
             FlatStyle = FlatStyle.Flat, AutoCheck = false,
         };
         button.FlatAppearance.CheckedBackColor = Selected;
-        button.FlatAppearance.BorderColor = SystemColors.ControlDark;
+        button.FlatAppearance.BorderColor = Line;
+        button.BackColor = Card;
         return button;
     }
 
@@ -996,26 +1000,34 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
 
     private static Label LabelText(string text) => new() { Text = text, AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
 
-    private static Color Accent => Application.IsDarkModeEnabled ? Color.FromArgb(90, 162, 240) : Color.FromArgb(11, 99, 197);
-
-    private static Color Selected => Application.IsDarkModeEnabled ? Color.FromArgb(34, 54, 77) : Color.FromArgb(204, 228, 247);
+    // the colours of the mockup: the window on Bg, the header, sidebar and footer on Card, hairlines in Line
+    private static bool Dark => Application.IsDarkModeEnabled;
+    private static Color Bg => Dark ? Color.FromArgb(0x1e, 0x1f, 0x22) : Color.FromArgb(0xf3, 0xf3, 0xf3);
+    private static Color Card => Dark ? Color.FromArgb(0x2a, 0x2b, 0x2f) : Color.White;
+    private static Color Line => Dark ? Color.FromArgb(0x3d, 0x3f, 0x44) : Color.FromArgb(0xd9, 0xd9, 0xd9);
+    private static Color Txt => Dark ? Color.FromArgb(0xe8, 0xe8, 0xe8) : Color.FromArgb(0x1a, 0x1a, 0x1a);
+    private static Color Mut => Dark ? Color.FromArgb(0x9a, 0x9a, 0x9a) : Color.FromArgb(0x66, 0x66, 0x66);
+    private static Color Accent => Dark ? Color.FromArgb(0x5a, 0xa2, 0xf0) : Color.FromArgb(0x0b, 0x63, 0xc5);
+    private static Color Selected => Dark ? Color.FromArgb(0x22, 0x36, 0x4d) : Color.FromArgb(0xe5, 0xf0, 0xfb);
 
     /// <summary>A page of the sidebar: its title, then its rows. Hidden until its button is selected.</summary>
     private Panel Page(string titleKey, params Control[] rows)
     {
         var title = new Label { Text = Loc.T(titleKey), AutoSize = true, UseMnemonic = false, Font = new Font("Segoe UI", 12f, FontStyle.Bold), Margin = new Padding(3, 0, 3, 8) };
-        var page = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(14, 12, 14, 12), Visible = false };
+        var page = new Panel { Dock = DockStyle.Fill, AutoScroll = true, AutoScrollMargin = new Size(22, 16), Visible = false };
         // each option starts after a hairline, its test key and values sit close under it
         var items = new List<Control> { title };
         foreach (var row in rows)
         {
             bool option = row is GroupBox || row is FlowLayoutPanel { Controls: [CheckBox box, ..] } && GameplayOptions.Contains(box);
             if (option && items.Count > 1)
-                items.Add(new Panel { Size = new Size(680, 1), BackColor = Application.IsDarkModeEnabled ? Color.FromArgb(70, 70, 74) : Color.FromArgb(217, 217, 217), Margin = new Padding(0, 6, 0, 6) });
+                items.Add(new Panel { Size = new Size(700, 1), BackColor = Line, Margin = new Padding(0, 6, 0, 6) });
             row.Margin = new Padding(row.Margin.Left, 2, row.Margin.Right, 2);
             items.Add(row);
         }
-        page.Controls.Add(Stack([.. items]));
+        var stack = Stack([.. items]);
+        stack.Location = new Point(22, 16);
+        page.Controls.Add(stack);
         return page;
     }
 
