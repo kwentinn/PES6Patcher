@@ -1005,7 +1005,17 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
     {
         var title = new Label { Text = Loc.T(titleKey), AutoSize = true, UseMnemonic = false, Font = new Font("Segoe UI", 12f, FontStyle.Bold), Margin = new Padding(3, 0, 3, 8) };
         var page = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(14, 12, 14, 12), Visible = false };
-        page.Controls.Add(Stack([title, .. rows]));
+        // each option starts after a hairline, its test key and values sit close under it
+        var items = new List<Control> { title };
+        foreach (var row in rows)
+        {
+            bool option = row is GroupBox || row is FlowLayoutPanel { Controls: [CheckBox box, ..] } && GameplayOptions.Contains(box);
+            if (option && items.Count > 1)
+                items.Add(new Panel { Size = new Size(680, 1), BackColor = Application.IsDarkModeEnabled ? Color.FromArgb(70, 70, 74) : Color.FromArgb(217, 217, 217), Margin = new Padding(0, 6, 0, 6) });
+            row.Margin = new Padding(row.Margin.Left, 2, row.Margin.Right, 2);
+            items.Add(row);
+        }
+        page.Controls.Add(Stack([.. items]));
         return page;
     }
 
