@@ -13,7 +13,7 @@
     <!-- Physical pixels from Screen.Bounds on scaled displays (e.g. 125 %). -->
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <ApplicationManifest>app.manifest</ApplicationManifest>
-    <Version>1.34.0</Version>
+    <Version>1.35.0</Version>
     <Product>PES6 Patcher</Product>
     <!-- dark mode (Application.SetColorMode, IsDarkModeEnabled) is still flagged experimental -->
     <NoWarn>$(NoWarn);WFO5001</NoWarn>
