@@ -12,6 +12,7 @@ static class Program
         MainForm.State? state = null;
         do
         {
+            ThemePreference.Apply(ThemePreference.Load());
             var form = new MainForm(state);
             Application.Run(form);
             state = form.RebuildWith;

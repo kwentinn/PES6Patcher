@@ -555,9 +555,6 @@
   <data name="Gameplay.Theme.Dribble" xml:space="preserve">
     <value>Dribbling</value>
   </data>
-  <data name="Gameplay.Theme.Other" xml:space="preserve">
-    <value>Other</value>
-  </data>
   <data name="Log.SettingsDetected" xml:space="preserve">
     <value>The options below are the ones {0} was patched with.</value>
   </data>
@@ -575,15 +572,6 @@
   </data>
   <data name="Overlay.CloseDribbleStrength" xml:space="preserve">
     <value>CLOSE DRIBBLING: {0} % (F10)</value>
-  </data>
-  <data name="Gameplay.Mode" xml:space="preserve">
-    <value>Settings:</value>
-  </data>
-  <data name="Gameplay.ModeSimple" xml:space="preserve">
-    <value>Simple</value>
-  </data>
-  <data name="Gameplay.ModeDetailed" xml:space="preserve">
-    <value>Detailed</value>
   </data>
   <data name="Preset.Normal" xml:space="preserve">
     <value>Normal</value>
@@ -613,7 +601,7 @@
     <value>Every option on, with less help: less accurate and stronger shots, the first close dribbling, smaller turns, passes further ahead.</value>
   </data>
   <data name="Preset.Custom" xml:space="preserve">
-    <value>Custom settings: they match none of the presets (see the detailed mode).</value>
+    <value>Custom settings: they match none of the presets (see the sections on the left).</value>
   </data>
   <data name="Preset.ShowDetails" xml:space="preserve">
     <value>Show the details</value>
@@ -740,5 +728,125 @@
   </data>
   <data name="Log.PassPowerGauges" xml:space="preserve">
     <value>Pass gauges are enabled. Full charge uses {0}% of the usual through-pass lead. Lighter charges aim closer to the receiver.</value>
+  </data>
+  <data name="Section.General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Section.Profile" xml:space="preserve">
+    <value>Profile</value>
+  </data>
+  <data name="Section.Team" xml:space="preserve">
+    <value>Team &amp; defence</value>
+  </data>
+  <data name="Section.Physics" xml:space="preserve">
+    <value>Physics &amp; speed</value>
+  </data>
+  <data name="Preset.Hint" xml:space="preserve">
+    <value>A profile sets the gameplay options at once. The display, the intro, the physics mod, the game speed and the test keys do not change.</value>
+  </data>
+  <data name="Preset.CustomShort" xml:space="preserve">
+    <value>Custom</value>
+  </data>
+  <data name="Action.Log" xml:space="preserve">
+    <value>Log</value>
+  </data>
+  <data name="Action.CopyLog" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="Action.Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Theme.System" xml:space="preserve">
+    <value>Theme: system</value>
+  </data>
+  <data name="Theme.Light" xml:space="preserve">
+    <value>Theme: light</value>
+  </data>
+  <data name="Theme.Dark" xml:space="preserve">
+    <value>Theme: dark</value>
+  </data>
+  <data name="Info.FreeDirection" xml:space="preserve">
+    <value>The player runs in any direction of the analogue stick, instead of 8 directions.</value>
+  </data>
+  <data name="Info.StickDeadZone" xml:space="preserve">
+    <value>Reduces the dead zone of each stick axis (29 % in the game): a stick held near an axis steers the player instead of sticking to the axis.</value>
+  </data>
+  <data name="Info.CloseDribble" xml:space="preserve">
+    <value>Shorter ball touches, depending on the dribbling stat: the ball stays closer to the foot. 100 % is the first version, made for the best dribblers.</value>
+  </data>
+  <data name="Info.SprintTurn" xml:space="preserve">
+    <value>When sprinting, the ball can turn through a wider angle on each touch, depending on the dribbling stat (22.5 degrees in the game).</value>
+  </data>
+  <data name="Info.CarrierTurn" xml:space="preserve">
+    <value>The player with the ball turns faster (degrees per frame, 1.4 in the game), so he follows the ball after a sharp touch. Both teams.</value>
+  </data>
+  <data name="Info.FreeKick" xml:space="preserve">
+    <value>After a free kick taken with the left stick up, the ball is heavier and dips sooner, until the next touch.</value>
+  </data>
+  <data name="Info.Shot" xml:space="preserve">
+    <value>Softens the power of your players' shots. The AI's shots do not change. The shot gauge fill speed can be set too.</value>
+  </data>
+  <data name="Info.ShotAccuracy" xml:space="preserve">
+    <value>Reduces the aiming error (direction and height) of your players' shots. The AI's shots do not change. Lobs (L1) keep their height, with the power percentage given.</value>
+  </data>
+  <data name="Info.Headers" xml:space="preserve">
+    <value>Your players' headers leave lower (the speed is kept), so they stop going over the bar.</value>
+  </data>
+  <data name="Info.SuperShot" xml:space="preserve">
+    <value>A shot taken holding L1 and R1 is no longer a lob: it is a flat strike, faster than the game's. You set the ball height and speed, the weight added in flight for a star, and the minimum shooting stat. Experimental.</value>
+  </data>
+  <data name="Info.LoftedAim" xml:space="preserve">
+    <value>Lofted passes: a short press aims at a closer teammate, and the receiver is looked for closer to the stick's direction (22.5 degrees at most, 45 in the game).</value>
+  </data>
+  <data name="Info.PassLead" xml:space="preserve">
+    <value>A through pass is aimed less far ahead of the receiver (a percentage of the game's lead). Both teams.</value>
+  </data>
+  <data name="Info.PassGauges" xml:space="preserve">
+    <value>Sets the length, in frames, of the gauges of the short pass, the through pass and the lofted through pass.</value>
+  </data>
+  <data name="Info.CrossGauge" xml:space="preserve">
+    <value>From a wing: the cross is held while circle is held, and its power follows how long it is pressed. It leaves when circle is released, or at once when the gauge is full. The left stick aims it.</value>
+  </data>
+  <data name="Info.PassAccuracy" xml:space="preserve">
+    <value>The direction error of a pass follows the passer's passing stat: good passers are accurate, weak ones miss more. The value is the stat that misses like the game.</value>
+  </data>
+  <data name="Info.LoftedThrough" xml:space="preserve">
+    <value>L1 + triangle: a lofted through pass, shorter and a little higher, that stays in play. You set the power, the height and the backspin.</value>
+  </data>
+  <data name="Info.Spread" xml:space="preserve">
+    <value>Players take their positions further from the centre of their team, in width only. Both teams, goalkeepers excepted.</value>
+  </data>
+  <data name="Info.Tackle" xml:space="preserve">
+    <value>When pressing, a player of your teams tries to take the ball from further away (a percentage of the game's distance). The AI keeps the game's.</value>
+  </data>
+  <data name="Info.DefenceLine" xml:space="preserve">
+    <value>Removes part of the defensive line's fixed drop (about 11 m in the game): the back line stands higher up the pitch. Both teams.</value>
+  </data>
+  <data name="Info.OffBallPace" xml:space="preserve">
+    <value>Players without the ball jog to a nearby position instead of sprinting. The higher the value, the more they sprint. Open play only, both teams.</value>
+  </data>
+  <data name="Info.ForwardRuns" xml:space="preserve">
+    <value>Forwards can be picked to run beyond the last line (one runner per team), which the game never did.</value>
+  </data>
+  <data name="Info.BallPush" xml:space="preserve">
+    <value>R1 pressed three times, or the right stick pushed fully while running, sends the next touch further ahead of the player. Human teams only.</value>
+  </data>
+  <data name="Info.SpeedGap" xml:space="preserve">
+    <value>The top speed stat weighs more: the gap between fast and slow players grows (a percentage of the game's gap).</value>
+  </data>
+  <data name="Info.AccelerationGap" xml:space="preserve">
+    <value>The acceleration stat weighs twice as much on the time to reach a speed.</value>
+  </data>
+  <data name="Info.PhysicsMod" xml:space="preserve">
+    <value>Loads PityCharly's physics mod: pass power and ball weight.</value>
+  </data>
+  <data name="Info.Speed" xml:space="preserve">
+    <value>The game speed. 1.00 is the original speed.</value>
+  </data>
+  <data name="Info.Borderless" xml:space="preserve">
+    <value>Needed above 1920 × 1080: the borderless window covers the whole screen.</value>
+  </data>
+  <data name="Info.SkipIntro" xml:space="preserve">
+    <value>The game starts without the opening video and the logos.</value>
   </data>
 </root>

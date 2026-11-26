@@ -555,9 +555,6 @@
   <data name="Gameplay.Theme.Dribble" xml:space="preserve">
     <value>Dribble</value>
   </data>
-  <data name="Gameplay.Theme.Other" xml:space="preserve">
-    <value>Autres</value>
-  </data>
   <data name="Log.SettingsDetected" xml:space="preserve">
     <value>Les options ci-dessous sont celles avec lesquelles {0} a été patché.</value>
   </data>
@@ -575,15 +572,6 @@
   </data>
   <data name="Overlay.CloseDribbleStrength" xml:space="preserve">
     <value>DRIBBLE RESSERRE : {0} % (F10)</value>
-  </data>
-  <data name="Gameplay.Mode" xml:space="preserve">
-    <value>Réglages :</value>
-  </data>
-  <data name="Gameplay.ModeSimple" xml:space="preserve">
-    <value>Simple</value>
-  </data>
-  <data name="Gameplay.ModeDetailed" xml:space="preserve">
-    <value>Détaillé</value>
   </data>
   <data name="Preset.Normal" xml:space="preserve">
     <value>Normal</value>
@@ -613,7 +601,7 @@
     <value>Toutes les options, avec moins d'aide : tirs moins précis et plus forts, dribble resserré de la première version, virages plus courts, passes plus loin devant.</value>
   </data>
   <data name="Preset.Custom" xml:space="preserve">
-    <value>Réglages personnalisés : ils ne correspondent à aucun profil (voir le mode détaillé).</value>
+    <value>Réglages personnalisés : ils ne correspondent à aucun profil (voir les sections à gauche).</value>
   </data>
   <data name="Preset.ShowDetails" xml:space="preserve">
     <value>Voir le détail</value>
@@ -740,5 +728,125 @@
   </data>
   <data name="Log.PassPowerGauges" xml:space="preserve">
     <value>Les jauges de passe sont activées. À pleine charge, la passe en profondeur utilise {0} % de son avance habituelle. Une charge plus faible vise plus près du receveur.</value>
+  </data>
+  <data name="Section.General" xml:space="preserve">
+    <value>Général</value>
+  </data>
+  <data name="Section.Profile" xml:space="preserve">
+    <value>Profil</value>
+  </data>
+  <data name="Section.Team" xml:space="preserve">
+    <value>Équipe &amp; défense</value>
+  </data>
+  <data name="Section.Physics" xml:space="preserve">
+    <value>Physique &amp; vitesse</value>
+  </data>
+  <data name="Preset.Hint" xml:space="preserve">
+    <value>Un profil règle d'un coup les options de jeu. L'affichage, l'intro, le mod de physique, la vitesse du jeu et les touches de test ne changent pas.</value>
+  </data>
+  <data name="Preset.CustomShort" xml:space="preserve">
+    <value>Perso</value>
+  </data>
+  <data name="Action.Log" xml:space="preserve">
+    <value>Journal</value>
+  </data>
+  <data name="Action.CopyLog" xml:space="preserve">
+    <value>Copier</value>
+  </data>
+  <data name="Action.Close" xml:space="preserve">
+    <value>Fermer</value>
+  </data>
+  <data name="Theme.System" xml:space="preserve">
+    <value>Thème : système</value>
+  </data>
+  <data name="Theme.Light" xml:space="preserve">
+    <value>Thème : clair</value>
+  </data>
+  <data name="Theme.Dark" xml:space="preserve">
+    <value>Thème : sombre</value>
+  </data>
+  <data name="Info.FreeDirection" xml:space="preserve">
+    <value>Le joueur court dans toutes les directions du stick analogique, au lieu de 8 directions.</value>
+  </data>
+  <data name="Info.StickDeadZone" xml:space="preserve">
+    <value>Réduit la zone morte de chaque axe du stick (29 % dans le jeu) : un stick tenu près d'un axe oriente le joueur au lieu de se coller à l'axe.</value>
+  </data>
+  <data name="Info.CloseDribble" xml:space="preserve">
+    <value>Touches de balle plus courtes selon la précision de dribble : le ballon reste plus près du pied. 100 % est la première version, pensée pour les meilleurs dribbleurs.</value>
+  </data>
+  <data name="Info.SprintTurn" xml:space="preserve">
+    <value>En sprint, le ballon peut tourner d'un plus grand angle à chaque touche, selon la précision de dribble (22,5 degrés dans le jeu).</value>
+  </data>
+  <data name="Info.CarrierTurn" xml:space="preserve">
+    <value>Le joueur qui a le ballon pivote plus vite (degrés par image, 1,4 dans le jeu) et suit donc le ballon après une touche appuyée. Les deux équipes.</value>
+  </data>
+  <data name="Info.FreeKick" xml:space="preserve">
+    <value>Après un coup franc tiré avec le stick gauche vers le haut, le ballon est plus lourd et plonge plus tôt, jusqu'à la touche suivante.</value>
+  </data>
+  <data name="Info.Shot" xml:space="preserve">
+    <value>Adoucit la puissance des tirs de tes joueurs. Ceux de l'IA ne changent pas. Tu peux aussi régler la vitesse de remplissage de la jauge de tir.</value>
+  </data>
+  <data name="Info.ShotAccuracy" xml:space="preserve">
+    <value>Réduit l'écart de visée (direction et hauteur) des tirs de tes joueurs. Ceux de l'IA ne changent pas. Les lobs (L1) gardent leur hauteur, avec le pourcentage de puissance indiqué.</value>
+  </data>
+  <data name="Info.Headers" xml:space="preserve">
+    <value>Les têtes de tes joueurs partent moins haut (la vitesse est gardée), pour ne plus passer au-dessus de la barre.</value>
+  </data>
+  <data name="Info.SuperShot" xml:space="preserve">
+    <value>Un tir pris en maintenant L1 et R1 n'est plus un lob : c'est une frappe tendue, plus rapide que celles du jeu. Tu règles la hauteur et la vitesse du ballon, le poids ajouté en vol pour une star, et la précision de tir minimale. Expérimental.</value>
+  </data>
+  <data name="Info.LoftedAim" xml:space="preserve">
+    <value>Passes en hauteur : un appui court vise un coéquipier plus proche, et le receveur est cherché plus près de la direction du stick (22,5 degrés au plus, 45 dans le jeu).</value>
+  </data>
+  <data name="Info.PassLead" xml:space="preserve">
+    <value>Une passe en profondeur est visée moins loin devant le receveur (pourcentage de l'avance du jeu). Les deux équipes.</value>
+  </data>
+  <data name="Info.PassGauges" xml:space="preserve">
+    <value>Fixe la durée, en images, des jauges de la passe courte, de la passe en profondeur et de la profondeur lobée.</value>
+  </data>
+  <data name="Info.CrossGauge" xml:space="preserve">
+    <value>Depuis une aile : le centre est retenu tant que le rond est tenu et sa puissance suit la durée de l'appui. Il part au relâchement, ou tout de suite quand la jauge est pleine. Le stick gauche l'oriente.</value>
+  </data>
+  <data name="Info.PassAccuracy" xml:space="preserve">
+    <value>L'erreur de direction d'une passe suit la précision de passe du passeur : les bons passeurs sont précis, les faibles ratent plus. La valeur est la précision qui rate comme le jeu.</value>
+  </data>
+  <data name="Info.LoftedThrough" xml:space="preserve">
+    <value>L1 + triangle : une passe en profondeur lobée, plus courte et un peu plus haute, qui reste en jeu. Tu règles la force, la hauteur et l'effet rétro.</value>
+  </data>
+  <data name="Info.Spread" xml:space="preserve">
+    <value>Les joueurs se replacent plus loin du centre de leur équipe, en largeur seulement. Les deux équipes, gardiens exceptés.</value>
+  </data>
+  <data name="Info.Tackle" xml:space="preserve">
+    <value>Au pressing, un joueur de tes équipes tente de prendre le ballon de plus loin (pourcentage de la distance du jeu). L'IA garde celle du jeu.</value>
+  </data>
+  <data name="Info.DefenceLine" xml:space="preserve">
+    <value>Retire une partie du recul fixe de la ligne défensive (environ 11 m dans le jeu) : la ligne arrière se tient plus haut. Les deux équipes.</value>
+  </data>
+  <data name="Info.OffBallPace" xml:space="preserve">
+    <value>Les joueurs sans ballon trottent vers une place proche au lieu de sprinter. Plus la valeur est haute, plus ils sprintent. Jeu courant seulement, les deux équipes.</value>
+  </data>
+  <data name="Info.ForwardRuns" xml:space="preserve">
+    <value>Les attaquants peuvent être choisis pour la course au-delà de la dernière ligne (un coureur par équipe), ce que le jeu ne faisait jamais.</value>
+  </data>
+  <data name="Info.BallPush" xml:space="preserve">
+    <value>R1 appuyé trois fois, ou stick droit poussé à fond pendant la course, envoie la prochaine touche plus loin devant le joueur. Équipes humaines seulement.</value>
+  </data>
+  <data name="Info.SpeedGap" xml:space="preserve">
+    <value>La stat de vitesse de pointe pèse plus lourd : l'écart entre joueurs rapides et lents augmente (pourcentage de l'écart du jeu).</value>
+  </data>
+  <data name="Info.AccelerationGap" xml:space="preserve">
+    <value>La stat d'accélération pèse deux fois plus sur le temps pour atteindre une vitesse.</value>
+  </data>
+  <data name="Info.PhysicsMod" xml:space="preserve">
+    <value>Charge le mod de physique de PityCharly : force des passes et poids du ballon.</value>
+  </data>
+  <data name="Info.Speed" xml:space="preserve">
+    <value>La vitesse du jeu. 1,00 est la vitesse d'origine.</value>
+  </data>
+  <data name="Info.Borderless" xml:space="preserve">
+    <value>Nécessaire au-delà de 1920 × 1080 : la fenêtre sans bordure couvre tout l'écran.</value>
+  </data>
+  <data name="Info.SkipIntro" xml:space="preserve">
+    <value>Le jeu démarre sans la vidéo d'ouverture ni les logos.</value>
   </data>
 </root>

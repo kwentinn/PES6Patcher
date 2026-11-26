@@ -26,11 +26,22 @@ internal sealed class MainForm : Form
     private readonly NumericUpDown _height = new() { Minimum = 480, Maximum = 4320, Increment = 10, Width = 80 };
     private readonly Label _formatInfo = new() { AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
     private readonly CheckBox _borderless = new() { Text = Loc.T("Display.Borderless"), AutoSize = true, Checked = true };
-    // simple mode (presets) or detailed mode (every option)
-    private readonly RadioButton _simpleMode = ModeButton(Loc.T("Gameplay.ModeSimple"));
-    private readonly RadioButton _detailedMode = ModeButton(Loc.T("Gameplay.ModeDetailed"));
+    private readonly ComboBox _theme = new() { DropDownStyle = ComboBoxStyle.DropDownList, Width = 150 };
+    // the sidebar: one button per page, the badge each shows on its right, and the pages they switch between
+    private readonly List<RadioButton> _nav = [];
+    private readonly List<Panel> _pages = [];
+    private Panel[] GameplayPages = [];
+    private string _presetBadge = "";
+    // the description popups of the (i) icons
+    private readonly ToolTip _tip = new() { OwnerDraw = true, AutoPopDelay = 30000, InitialDelay = 250 };
+    private const TextFormatFlags TipFlags = TextFormatFlags.WordBreak | TextFormatFlags.Left | TextFormatFlags.Top | TextFormatFlags.NoPrefix;
+    private static readonly Font InfoFont = new("Georgia", 8.5f, FontStyle.Bold | FontStyle.Italic);
+    // the log is folded away: the panel holds it, the button opens it
+    private readonly Panel _logPanel = new() { Dock = DockStyle.Bottom, Height = 150, Visible = false };
+    private readonly Button _logButton = new() { AutoSize = true };
+    private bool _logUnread;
     private readonly Dictionary<GameplayPreset, RadioButton> _presets = GameplayPresets.All.ToDictionary(p => p, PresetButton);
-    private readonly Label _presetInfo = new() { AutoSize = true, MaximumSize = new Size(740, 0), Margin = new Padding(3, 6, 3, 3) };
+    private readonly Label _presetInfo = new() { AutoSize = true, MaximumSize = new Size(600, 0), Margin = new Padding(3, 6, 3, 3) };
     private readonly LinkLabel _showDetails = new() { Text = Loc.T("Preset.ShowDetails"), AutoSize = true, Margin = new Padding(3, 0, 3, 6) };
     private readonly CheckBox _checkAll = new() { Text = Loc.T("Gameplay.CheckAll"), AutoSize = true, Font = new Font("Segoe UI", 9.5f, FontStyle.Italic) };
     private readonly CheckBox _freeDirection = new() { Text = Loc.T("Gameplay.FreeDirection"), AutoSize = true, Checked = true };
@@ -208,8 +219,8 @@ private readonly CheckBox _offBallPace = new() { Text = Loc.T("Gameplay.OffBallP
         Font = new Font("Segoe UI", 9.5f);
         AutoScaleMode = AutoScaleMode.Dpi;
         StartPosition = FormStartPosition.CenterScreen;
-        ClientSize = new Size(800, 900);
-        MinimumSize = new Size(640, 560);
+        ClientSize = new Size(1060, 720);
+        MinimumSize = new Size(760, 520);
 
         var browse = new Button { Text = Loc.T("Folder.Browse"), AutoSize = true };
         browse.Click += (_, _) => BrowseFolder();
@@ -281,119 +292,178 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         _apply.Click += (_, _) => Run(game => Installer.Apply(game, CurrentSettings(), Log));
         _restore.Click += (_, _) => Run(game => Installer.Restore(game, Log));
 
-        var header = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 3, Margin = new Padding(0) };
+        var header = new TableLayoutPanel { Dock = DockStyle.Fill, AutoSize = true, ColumnCount = 4, Margin = new Padding(0) };
         header.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         header.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         header.Controls.Add(new Label { Text = Loc.T("Folder.Title"), AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 6, 3, 3) });
         header.Controls.Add(LabelText(Loc.T("Language.Label")));
         header.Controls.Add(_language);
+        header.Controls.Add(_theme);
 
         var folderRow = Row(_folder, browse);
         folderRow.ColumnStyles[0] = new ColumnStyle(SizeType.Percent, 100);
         var exeRow = Flow(LabelText(Loc.T("Folder.Exe")), _exe, _report);
+        var top = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 1, Padding = new Padding(10, 10, 10, 4) };
+        top.Controls.Add(header);
+        top.Controls.Add(folderRow);
+        top.Controls.Add(exeRow);
+        top.Controls.Add(_exeState);
 
+        // the pages of the sidebar: general, the profile, then one page per theme of the gameplay options
         var display = Group(_display,
             Flow(LabelText(Loc.T("Display.Resolution")), _width, LabelText("×"), _height, screen),
             _formatInfo,
-            _borderless);
-        var details = Stack(
-            _checkAll,
-            Theme("Gameplay.Theme.Dribble"),
-            _freeDirection,
-            Flow(_stickDeadZone, _stickDeadZonePercent, LabelText(Loc.T("Gameplay.StickDeadZonePercent"))),
-            _closeDribble,
+            Flow(_borderless, Info("Borderless")));
+        var general = Page("Section.General", display, Flow(_skipIntro, Info("SkipIntro")));
+        var presetCards = Flow([.. _presets.Select(p => Stack(p.Value, new Label
+        {
+            Text = Loc.T("Preset.Info." + p.Key), AutoSize = true, MaximumSize = new Size(200, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(3, 2, 3, 3),
+        }))]);
+        var profile = Page("Section.Profile",
+            new Label { Text = Loc.T("Preset.Hint"), AutoSize = true, MaximumSize = new Size(620, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(3, 0, 3, 8) },
+            presetCards, _presetInfo, _showDetails, _checkAll);
+        var dribble = Page("Gameplay.Theme.Dribble",
+            Flow(_freeDirection, Info("FreeDirection")),
+            Flow(_stickDeadZone, Info("StickDeadZone"), _stickDeadZonePercent, LabelText(Loc.T("Gameplay.StickDeadZonePercent"))),
+            Flow(_closeDribble, Info("CloseDribble")),
             Flow(_closeDribbleStrength, LabelText(Loc.T("Gameplay.CloseDribbleStrength"))),
             _closeDribbleStrengthDebug,
-            Flow(_sprintTurn, _sprintTurnDegrees, LabelText(Loc.T("Gameplay.SprintTurnDegrees"))),
+            Flow(_sprintTurn, Info("SprintTurn"), _sprintTurnDegrees, LabelText(Loc.T("Gameplay.SprintTurnDegrees"))),
             _sprintTurnDebug,
-            Flow(_carrierTurn, _carrierTurnDegrees, LabelText(Loc.T("Gameplay.CarrierTurnDegrees"))),
-            Theme("Gameplay.Theme.Shooting"),
-            Flow(_freeKick, _freeKickWeight, LabelText(Loc.T("Gameplay.FreeKickWeight"))),
+            Flow(_carrierTurn, Info("CarrierTurn"), _carrierTurnDegrees, LabelText(Loc.T("Gameplay.CarrierTurnDegrees"))));
+        var shooting = Page("Gameplay.Theme.Shooting",
+            Flow(_freeKick, Info("FreeKick"), _freeKickWeight, LabelText(Loc.T("Gameplay.FreeKickWeight"))),
             _freeKickDebug,
-            Flow(_shot, _shotPower, LabelText(Loc.T("Gameplay.ShotPower"))),
+            Flow(_shot, Info("Shot"), _shotPower, LabelText(Loc.T("Gameplay.ShotPower"))),
             _shotPowerDebug,
             Flow(_shotGaugeSpeed, LabelText(Loc.T("Gameplay.ShotGaugeSpeed"))),
-            Flow(_accuracy, _shotAccuracy, LabelText(Loc.T("Gameplay.ShotAccuracyPercent"))),
+            Flow(_accuracy, Info("ShotAccuracy"), _shotAccuracy, LabelText(Loc.T("Gameplay.ShotAccuracyPercent"))),
             _shotAccuracyDebug,
             Flow(_lobPower, LabelText(Loc.T("Gameplay.LobPower"))),
-            Flow(_headers, _headersPercent, LabelText(Loc.T("Gameplay.HeadersPercent"))),
+            Flow(_headers, Info("Headers"), _headersPercent, LabelText(Loc.T("Gameplay.HeadersPercent"))),
             _headersDebug,
-            _superShot,   // its text is long: the height goes on a line of its own, like the other three values
+            Flow(_superShot, Info("SuperShot")),   // its text is long: the height goes on a line of its own, like the other three values
             Flow(_superShotPercent, LabelText(Loc.T("Gameplay.SuperShotPercent"))),
             Flow(_superShotSpeed, LabelText(Loc.T("Gameplay.SuperShotSpeed"))),
             Flow(_superShotWeight, LabelText(Loc.T("Gameplay.SuperShotWeight"))),
             Flow(_superShotStar, LabelText(Loc.T("Gameplay.SuperShotStar"))),
-            _superShotDebug,
-            Theme("Gameplay.Theme.Passing"),
-            _loftedAim,
-            Flow(_passLead, _passLeadPercent, LabelText(Loc.T("Gameplay.PassLeadPercent"))),
+            _superShotDebug);
+        var passing = Page("Gameplay.Theme.Passing",
+            Flow(_loftedAim, Info("LoftedAim")),
+            Flow(_passLead, Info("PassLead"), _passLeadPercent, LabelText(Loc.T("Gameplay.PassLeadPercent"))),
             _passLeadDebug,
-            _passGauges,
+            Flow(_passGauges, Info("PassGauges")),
             Flow(LabelText(Loc.T("Gameplay.ShortPassFrames")), _shortPassFrames),
             Flow(LabelText(Loc.T("Gameplay.ThroughPassFrames")), _throughPassFrames),
             Flow(LabelText(Loc.T("Gameplay.LoftedThroughFrames")), _loftedThroughFrames),
-            Flow(_crossGauge),
+            Flow(_crossGauge, Info("CrossGauge")),
             Flow(LabelText(Loc.T("Gameplay.CrossGaugeMs")), _crossGaugeMs),
-            Flow(_passAccuracy),
+            Flow(_passAccuracy, Info("PassAccuracy")),
             Flow(LabelText(Loc.T("Gameplay.PassAccuracyNeutral")), _passAccuracyNeutral),
-            Flow(_loftedThrough),
+            Flow(_loftedThrough, Info("LoftedThrough")),
             Flow(LabelText(Loc.T("Gameplay.LoftedSpeed")), _loftedSpeed, LabelText(Loc.T("Gameplay.LoftedHeight")), _loftedHeight,
-                LabelText(Loc.T("Gameplay.LoftedSpin")), _loftedSpin),
-            Theme("Gameplay.Theme.Other"),
-            Flow(_spread, _spreadPercent, LabelText(Loc.T("Gameplay.SpreadPercent"))),
+                LabelText(Loc.T("Gameplay.LoftedSpin")), _loftedSpin));
+        var team = Page("Section.Team",
+            Flow(_spread, Info("Spread"), _spreadPercent, LabelText(Loc.T("Gameplay.SpreadPercent"))),
             _spreadDebug,
-            Flow(_tackle, _tacklePercent, LabelText(Loc.T("Gameplay.TacklePercent"))),
+            Flow(_tackle, Info("Tackle"), _tacklePercent, LabelText(Loc.T("Gameplay.TacklePercent"))),
             _tackleDebug,
-            Flow(_defenceLine, _defenceLinePercent, LabelText(Loc.T("Gameplay.DefenceLinePercent"))),
-            Flow(_offBallPace, _offBallPacePercent, LabelText(Loc.T("Gameplay.OffBallPacePercent"))),
-            _forwardRuns,
-            _ballPush,
-            Flow(_speedGap, _speedGapPercent, LabelText(Loc.T("Gameplay.SpeedGapPercent"))),
+            Flow(_defenceLine, Info("DefenceLine"), _defenceLinePercent, LabelText(Loc.T("Gameplay.DefenceLinePercent"))),
+            Flow(_offBallPace, Info("OffBallPace"), _offBallPacePercent, LabelText(Loc.T("Gameplay.OffBallPacePercent"))),
+            Flow(_forwardRuns, Info("ForwardRuns")));
+        var physics = Page("Section.Physics",
+            Flow(_ballPush, Info("BallPush")),
+            Flow(_speedGap, Info("SpeedGap"), _speedGapPercent, LabelText(Loc.T("Gameplay.SpeedGapPercent"))),
             _speedGapDebug,
-            _accelerationGap);
-        // each preset: its button, its one-line description under it
-        var simple = Stack(Flow([.. _presets.Select(p => Stack(p.Value, new Label
-        {
-            Text = Loc.T("Preset.Info." + p.Key), AutoSize = true, MaximumSize = new Size(240, 0), ForeColor = SystemColors.GrayText, Margin = new Padding(3, 2, 3, 3),
-        }))]), _presetInfo, _showDetails);
-        var gameplay = Group(_gameplay,
-            Flow(LabelText(Loc.T("Gameplay.Mode")), _simpleMode, _detailedMode),
-            simple,
-            details,
-            _physicsMod,
+            Flow(_accelerationGap, Info("AccelerationGap")),
+            Flow(_physicsMod, Info("PhysicsMod")),
             _physicsCredit,
-            Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint"))));
+            Flow(LabelText(Loc.T("Gameplay.Speed")), _speed, LabelText(Loc.T("Gameplay.SpeedHint")), Info("Speed")));
+        GameplayPages = [profile, dribble, shooting, passing, team, physics];
 
-        // scrolls when the window is shorter than the options (the log keeps a fixed height)
-        var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, Padding = new Padding(10), AutoScroll = true };
-        layout.Controls.Add(header);
-        layout.Controls.Add(folderRow);
-        layout.Controls.Add(exeRow);
-        layout.Controls.Add(_exeState);
-        layout.Controls.Add(display);
-        layout.Controls.Add(gameplay);
-        layout.Controls.Add(_skipIntro);
-        layout.Controls.Add(Flow(_apply, _restore));
-        layout.Controls.Add(_log);
-        for (int i = 0; i < layout.Controls.Count - 1; i++) layout.RowStyles.Add(new RowStyle(SizeType.AutoSize));
-        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 120));
-        Controls.Add(layout);
-
-        // the mode: the presets, or every option; a preset fills the options, any option changed shows which preset they match
-        _simpleMode.CheckedChanged += (_, _) =>
+        // the sidebar: general, then the gameplay group (its box switches every gameplay page on or off)
+        var navGeneral = NavButton(Loc.T("Section.General"), general, () => "");
+        var navProfile = NavButton(Loc.T("Section.Profile"), profile, () => _presetBadge);
+        var navDribble = NavButton(Loc.T("Gameplay.Theme.Dribble"), dribble, () => Badge(_freeDirection, _stickDeadZone, _closeDribble, _sprintTurn, _carrierTurn));
+        var sidebar = new FlowLayoutPanel { Dock = DockStyle.Left, Width = 234, FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Padding = new Padding(8, 10, 4, 8) };
+        _gameplay.Font = new Font(Font, FontStyle.Bold);
+        _gameplay.Margin = new Padding(3, 4, 3, 4);
+        sidebar.Controls.AddRange([
+            navGeneral,
+            new Panel { Size = new Size(204, 1), BackColor = SystemColors.ControlDark, Margin = new Padding(0, 8, 0, 6) },
+            _gameplay,
+            navProfile,
+            navDribble,
+            NavButton(Loc.T("Gameplay.Theme.Shooting"), shooting, () => Badge(_freeKick, _shot, _accuracy, _headers, _superShot)),
+            NavButton(Loc.T("Gameplay.Theme.Passing"), passing, () => Badge(_loftedAim, _passLead, _passGauges, _crossGauge, _passAccuracy, _loftedThrough)),
+            NavButton(Loc.T("Section.Team"), team, () => Badge(_spread, _tackle, _defenceLine, _offBallPace, _forwardRuns)),
+            NavButton(Loc.T("Section.Physics"), physics, () => Badge(_ballPush, _speedGap, _accelerationGap, _physicsMod)),
+        ]);
+        foreach (var button in sidebar.Controls.OfType<RadioButton>()) button.Width = button == navGeneral ? 204 : 192;
+        sidebar.Paint += (_, e) => e.Graphics.DrawLine(SystemPens.ControlDark, sidebar.Width - 1, 0, sidebar.Width - 1, sidebar.Height);
+        var pages = new Panel { Dock = DockStyle.Fill };
+        foreach (var page in _pages) pages.Controls.Add(page);
+        _gameplay.CheckedChanged += (_, _) =>
         {
-            simple.Visible = _simpleMode.Checked;
-            details.Visible = !_simpleMode.Checked;
-            ViewPreference.SaveDetailed(!_simpleMode.Checked);
+            foreach (var page in GameplayPages) page.Enabled = _gameplay.Checked;
+            UpdateApply();
         };
-        _showDetails.LinkClicked += (_, _) => _detailedMode.Checked = true;
+
+        // the log is folded away until the button is pressed (or an apply writes to it)
+        _logButton.Click += (_, _) => ShowLog(!_logPanel.Visible);
+        var copyLog = new Button { Text = Loc.T("Action.CopyLog"), AutoSize = true };
+        copyLog.Click += (_, _) => { if (_log.TextLength > 0) Clipboard.SetText(_log.Text); };
+        var closeLog = new Button { Text = Loc.T("Action.Close"), AutoSize = true };
+        closeLog.Click += (_, _) => ShowLog(false);
+        var logHeader = new TableLayoutPanel { Dock = DockStyle.Top, AutoSize = true, ColumnCount = 3, Padding = new Padding(10, 4, 10, 4) };
+        logHeader.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        logHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        logHeader.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        logHeader.Controls.Add(new Label { Text = Loc.T("Action.Log"), AutoSize = true, Font = new Font(Font, FontStyle.Bold), Margin = new Padding(3, 6, 3, 3) });
+        logHeader.Controls.Add(copyLog);
+        logHeader.Controls.Add(closeLog);
+        _logPanel.Controls.Add(_log);
+        _logPanel.Controls.Add(logHeader);
+        var footer = new TableLayoutPanel { Dock = DockStyle.Bottom, AutoSize = true, ColumnCount = 2, Padding = new Padding(10, 6, 10, 10) };
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        footer.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
+        footer.Controls.Add(Flow(_apply, _restore));
+        footer.Controls.Add(_logButton);
+        _logButton.Anchor = AnchorStyles.Right;
+        // docked in this order: the later a control is added, the closer to the edge it sits
+        Controls.Add(pages);
+        Controls.Add(sidebar);
+        Controls.Add(_logPanel);
+        Controls.Add(footer);
+        Controls.Add(top);
+
+        _tip.Popup += (_, e) =>
+            e.ToolTipSize = TextRenderer.MeasureText(_tip.GetToolTip(e.AssociatedControl!), Font, new Size(300, 0), TipFlags) + new Size(18, 14);
+        _tip.Draw += (_, e) =>
+        {
+            bool dark = Application.IsDarkModeEnabled;
+            using var back = new SolidBrush(dark ? Color.FromArgb(45, 45, 48) : Color.White);
+            using var border = new Pen(dark ? Color.FromArgb(100, 100, 105) : Color.FromArgb(160, 160, 160));
+            e.Graphics.FillRectangle(back, e.Bounds);
+            e.Graphics.DrawRectangle(border, 0, 0, e.Bounds.Width - 1, e.Bounds.Height - 1);
+            TextRenderer.DrawText(e.Graphics, e.ToolTipText, Font, new Rectangle(9, 7, e.Bounds.Width - 18, e.Bounds.Height - 14),
+                dark ? Color.WhiteSmoke : Color.Black, TipFlags);
+        };
+        _theme.Items.AddRange([Loc.T("Theme.System"), Loc.T("Theme.Light"), Loc.T("Theme.Dark")]);
+        _theme.SelectedIndex = Math.Max(0, Array.IndexOf(new[] { "", "light", "dark" }, ThemePreference.Load()));
+        _theme.SelectionChangeCommitted += (_, _) => ChangeTheme();
+
+        // a preset fills the options, any option changed shows which preset they match
+        _showDetails.LinkClicked += (_, _) => navDribble.Checked = true;
+        foreach (var link in new[] { _showDetails, _physicsCredit }) link.LinkColor = link.ActiveLinkColor = link.VisitedLinkColor = Accent;
         foreach (var (preset, button) in _presets)
             button.Click += (_, _) => ApplyPreset(preset);
-        foreach (var control in Descendants(details))
+        foreach (var control in GameplayPages.Skip(1).SelectMany(Descendants))
         {
-            if (control is CheckBox box && box != _checkAll) box.CheckedChanged += (_, _) => UpdatePreset();
-            if (control is NumericUpDown number) number.ValueChanged += (_, _) => UpdatePreset();
+            if (control is CheckBox box && box != _physicsMod) box.CheckedChanged += (_, _) => UpdatePreset();
+            if (control is NumericUpDown number && number != _speed) number.ValueChanged += (_, _) => UpdatePreset();
         }
 
         FillLanguages();
@@ -487,9 +557,9 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         // a new window (no options read from a patched exe) starts from the Pro preset
         if (previous == null && !_recordShown) ApplyPreset(GameplayPreset.Pro);
         UpdatePreset();
-        (ViewPreference.LoadDetailed() ? _detailedMode : _simpleMode).Checked = true;
-        simple.Visible = _simpleMode.Checked;
-        details.Visible = !_simpleMode.Checked;
+        navProfile.Checked = true;
+        UpdateBadges();
+        UpdateLogButton();
     }
 
     private void FillLanguages()
@@ -509,9 +579,22 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         if (item.Name == LanguagePreference.Load()) return;
         LanguagePreference.Save(item.Name);
         LanguagePreference.Apply(item.Name);
-        RebuildWith = new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _defenceLine.Checked, _defenceLinePercent.Value, _offBallPace.Checked, _offBallPacePercent.Value, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotWeight.Value, _superShotStar.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text, _passGauges.Checked, _shortPassFrames.Value, _throughPassFrames.Value, _loftedThroughFrames.Value, _forwardRuns.Checked, _shotGaugeSpeed.Value, _ballPush.Checked, _crossGauge.Checked, _crossGaugeMs.Value, _passAccuracy.Checked, _loftedThrough.Checked, _passAccuracyNeutral.Value, _loftedSpeed.Value, _loftedHeight.Value, _loftedSpin.Value);
+        RebuildWith = CaptureState();
         Close();
     }
+
+    private void ChangeTheme()
+    {
+        string name = new[] { "", "light", "dark" }[_theme.SelectedIndex];
+        if (name == ThemePreference.Load()) return;
+        ThemePreference.Save(name);
+        RebuildWith = CaptureState();
+        Close();
+    }
+
+    /// <summary>What the user entered, to carry over when the window is rebuilt (another language or theme).</summary>
+    private State CaptureState() =>
+        new State(_folder.Text, _exe.SelectedItem as string, _display.Checked, _width.Value, _height.Value, _borderless.Checked, _gameplay.Checked, _freeDirection.Checked, _closeDribble.Checked, _freeKick.Checked, _freeKickWeight.Value, _freeKickDebug.Checked, _shot.Checked, _shotPower.Value, _shotPowerDebug.Checked, _accuracy.Checked, _shotAccuracy.Value, _shotAccuracyDebug.Checked, _lobPower.Value, _spread.Checked, _spreadPercent.Value, _spreadDebug.Checked, _speedGap.Checked, _speedGapPercent.Value, _speedGapDebug.Checked, _sprintTurn.Checked, _sprintTurnDegrees.Value, _sprintTurnDebug.Checked, _tackle.Checked, _tacklePercent.Value, _tackleDebug.Checked, _loftedAim.Checked, _passLead.Checked, _passLeadPercent.Value, _passLeadDebug.Checked, _stickDeadZone.Checked, _stickDeadZonePercent.Value, _carrierTurn.Checked, _carrierTurnDegrees.Value, _closeDribbleStrength.Value, _closeDribbleStrengthDebug.Checked, _accelerationGap.Checked, _headers.Checked, _headersPercent.Value, _headersDebug.Checked, _defenceLine.Checked, _defenceLinePercent.Value, _offBallPace.Checked, _offBallPacePercent.Value, _superShot.Checked, _superShotPercent.Value, _superShotSpeed.Value, _superShotWeight.Value, _superShotStar.Value, _superShotDebug.Checked, _skipIntro.Checked, _speed.Value, _log.Text, _passGauges.Checked, _shortPassFrames.Value, _throughPassFrames.Value, _loftedThroughFrames.Value, _forwardRuns.Checked, _shotGaugeSpeed.Value, _ballPush.Checked, _crossGauge.Checked, _crossGaugeMs.Value, _passAccuracy.Checked, _loftedThrough.Checked, _passAccuracyNeutral.Value, _loftedSpeed.Value, _loftedHeight.Value, _loftedSpin.Value);
 
     private InstallSettings CurrentSettings() =>
         new((int)_width.Value, (int)_height.Value, _borderless.Checked, _freeDirection.Enabled && _freeDirection.Checked, (double)_speed.Value,
@@ -569,22 +652,19 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         var preset = applied ?? GameplayPresets.Detect(CurrentSettings());
         foreach (var (p, button) in _presets) button.Checked = p == preset;
         _presetInfo.Text = preset is GameplayPreset p2 ? Loc.T("Preset.Summary." + p2) : Loc.T("Preset.Custom");
+        _presetBadge = preset is GameplayPreset p3 ? Loc.T("Preset." + p3) : Loc.T("Preset.CustomShort");
+        UpdateBadges();
     }
-
-    private static RadioButton ModeButton(string text) => new()
-    {
-        Text = text, Appearance = Appearance.Button, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, MinimumSize = new Size(90, 0),
-    };
 
     private static RadioButton PresetButton(GameplayPreset preset)
     {
         var button = new RadioButton
         {
             Text = Loc.T("Preset." + preset), Font = new Font("Segoe UI", 10.5f, FontStyle.Bold),
-            Appearance = Appearance.Button, AutoSize = false, Size = new Size(240, 38), TextAlign = ContentAlignment.MiddleCenter,
+            Appearance = Appearance.Button, AutoSize = false, Size = new Size(200, 38), TextAlign = ContentAlignment.MiddleCenter,
             FlatStyle = FlatStyle.Flat, AutoCheck = false,
         };
-        button.FlatAppearance.CheckedBackColor = Color.FromArgb(204, 228, 247);
+        button.FlatAppearance.CheckedBackColor = Selected;
         button.FlatAppearance.BorderColor = SystemColors.ControlDark;
         return button;
     }
@@ -606,6 +686,7 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         var available = GameplayOptions.Where(o => o.Enabled).ToList();
         _checkAll.Checked = available.Count > 0 && available.All(o => o.Checked);
         _checkAll.Enabled = available.Count > 0;
+        UpdateBadges();
     }
 
     /// <summary>Apply needs a patchable exe and at least one group (or the intro skip) selected.</summary>
@@ -870,6 +951,7 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         var game = SelectedGame();
         if (game == null) return;
         UseWaitCursor = true;
+        ShowLog(true);
         _apply.Enabled = _restore.Enabled = false;
         try
         {
@@ -887,18 +969,92 @@ _offBallPace.EnabledChanged += (_, _) => _offBallPacePercent.Enabled = _offBallP
         }
     }
 
-    private void Log(string message) => _log.AppendText(message + Environment.NewLine);
+    private void Log(string message)
+    {
+        _log.AppendText(message + Environment.NewLine);
+        if (!_logPanel.Visible) _logUnread = true;
+        UpdateLogButton();
+    }
+
+    private void ShowLog(bool show)
+    {
+        _logPanel.Visible = show;
+        if (show)
+        {
+            _logUnread = false;
+            _log.SelectionStart = _log.TextLength;
+            _log.ScrollToCaret();
+        }
+        UpdateLogButton();
+    }
+
+    private void UpdateLogButton() =>
+        _logButton.Text = (_logPanel.Visible ? "▾ " : "▴ ") + Loc.T("Action.Log")
+            + (_logUnread && !_logPanel.Visible ? " ●" : $" ({_log.Lines.Count(l => l.Length > 0)})");
 
     private static string Capitalize(string s) => s.Length == 0 ? s : char.ToUpper(s[0], CultureInfo.CurrentCulture) + s[1..];
 
     private static Label LabelText(string text) => new() { Text = text, AutoSize = true, Margin = new Padding(3, 6, 3, 3) };
 
-    /// <summary>Heading of a theme in the gameplay group (dribbling, shooting...).</summary>
-    private Label Theme(string key) => new()
+    private static Color Accent => Application.IsDarkModeEnabled ? Color.FromArgb(90, 162, 240) : Color.FromArgb(11, 99, 197);
+
+    private static Color Selected => Application.IsDarkModeEnabled ? Color.FromArgb(34, 54, 77) : Color.FromArgb(204, 228, 247);
+
+    /// <summary>A page of the sidebar: its title, then its rows. Hidden until its button is selected.</summary>
+    private Panel Page(string titleKey, params Control[] rows)
     {
-        Text = Loc.T(key), AutoSize = true, Font = new Font(Font, FontStyle.Bold), ForeColor = SystemColors.HotTrack,
-        Margin = new Padding(3, 10, 3, 2),
-    };
+        var title = new Label { Text = Loc.T(titleKey), AutoSize = true, UseMnemonic = false, Font = new Font("Segoe UI", 12f, FontStyle.Bold), Margin = new Padding(3, 0, 3, 8) };
+        var page = new Panel { Dock = DockStyle.Fill, AutoScroll = true, Padding = new Padding(14, 12, 14, 12), Visible = false };
+        page.Controls.Add(Stack([title, .. rows]));
+        return page;
+    }
+
+    /// <summary>A button of the sidebar showing <paramref name="page"/> when selected, with a badge on its right.</summary>
+    private RadioButton NavButton(string text, Panel page, Func<string> badge)
+    {
+        var button = new RadioButton
+        {
+            Appearance = Appearance.Button, FlatStyle = FlatStyle.Flat, UseMnemonic = false, Text = text, TextAlign = ContentAlignment.MiddleLeft,
+            Size = new Size(192, 32), Padding = new Padding(8, 0, 0, 0), Margin = new Padding(0, 1, 0, 1),
+        };
+        button.FlatAppearance.BorderSize = 0;
+        button.FlatAppearance.CheckedBackColor = Selected;
+        button.CheckedChanged += (_, _) =>
+        {
+            if (button.Checked) foreach (var p in _pages) p.Visible = p == page;
+        };
+        button.Paint += (_, e) => TextRenderer.DrawText(e.Graphics, badge(), Font,
+            new Rectangle(0, 0, button.Width - 8, button.Height), Accent, TextFormatFlags.Right | TextFormatFlags.VerticalCenter);
+        _nav.Add(button);
+        _pages.Add(page);
+        return button;
+    }
+
+    /// <summary>"checked/total" of a page's options.</summary>
+    private static string Badge(params CheckBox[] options) => $"{options.Count(o => o.Checked)}/{options.Length}";
+
+    private void UpdateBadges()
+    {
+        foreach (var button in _nav) button.Invalidate();
+    }
+
+    /// <summary>The (i) icon of an option: its description in a popup, on hover or click.</summary>
+    private Label Info(string key)
+    {
+        var text = Loc.T("Info." + key);
+        var icon = new Label { Size = new Size(18, 18), Margin = new Padding(0, 4, 8, 0), Cursor = Cursors.Hand, AccessibleName = text };
+        icon.Paint += (_, e) =>
+        {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            using var pen = new Pen(Accent);
+            e.Graphics.DrawEllipse(pen, 1, 1, 15, 15);
+            TextRenderer.DrawText(e.Graphics, "i", InfoFont, new Rectangle(0, 0, 18, 18), Accent,
+                TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        };
+        _tip.SetToolTip(icon, text);
+        icon.Click += (_, _) => _tip.Show(text, icon, 0, icon.Height + 2, 15000);
+        return icon;
+    }
 
     /// <summary>Group whose title is <paramref name="header"/>: unchecking it greys out the rows.</summary>
     private GroupBox Group(CheckBox header, params Control[] rows)
